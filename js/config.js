@@ -12,7 +12,7 @@ window.APP_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' }
-    // 備援 TURN（ExpressTURN）貼在這裡，例如：
-    // ,{ urls: 'turn:relay1.expressturn.com:3478', username: '...', credential: '...' }
+    // 備援 TURN：ExpressTURN 免費方案（Metered 用完或連不上時自動改走這裡）
+    ,{ urls: ['turn:free.expressturn.com:3478?transport=udp', 'turn:free.expressturn.com:3478?transport=tcp'], username: '000000002110072271', credential: '73S2ckh+f6nZjMPEhIek1UbSKTQ=' }
   ]
 };
