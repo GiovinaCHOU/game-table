@@ -109,7 +109,7 @@
     $('#members').innerHTML = room.members.map(m => `
       <div class="mchip ${m.online ? '' : 'off'} ${m.role === 'spec' ? 'spec' : ''}" data-peer="${U.esc(m.peerId)}" data-cid="${U.esc(m.cid)}">
         ${m.cid === room.hostCid ? '👑' : ''}${U.esc(m.name)}${m.cid === R.cid ? '（你）' : ''}
-        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}
+        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
         ${meHost && m.cid !== R.cid ? `<button class="kick" data-kick="${U.esc(m.cid)}" title="請出房間">×</button>` : ''}
       </div>`).join('');
     $('#members').querySelectorAll('[data-kick]').forEach(b => b.onclick = (e) => {
@@ -166,7 +166,8 @@
   // ---------------- 選單 ----------------
   $('#menuBtn').onclick = (e) => { e.stopPropagation(); $('#menu').hidden = !$('#menu').hidden; };
   document.addEventListener('click', (e) => { if (!e.target.closest('#menu')) $('#menu').hidden = true; });
-  $('#leaveBtn').onclick = () => { if (confirm(R.isHost ? '你是房主，離開後房間會關閉。確定？' : '確定離開房間？')) R.leave(); };
+  $('#leaveBtn').onclick = () => { const h = R.room && R.room.members.find(m => m.cid === R.room.heir);
+    if (confirm(R.isHost ? (h ? `你是房主，離開後會由「${h.name}」接手當房主，遊戲繼續。確定離開？` : '你是房主，目前沒有其他人，離開後房間會關閉。確定？') : '確定離開房間？')) R.leave(); };
   $('#endBtn').onclick = () => { $('#menu').hidden = true; if (confirm('結束目前的遊戲，回到大廳？')) R.send({ t: 'end' }); };
   $('#roleBtn').onclick = () => {
     $('#menu').hidden = true;

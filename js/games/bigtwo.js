@@ -115,6 +115,14 @@
       pts[w] = -pts.reduce((a, b) => a + b, 0);
       st.lastPts = pts; pts.forEach((p, i) => st.total[i] += p);
     },
+    // 輪到的人斷線時，代打：能 Pass 就 Pass，否則出最小的單張（第一手出必出的那張）
+    auto(st) {
+      if (st.phase !== 'play') return null;
+      const s = st.turn;
+      if (st.top) return { seat: s, a: { type: 'pass' } };
+      const c = st.first ? st.mustCard : st.hands[s].reduce((a, c) => val(c) < val(a) ? c : a);
+      return { seat: s, a: { type: 'play', cards: [c] } };
+    },
     view(st, seat) {
       return {
         phase: st.phase, turn: st.turn, top: st.top ? { seat: st.top.seat, cards: st.top.cards, name: TYPE_NAME[st.top.h.t] } : null,

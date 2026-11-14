@@ -99,6 +99,7 @@
       if (st.phase === 'reveal' && now > st.deadline) { nextTurn(st, now); return true; }
       return false;
     },
+    auto(st) { return (st.phase === 'choose' || st.phase === 'draw') ? { seat: st.turnIdx, a: { type: 'skip' } } : null; },
     view(st, seat) {
       const d = st.turnIdx;
       const knows = seat === d || st.guessed[seat] != null || st.phase === 'reveal' || st.phase === 'over';

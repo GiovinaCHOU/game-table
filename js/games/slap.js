@@ -86,6 +86,7 @@
       if (st.phase === 'flip' && st.auto && st.deadline && now > st.deadline) { this._flip(st, now); return true; }
       return false;
     },
+    auto(st) { return st.phase === 'flip' ? { seat: st.turn, a: { type: 'flip' } } : null; },
     view(st, seat) {
       return {
         phase: st.phase, turn: st.turn, counts: st.hands.map(h => h.length), pileN: st.pile.length,

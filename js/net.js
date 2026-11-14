@@ -30,7 +30,7 @@
       if (m.k === 'c') {
         const c = new FakeConn(this, m.from, m.cid); this._conns[m.cid] = c;
         this._bc.postMessage({ k: 'a', to: m.from, from: this.id, cid: m.cid });
-        this.emit('connection', c); setTimeout(() => { c.open = true; c.emit('open'); }, 10);
+        c.open = true; this.emit('connection', c); setTimeout(() => c.emit('open'), 10);
       } else if (m.k === 'a') { const c = this._conns[m.cid]; if (c) { c.open = true; c.emit('open'); } }
       else if (m.k === 'd') { const c = this._conns[m.cid]; if (c) c.emit('data', m.d); }
       else if (m.k === 'x') { const c = this._conns[m.cid]; if (c) c._down(); }

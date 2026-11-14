@@ -98,6 +98,7 @@
       if (st.phase === 'play' && st.deadline && now > st.deadline) { drawOne(st, st.turn); st.log = '時間到，自動抽牌'; nextTurn(st, now); return true; }
       return false;
     },
+    auto(st) { return st.phase === 'play' ? { seat: st.turn, a: { type: 'draw' } } : null; },
     view(st, seat) {
       return { phase: st.phase, turn: st.turn, turnId: st.turnId, table: st.table, rack: seat >= 0 ? st.racks[seat] : null,
         counts: st.racks.map(r => r.length), pool: st.pool.length, melded: st.melded, deadline: st.deadline, log: st.log,

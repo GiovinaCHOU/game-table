@@ -39,6 +39,12 @@
         st.phase = 'reveal'; return;
       }
     },
+    auto(st) {
+      if (st.phase !== 'bid') return null;
+      const b = st.bid;
+      if (!b) return { seat: st.turn, a: { type: 'bid', count: this.minCount(st), face: 2 } };
+      return { seat: st.turn, a: { type: 'bid', count: b.count + 1, face: b.face } };
+    },
     view(st, seat) {
       return { phase: st.phase, turn: st.turn, bid: st.bid, bids: st.bids.slice(-10), wild: st.wild, lose: st.lose, per: st.per, n: st.n,
         mine: seat >= 0 ? st.dice[seat] : null, all: st.phase === 'reveal' ? st.dice : null, reveal: st.reveal, minCount: this.minCount(st) };

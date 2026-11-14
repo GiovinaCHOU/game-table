@@ -359,6 +359,13 @@
       }
       return false;
     },
+    auto(st) {
+      if (st.phase === 'claim') { const q = Object.keys(st.claim.opts).map(Number).find(q => !st.claim.resp[q]); return q != null ? { seat: st.act[q], a: { type: 'pass' } } : null; }
+      if (st.phase !== 'discard') return null;
+      const p = st.turn; const h = st.hands[p];
+      const tile = st.drawn != null && h.includes(st.drawn) ? st.drawn : h[h.length - 1];
+      return { seat: st.act[p], a: { type: 'discard', tile } };
+    },
     view(st, seat) {
       const p = st.act ? st.act.indexOf(seat) : -1;
       const k = st.k;
