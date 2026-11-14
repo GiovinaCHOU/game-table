@@ -11,10 +11,10 @@
   }
   const M = {
     id: 'dice', name: '吹牛', icon: '🎲', min: 2, max: 8,
-    desc: '每人 5 顆骰子，只看得到自己的。輪流喊「全場至少有幾個幾」，下一個人要喊得更大（數量更多，或數量一樣但點數更大，1 最大），不信就按「開」。1 點可以當任何點數（萬用），但只要有人喊過「1」，這一局 1 就不能當萬用了。輸的人罰一杯並先喊下一局。',
-    options: [{ key: 'per', label: '每人骰子', choices: [[5, '5 顆'], [6, '6 顆']], def: 5 },
+    desc: '每人 6 顆骰子（可選 6–8 顆），只看得到自己的。輪流喊「全場至少有幾個幾」，下一個人要喊得更大（數量更多，或數量一樣但點數更大，1 最大），不信就按「開」。1 點可以當任何點數（萬用），但只要有人喊過「1」，這一局 1 就不能當萬用了。輸的人罰一杯並先喊下一局。',
+    options: [{ key: 'per', label: '每人骰子', choices: [[6, '6 顆'], [7, '7 顆'], [8, '8 顆']], def: 6 },
       { key: 'minAdd', label: '開局最少喊', choices: [[1, '人數 +1 個'], [0, '人數 個'], [-99, '不限制']], def: 1 }],
-    init(n, o) { const st = { n, per: +o.per, minAdd: +o.minAdd, starter: 0, lose: Array(n).fill(0) }; roll(st); return st; },
+    init(n, o) { const st = { n, per: Math.max(6, +o.per || 6), minAdd: +o.minAdd, starter: 0, lose: Array(n).fill(0) }; roll(st); return st; },
     minCount(st) { return st.minAdd < -50 ? 1 : Math.max(1, st.n + st.minAdd); },
     action(st, seat, a) {
       if (a.type === 'next') { if (st.phase !== 'reveal') return; roll(st); return; }
