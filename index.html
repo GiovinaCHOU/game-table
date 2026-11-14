@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#14382b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>牌桌｜線上開房</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="audios" hidden></div>
+
+<!-- 首頁 -->
+<section id="home" class="screen">
+  <div class="home-card">
+    <div class="logo">🀄<span>牌桌</span></div>
+    <p class="tag">麻將・大老二・心臟病・拉密・吹牛・你畫我猜</p>
+    <label class="field"><span>你的暱稱</span><input id="nameInput" maxlength="12" placeholder="例如：小美"></label>
+    <button id="createBtn" class="btn big">建立房間</button>
+    <div class="or">或輸入房間 PIN 加入</div>
+    <div class="join-row">
+      <input id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6 位數 PIN">
+      <button id="joinBtn" class="btn">加入</button>
+    </div>
+    <label class="check"><input type="checkbox" id="specCheck"> 我只是來觀戰</label>
+    <p id="homeMsg" class="msg"></p>
+    <p class="small-note">建議房主用電腦或插著電的手機開房，且不要把畫面切走或鎖屏（房主離開＝房間關閉）。</p>
+  </div>
+</section>
+
+<!-- 房間 -->
+<section id="room" class="screen" hidden>
+  <header class="topbar">
+    <button class="pin" id="pinBtn" title="點一下複製邀請連結">PIN <b id="pinText">------</b></button>
+    <div class="voice-ctl">
+      <button id="vTalk" class="vbtn">🎤 語音</button>
+      <button id="vListen" class="vbtn">🎧 只聽</button>
+      <button id="vMute" class="vbtn" hidden>🔇 靜音</button>
+      <button id="vOff" class="vbtn" hidden>掛斷</button>
+    </div>
+    <button id="menuBtn" class="iconbtn">⋯</button>
+  </header>
+  <div id="menu" class="menu" hidden>
+    <button id="shareBtn">分享邀請連結</button>
+    <button id="roleBtn">切換：玩家／觀戰</button>
+    <button id="endBtn" hidden>結束遊戲，回大廳</button>
+    <button id="rulesBtn">這個遊戲怎麼玩</button>
+    <button id="leaveBtn" class="danger">離開房間</button>
+  </div>
+  <div id="members" class="members"></div>
+  <div id="status" class="status" hidden></div>
+  <div id="audioTap" class="audio-tap" hidden>🔈 點這裡開啟其他人的聲音</div>
+  <main id="stage">
+    <div id="lobby"></div>
+    <div id="game"></div>
+  </main>
+  <button id="quickBtn" class="quick-fab">⚡</button>
+  <div id="quick" class="quick" hidden></div>
+  <div id="bubbles" class="bubbles"></div>
+  <button id="chatBtn" class="chat-fab">💬<span id="chatBadge" hidden></span></button>
+  <div id="chat" class="chat" hidden>
+    <div class="chat-head">聊天 <button id="chatClose" class="iconbtn">✕</button></div>
+    <div id="chatLog" class="chat-log"></div>
+    <form id="chatForm" class="chat-form"><input id="chatInput" maxlength="200" placeholder="說點什麼…" autocomplete="off"><button class="btn sm">送出</button></form>
+  </div>
+  <div id="sheet" class="sheet" hidden><div class="sheet-body"></div></div>
+</section>
+<div id="toast" class="toast" hidden></div>
+
+<script src="vendor/peerjs.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/net.js"></script>
+<script src="js/games/common.js"></script>
+<script src="js/games/mahjong.js"></script>
+<script src="js/games/bigtwo.js"></script>
+<script src="js/games/slap.js"></script>
+<script src="js/games/rummi.js"></script>
+<script src="js/games/dice.js"></script>
+<script src="js/games/draw.js"></script>
+<script src="js/room.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
