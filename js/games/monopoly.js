@@ -3,26 +3,66 @@
   const U = root.GUTIL;
   const R = () => root.MONO_RULES, TH = () => root.MONO_THEMES;
 
-  // ---------- 小音效 ----------
+  // ---------- 音效（Web Audio 即時合成） ----------
   const SFX = {
-    on: true, ctx: null,
-    beep(f, d, type, vol) {
-      if (!this.on) return;
+    on: true, ctx: null, rev: null,
+    ac() {
+      if (!this.ctx) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        // 殘響：用衰減雜訊當脈衝響應
+        const c = this.ctx, len = c.sampleRate * 2.5, buf = c.createBuffer(2, len, c.sampleRate);
+        for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+        this.rev = c.createConvolver(); this.rev.buffer = buf; const rg = c.createGain(); rg.gain.value = 0.5; this.rev.connect(rg).connect(c.destination);
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return this.ctx;
+    },
+    tone(f, d, o) {
+      if (!this.on) return; o = o || {};
       try {
-        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const c = this.ctx; if (c.state === 'suspended') c.resume();
-        const o = c.createOscillator(), g = c.createGain(); o.type = type || 'sine'; o.frequency.value = f;
-        g.gain.setValueAtTime(vol || 0.08, c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + d);
-        o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + d);
+        const c = this.ac(), t0 = c.currentTime + (o.delay || 0);
+        const osc = c.createOscillator(), g = c.createGain(); osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f, t0);
+        if (o.glide) osc.frequency.exponentialRampToValueAtTime(o.glide, t0 + d);
+        if (o.detune) osc.detune.value = o.detune;
+        const v = o.vol || 0.08, a = o.attack || 0.005;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+        let node = osc; if (o.lp) { const f2 = c.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = o.lp; osc.connect(f2); node = f2; }
+        node.connect(g); g.connect(c.destination); if (o.wet !== false) { const w = c.createGain(); w.gain.value = o.wet || 0.35; g.connect(w).connect(this.rev); }
+        osc.start(t0); osc.stop(t0 + d + 0.05);
       } catch (e) {}
     },
-    step() { this.beep(660 + Math.random() * 80, 0.08, 'triangle', 0.05); },
-    coin() { this.beep(988, 0.08, 'square', 0.04); setTimeout(() => this.beep(1319, 0.18, 'square', 0.04), 70); },
-    lose() { this.beep(220, 0.25, 'sawtooth', 0.05); setTimeout(() => this.beep(165, 0.3, 'sawtooth', 0.05), 120); },
-    card() { [523, 659, 784].forEach((f, i) => setTimeout(() => this.beep(f, 0.12, 'triangle', 0.06), i * 70)); },
-    bad() { [392, 311, 233].forEach((f, i) => setTimeout(() => this.beep(f, 0.2, 'sawtooth', 0.05), i * 110)); },
-    build() { [523, 784, 1047, 1568].forEach((f, i) => setTimeout(() => this.beep(f, 0.12, 'triangle', 0.06), i * 60)); },
-    dice() { for (let i = 0; i < 6; i++) setTimeout(() => this.beep(300 + Math.random() * 400, 0.03, 'square', 0.03), i * 45); }
+    noise(d, o) {
+      if (!this.on) return; o = o || {};
+      try {
+        const c = this.ac(), t0 = c.currentTime + (o.delay || 0), len = c.sampleRate * d, buf = c.createBuffer(1, len, c.sampleRate), x = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1;
+        const src = c.createBufferSource(); src.buffer = buf; const f = c.createBiquadFilter(); f.type = o.type || 'lowpass'; f.frequency.value = o.f || 400; if (o.q) f.Q.value = o.q;
+        const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(o.vol || 0.1, t0 + (o.attack || 0.02)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+        src.connect(f).connect(g).connect(c.destination); const w = c.createGain(); w.gain.value = 0.4; g.connect(w).connect(this.rev);
+        src.start(t0);
+      } catch (e) {}
+    },
+    step() { this.tone(520 + Math.random() * 60, 0.07, { type: 'triangle', vol: 0.035, wet: 0.1 }); this.noise(0.05, { f: 1800, type: 'bandpass', vol: 0.02 }); },
+    coin() { this.tone(988, 0.12, { type: 'square', vol: 0.03, lp: 3000 }); this.tone(1319, 0.35, { type: 'square', vol: 0.03, lp: 3000, delay: 0.07 }); },
+    lose() { this.tone(196, 0.5, { type: 'sawtooth', vol: 0.04, lp: 700, glide: 140 }); },
+    dice() { for (let i = 0; i < 7; i++) this.noise(0.04, { f: 2500 + Math.random() * 2000, type: 'bandpass', q: 3, vol: 0.06, delay: i * 0.05 }); },
+    build() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.4, { type: 'triangle', vol: 0.05, delay: i * 0.06 })); this.noise(0.25, { f: 300, vol: 0.05 }); },
+    // 幸運：上升的光輝琶音＋閃爍高音＋和弦鋪底
+    glory() {
+      [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].forEach((f, i) => this.tone(f, 1.4, { type: 'sine', vol: 0.05, delay: i * 0.07, wet: 0.6 }));
+      [261.6, 329.6, 392].forEach(f => this.tone(f, 2.2, { type: 'sawtooth', vol: 0.018, lp: 1400, attack: 0.4, wet: 0.7 }));
+      for (let i = 0; i < 10; i++) this.tone(2093 + Math.random() * 2000, 0.25, { type: 'sine', vol: 0.02, delay: 0.3 + i * 0.09, wet: 0.8 });
+    },
+    // 厄運：低沉不和諧的嗡鳴＋三全音＋喪鐘＋低頻雜訊
+    doom() {
+      this.tone(55, 2.6, { type: 'sawtooth', vol: 0.07, lp: 260, attack: 0.3, wet: 0.5 });
+      this.tone(58.3, 2.6, { type: 'sawtooth', vol: 0.06, lp: 260, attack: 0.3, wet: 0.5 });
+      this.tone(110, 2.2, { type: 'triangle', vol: 0.05, attack: 0.5, delay: 0.2 }); this.tone(155.6, 2.2, { type: 'triangle', vol: 0.045, attack: 0.5, delay: 0.25 });
+      [[0, 1], [0.9, 0.8]].forEach(([d, v]) => { [220, 440 * 1.19, 660 * 1.33].forEach((f, k) => this.tone(f, 2.4, { type: 'sine', vol: 0.05 * v / (k + 1), delay: d, wet: 0.8 })); });
+      this.noise(2.2, { f: 160, vol: 0.06, attack: 0.6 });
+    },
+    // 神機錯亂：故障雜訊
+    glitch() { for (let i = 0; i < 14; i++) { this.noise(0.06, { f: 500 + Math.random() * 4000, type: 'bandpass', q: 8, vol: 0.08, delay: i * 0.07 }); this.tone(80 + Math.random() * 900, 0.06, { type: 'square', vol: 0.03, delay: i * 0.07 + 0.03, wet: false }); } }
   };
   try { SFX.on = localStorage.getItem('mono-sfx') !== '0'; } catch (e) {}
 
@@ -98,7 +138,10 @@
           <div class="mono-hud"></div>
           <div class="mono-stage"><div class="mono-loading">${th.icon} 載入 3D 場景中…</div><div class="mono-fx"></div>
             <div class="mono-dice"><div class="dice-faces"><span class="d6">?</span><span class="d6">?</span></div><button class="go-btn" disabled>GO</button></div>
-            <div class="mono-tools"><button data-t="cam" title="鏡頭">🎥</button><button data-t="sfx" title="音效">${SFX.on ? '🔊' : '🔇'}</button><label class="auto-tg"><input type="checkbox" ${this._auto ? 'checked' : ''}> 自動</label></div>
+            <div class="mono-tools"><button data-t="me" title="回到我">🎯</button><button data-t="all" title="全景">🗺️</button><button data-t="sfx" title="音效">${SFX.on ? '🔊' : '🔇'}</button><button data-t="q" title="畫質">${this.quality() === 'high' ? '高' : '低'}</button><label class="auto-tg"><input type="checkbox" ${this._auto ? 'checked' : ''}> 自動</label></div>
+            <div class="mono-cam"><button data-c="tu" title="俯視">⤒</button><button data-c="td" title="平視">⤓</button><button data-c="zi">＋</button><button data-c="zo">－</button></div>
+            <div class="mono-hint" hidden>單指拖曳移動地圖・雙指開合縮放・雙指上下滑調整角度・點玩家頭像看他在哪</div>
+            <div class="mono-vfx"></div>
           </div>
           <div class="mono-info"></div>
           <div class="mono-modal" hidden></div>
@@ -106,29 +149,37 @@
         </div>`;
       this.el = el;
       el.querySelector('.go-btn').onclick = () => { if (this.canAct('roll')) { this.ui.send({ type: 'roll' }); el.querySelector('.go-btn').disabled = true; SFX.dice(); } };
-      el.querySelector('[data-t="cam"]').onclick = () => { if (!this.board) return; if (this.board.following != null) this.board.overview(); else this.board.follow(this.v.turn); };
+      el.querySelector('[data-t="me"]').onclick = () => { if (this.board && this.v.seat >= 0) this.board.focusSeat(this.v.seat, true); };
+      el.querySelector('[data-t="all"]').onclick = () => { if (this.board) this.board.overview(); };
+      el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; this.ui.toast('畫質已切換，重新整理頁面後生效'); };
+      el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (!this.board) return; const c = b.dataset.c; if (c === 'tu') this.board.nudge('tilt', -0.25); if (c === 'td') this.board.nudge('tilt', 0.25); if (c === 'zi') this.board.nudge('zoom', 0.8); if (c === 'zo') this.board.nudge('zoom', 1.25); });
       el.querySelector('[data-t="sfx"]').onclick = (e) => { SFX.on = !SFX.on; e.target.textContent = SFX.on ? '🔊' : '🔇'; try { localStorage.setItem('mono-sfx', SFX.on ? '1' : '0'); } catch (x) {} };
       el.querySelector('.auto-tg input').onchange = (e) => { this._auto = e.target.checked; this.showPrompt(); };
       const stage = el.querySelector('.mono-stage');
       const b = new root.MonoBoard3D();
       b.init(stage, v.theme, R()).then(() => {
         b.ready = true; this.board = b; stage.querySelector('.mono-loading').remove();
-        b.onTileTap = (i) => this.tileInfo(i);
+        b.onTap = (h) => { if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
+        try { if (!localStorage.getItem('mono-hint')) { const hn = el.querySelector('.mono-hint'); hn.hidden = false; setTimeout(() => hn.hidden = true, 6000); localStorage.setItem('mono-hint', '1'); } } catch (x) {}
         b.onStep = () => SFX.step();
-        this.syncBoard(true); this.showPrompt();
+        this.syncBoard(true);
+        if (this.v.seat >= 0 && this.board.tokens[this.v.seat]) { this.board.focusSeat(this.v.seat, true); this.board.snap(); }
+        this.showPrompt();
       }).catch(e => { console.error(e); stage.querySelector('.mono-loading').textContent = '這台裝置不支援 3D（WebGL），請換瀏覽器或裝置'; });
       this.board = null; this._booting = b;
     },
+    quality() { try { return localStorage.getItem('mono-q') || ((navigator.hardwareConcurrency || 4) <= 4 ? 'low' : 'high'); } catch (e) { return 'high'; } },
     canAct(phase) { const v = this.v; return v && v.seat >= 0 && v.turn === v.seat && v.phase === phase && !this.playing; },
 
     renderHud() {
       const v = this.v, hud = this.el.querySelector('.mono-hud'); const unit = TH()[v.theme].unit;
       hud.innerHTML = v.players.map((p, s) => `
-        <div class="mp ${s === v.turn && v.phase !== 'over' ? 'turn' : ''} ${p.alive ? '' : 'dead'}">
+        <div class="mp ${s === v.turn && v.phase !== 'over' ? 'turn' : ''} ${p.alive ? '' : 'dead'}" data-s="${s}">
           ${this.faceHTML(v, s, 34)}
           <div><b>${U.esc(v.names[s])}${s === v.seat ? '（你）' : ''}</b><span class="cash" data-s="${s}">${p.alive ? fmt(p.cash) + ' ' + unit : '破產'}</span>
           <small>${p.skip ? `⏸${p.skip} ` : ''}${p.immune ? `🛡${p.immune} ` : ''}${p.jailfree ? `🎫${p.jailfree}` : ''}</small></div>
         </div>`).join('');
+      hud.querySelectorAll('.mp').forEach(d => d.onclick = () => { if (this.board) this.board.focusSeat(+d.dataset.s, true); });
       const info = this.el.querySelector('.mono-info');
       info.innerHTML = v.phase === 'over' ? '' : `第 ${Math.min(v.round, v.maxRounds)}${v.maxRounds < 900 ? '/' + v.maxRounds : ''} 回合 · 輪到 <b>${U.esc(v.names[v.turn])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span>`;
     },
@@ -172,10 +223,20 @@
 
     syncBoard(first) {
       const b = this.board, v = this.v; if (!b || !v || v.phase === 'pick') return;
-      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); return { seat: s, char: ch || { emoji: '?', color: '#999' }, img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive }; }));
+      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s] }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
-      b.setBuildings(v.owners, v.levels, v.players.map((p, s) => (this.charOf(v, s) || {}).color));
-      if (first) b.overview(true);
+      b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
+      b.setTurn(v.phase === 'over' ? -1 : v.turn);
+      // 輪到自己時，強制把鏡頭拉回自己的角色
+      const myTurn = v.seat >= 0 && v.turn === v.seat && v.phase === 'roll';
+      if (myTurn && this._lastMyTurn !== v.evId) { this._lastMyTurn = v.evId; b.focusSeat(v.seat, true); }
+      if (first && v.seat < 0) b.overview(true);
+    },
+    vfx(kind) {
+      const box = this.el && this.el.querySelector('.mono-vfx'); if (!box) return;
+      box.className = 'mono-vfx ' + kind; void box.offsetWidth; box.classList.add('go');
+      clearTimeout(this._vfxT); this._vfxT = setTimeout(() => { box.className = 'mono-vfx'; }, 2600);
+      if (kind === 'doom' || kind === 'glitch') { const st = this.el.querySelector('.mono-stage'); st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake'); }
     },
     fx(text, cls, seat, tile) {
       const b = this.board; const host = this.el.querySelector('.mono-fx'); if (!b) return;
@@ -185,34 +246,34 @@
     },
     async play(evs) {
       this.playing = true; this.hidePrompt();
-      const v = this.v, b = this.board, unit = TH()[v.theme].unit;
+      const v = this.v, b = this.board, unit = TH()[v.theme].unit; const watch = (s) => s === v.seat || b.following === s || v.seat < 0;
       try {
         for (const e of evs) {
           if (!this.board) break;
           switch (e.t) {
             case 'dice': await this.rollDice(e.d); break;
-            case 'move': await b.hop(e.seat, e.path); break;
-            case 'tp': await b.teleport(e.seat, e.to); break;
+            case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
+            case 'tp': await b.teleport(e.seat, e.to, watch(e.seat)); break;
             case 'cash': SFX.coin(); this.fx(`+${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'gain', e.seat); b.jumpJoy(e.seat); await sleep(450); break;
             case 'pay':
-              SFX.lose(); this.fx(`-${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'loss', e.from);
+              SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
               if (e.to >= 0) setTimeout(() => this.fx(`+${fmt(e.amt)}`, 'gain', e.to), 300);
               await sleep(650); break;
-            case 'buy': SFX.build(); this.fx(`買下！`, 'gain', null, e.tile); this.syncBoard(); await sleep(500); break;
+            case 'buy': SFX.build(); b.mood(e.seat, 'joy', 900); this.fx(`買下！`, 'gain', null, e.tile); this.syncBoard(); await sleep(500); break;
             case 'up': SFX.build(); this.fx(e.free ? '免費升級！' : `升級 Lv${e.level}`, 'gain', null, e.tile); this.syncBoard(); await sleep(600); break;
-            case 'down': SFX.bad(); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(); await sleep(600); break;
+            case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(); await sleep(600); break;
             case 'sell': this.fx(e.what === 'land' ? '被迫賣地' : '被迫賣房', 'loss', null, e.tile); this.syncBoard(); await sleep(400); break;
             case 'card': await this.showCard(e); break;
-            case 'immune': this.fx('🛡 抵擋了厄運！', 'gain', e.seat); SFX.coin(); await sleep(900); break;
+            case 'immune': this.fx('🛡 抵擋了厄運！', 'gain', e.seat); SFX.glory(); this.vfx('glory'); b.mood(e.seat, 'joy', 1200); await sleep(900); break;
             case 'jailfree': this.fx('🎫 使用免罪卡！', 'gain', e.seat); await sleep(900); break;
-            case 'jail': SFX.bad(); this.fx(`⛓ ${TH()[v.theme].corners.jail}`, 'loss', e.seat); await b.teleport(e.seat, R().JAIL); break;
+            case 'jail': SFX.doom(); this.vfx('doom'); this.fx(`⛓ ${TH()[v.theme].corners.jail}`, 'loss', e.seat); await b.teleport(e.seat, R().JAIL, watch(e.seat)); b.mood(e.seat, 'sad', 2000); break;
             case 'skip': this.fx('⏸ 暫停一回合', 'loss', e.seat); await sleep(700); break;
             case 'skipset': this.fx(`⏸ 停 ${e.n} 回合`, 'loss', e.seat); await sleep(500); break;
-            case 'bankrupt': SFX.bad(); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
+            case 'bankrupt': SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
             case 'note': this.fx(e.text, '', e.seat); await sleep(600); break;
           }
         }
-      } finally { this.playing = false; if (b) b.overview(); }
+      } finally { this.playing = false; }
       void unit;
     },
     async rollDice(d) {
@@ -224,7 +285,9 @@
     showCard(e) {
       return new Promise(res => {
         const v = this.v, th = TH()[v.theme]; const good = e.deck === 'luck';
-        good ? SFX.card() : SFX.bad();
+        if (good) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.seat, 'joy', 1800); }
+        else if (e.eff === 'psycho') { SFX.glitch(); SFX.doom(); this.vfx('glitch'); this.board && this.board.mood(e.seat, 'scared', 2500); }
+        else { SFX.doom(); this.vfx('doom'); this.board && this.board.mood(e.seat, 'scared', 1800); }
         const m = this.el.querySelector('.mono-modal'); m.hidden = false;
         m.innerHTML = `<div class="mcard ${good ? 'good' : 'bad'}"><div class="mcard-in">
           <div class="mcard-head">${good ? th.luckName : th.badName}</div>

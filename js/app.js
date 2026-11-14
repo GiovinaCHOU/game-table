@@ -96,20 +96,26 @@
   }
   setInterval(tickTimers, 250);
 
-  // 說話指示燈
+  // 說話指示：頭像發光＋上方「正在說話」列（人再多也看得到）
+  const talkUntil = {};
   setInterval(() => {
-    if (V.mode === 'off') return;
-    const lv = V.levels(); const myPeer = R.peer && R.peer.id;
-    document.querySelectorAll('.mchip').forEach(ch => {
-      const p = ch.dataset.peer; const l = p === myPeer ? lv.me : lv[p];
-      ch.classList.toggle('speaking', (l || 0) > 18 && !(p === myPeer && V.muted));
-    });
+    const bar = $('#speakers');
+    if (V.mode === 'off' || !R.room) { bar.hidden = true; return; }
+    const lv = V.levels(); const myPeer = R.peer && R.peer.id; const now = Date.now();
+    R.room.members.forEach(m => { const l = m.peerId === myPeer ? (V.muted ? 0 : lv.me) : lv[m.peerId]; if ((l || 0) > 18) talkUntil[m.cid] = now + 600; });
+    const talking = R.room.members.filter(m => (talkUntil[m.cid] || 0) > now);
+    document.querySelectorAll('.mchip').forEach(ch => ch.classList.toggle('speaking', (talkUntil[ch.dataset.cid] || 0) > now));
+    if (!talking.length) { bar.hidden = true; return; }
+    bar.hidden = false;
+    bar.innerHTML = talking.map(m => `<span><i class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</i>${U.esc(m.name)}</span>`).join('') + '<b>🎤</b>';
   }, 150);
 
+  function avColor(name) { let h = 0; for (const ch of name) h = (h * 31 + ch.codePointAt(0)) % 360; return `hsl(${h},55%,45%)`; }
   function renderMembers(room) {
     const meHost = R.isHost;
     $('#members').innerHTML = room.members.map(m => `
       <div class="mchip ${m.online ? '' : 'off'} ${m.role === 'spec' ? 'spec' : ''}" data-peer="${U.esc(m.peerId)}" data-cid="${U.esc(m.cid)}">
+        <span class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</span>
         ${m.cid === room.hostCid ? '👑' : ''}${U.esc(m.name)}${m.cid === R.cid ? '（你）' : ''}
         <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
         ${meHost && m.cid !== R.cid ? `<button class="kick" data-kick="${U.esc(m.cid)}" title="請出房間">×</button>` : ''}
