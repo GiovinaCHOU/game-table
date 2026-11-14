@@ -76,10 +76,16 @@
   const M = {
     id: 'bigtwo', name: '大老二', icon: '🂡', min: 2, max: 4,
     desc: '拿到梅花 3 的人先出，而且第一手要包含梅花 3。牌的大小：3 最小，2 最大；同點數時比花色 ♠>♥>♦>♣。可以出單張、對子或五張牌型（順子、同花、葫蘆、鐵支、同花順）。誰先出完誰贏，其他人照剩下的牌數扣分。',
-    options: [{ key: 'bomb', label: '鐵支/同花順', choices: [[1, '可以壓單張和對子'], [0, '只能壓五張牌型']], def: 1 }],
+    options: [{ key: 'bomb', label: '鐵支/同花順', choices: [[1, '可以壓單張和對子'], [0, '只能壓五張牌型']], def: 1 },
+      { key: 'tlimit', label: '每手時間', choices: [[30, '30 秒'], [45, '45 秒'], [20, '20 秒'], [0, '不限']], def: 30 }],
     classify: (cards) => fixK(classify(cards), cards), beats,
-    init(n, o) { const st = { n, bomb: +o.bomb, total: Array(n).fill(0), round: 1 }; deal(st); return st; },
-    action(st, seat, a) {
+    init(n, o, names, now) { const st = { n, bomb: +o.bomb, tlimit: o.tlimit == null ? 30 : +o.tlimit, total: Array(n).fill(0), round: 1 }; deal(st); this._dl(st, now || Date.now()); return st; },
+    _dl(st, now) { st.deadline = st.tlimit && st.phase === 'play' ? now + st.tlimit * 1000 : 0; },
+    tick(st, now) { if (!st.deadline || now <= st.deadline || st.phase !== 'play') return false; const w = this.auto(st); if (!w) return false; this.action(st, w.seat, w.a, { now }); return true; },
+    action(st, seat, a, ctx) {
+      const r = this._act(st, seat, a); if (!r) this._dl(st, (ctx && ctx.now) || Date.now()); return r;
+    },
+    _act(st, seat, a) {
       if (a.type === 'next') { if (st.phase !== 'over') return; st.round++; deal(st); return; }
       if (st.phase !== 'play') return '這局已結束';
       if (seat !== st.turn) return '還沒輪到你';
@@ -128,7 +134,7 @@
         phase: st.phase, turn: st.turn, top: st.top ? { seat: st.top.seat, cards: st.top.cards, name: TYPE_NAME[st.top.h.t] } : null,
         counts: st.hands.map(h => h.length), hand: seat >= 0 ? st.hands[seat].slice().sort((a, b) => val(a) - val(b)) : null,
         passes: st.passes, history: st.history.slice(-8), winner: st.winner, total: st.total, lastPts: st.lastPts, round: st.round,
-        first: st.first, mustCard: st.mustCard,
+        first: st.first, mustCard: st.mustCard, deadline: st.deadline,
         reveal: st.phase === 'over' ? st.hands : null
       };
     },
@@ -142,6 +148,7 @@
       el.innerHTML = `
         <div class="players-row">${v.names.map((n, i) => `<div class="pchip ${i === v.turn && v.phase === 'play' ? 'turn' : ''}">${U.esc(n)}<b>${v.counts[i]} 張</b>${v.passes.includes(i) ? '<small>Pass</small>' : ''}<small>${v.total[i] >= 0 ? '+' : ''}${v.total[i]}</small></div>`).join('')}</div>
         <div class="b2-table">
+          <div class="b2-timer">${v.phase === 'play' ? `輪到 ${U.esc(v.names[v.turn])} <span class="timer" data-deadline="${v.deadline || ''}"></span>` : ''}</div>
           ${v.top ? `<div class="b2-top"><small>${U.esc(v.names[v.top.seat])}：${v.top.name}</small><div class="cards">${v.top.cards.slice().sort((a, b) => val(a) - val(b)).map(c => U.cardHTML(c)).join('')}</div></div>`
           : `<div class="b2-top empty">${v.phase === 'play' ? `${U.esc(v.names[v.turn])} 自由出牌${v.first ? `（要含 ${U.RANKS[U.rank(v.mustCard)]}${U.SUITS[U.suit(v.mustCard)]}）` : ''}` : ''}</div>`}
           ${v.phase === 'over' ? `<div class="b2-over"><h3>🎉 ${U.esc(v.names[v.winner])} 出完了！</h3>${v.names.map((n, i) => `<p>${U.esc(n)}：${v.lastPts[i] >= 0 ? '+' : ''}${v.lastPts[i]}</p>`).join('')}${me >= 0 ? '<button class="btn" data-a="next">下一局</button>' : ''}</div>` : ''}

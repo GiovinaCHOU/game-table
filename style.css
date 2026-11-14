@@ -339,3 +339,9 @@ body[data-skin="alien"] .btn { color: #0b1f1a; box-shadow: 0 2px 0 #239c86, 0 0 
 .resume { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; } .resume p { margin: 0; font-size: 13px; color: var(--muted); }
 
 #joinBtn { white-space: nowrap; }
+
+.pilot-fab { position: fixed; left: 14px; bottom: calc(14px + var(--safe-b)); z-index: 25; height: 44px; padding: 0 14px; border-radius: 22px; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 18px; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.4); border: 1px solid var(--line); }
+.pilot-fab span { font-size: 13px; font-weight: 700; }
+.pilot-fab.on { background: #2f9e44; border-color: #7dffa0; box-shadow: 0 0 14px rgba(125,255,160,.6); }
+.pilot-fab.on span::after { content: '中'; }
+.b2-timer { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 6px; }

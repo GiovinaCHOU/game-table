@@ -119,6 +119,7 @@
       if (el.dataset.g !== 'monopoly' || this._theme !== v.theme) this.build(el, v);
       el.classList.toggle('dim-bg', false);
       this.renderHud(); this.renderPick();
+      try { const me = root.Room.room.members.find(m => m.cid === root.Room.cid); const cb = el.querySelector('.auto-tg input'); if (cb && me) cb.checked = !!me.auto; } catch (e) {}
       if (v.phase === 'pick') { this.showPrompt(); return; }
       if (!this.board || !this.board.ready) { this._pendingSync = true; return; }
       if (v.evId !== this._evId) {
@@ -138,7 +139,7 @@
           <div class="mono-hud"></div>
           <div class="mono-stage"><div class="mono-loading">${th.icon} 載入 3D 場景中…</div><div class="mono-fx"></div>
             <div class="mono-dice"><div class="dice-faces"><span class="d6">?</span><span class="d6">?</span></div><button class="go-btn" disabled>GO</button></div>
-            <div class="mono-tools"><button data-t="me" title="回到我">🎯</button><button data-t="all" title="全景">🗺️</button><button data-t="sfx" title="音效">${SFX.on ? '🔊' : '🔇'}</button><button data-t="q" title="畫質">${this.quality() === 'high' ? '高' : '低'}</button><label class="auto-tg"><input type="checkbox" ${this._auto ? 'checked' : ''}> 自動</label></div>
+            <div class="mono-tools"><button data-t="me" title="回到我">🎯</button><button data-t="all" title="全景">🗺️</button><button data-t="sfx" title="音效">${SFX.on ? '🔊' : '🔇'}</button><button data-t="q" title="畫質">${this.quality() === 'high' ? '高' : '低'}</button><label class="auto-tg"><input type="checkbox"> 託管</label></div>
             <div class="mono-cam"><button data-c="tu" title="俯視">⤒</button><button data-c="td" title="平視">⤓</button><button data-c="zi">＋</button><button data-c="zo">－</button></div>
             <div class="mono-hint" hidden>單指拖曳移動地圖・雙指開合縮放・雙指上下滑調整角度・點玩家頭像看他在哪</div>
             <div class="mono-vfx"></div>
@@ -154,7 +155,7 @@
       el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; this.ui.toast('畫質已切換，重新整理頁面後生效'); };
       el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (!this.board) return; const c = b.dataset.c; if (c === 'tu') this.board.nudge('tilt', -0.25); if (c === 'td') this.board.nudge('tilt', 0.25); if (c === 'zi') this.board.nudge('zoom', 0.8); if (c === 'zo') this.board.nudge('zoom', 1.25); });
       el.querySelector('[data-t="sfx"]').onclick = (e) => { SFX.on = !SFX.on; e.target.textContent = SFX.on ? '🔊' : '🔇'; try { localStorage.setItem('mono-sfx', SFX.on ? '1' : '0'); } catch (x) {} };
-      el.querySelector('.auto-tg input').onchange = (e) => { this._auto = e.target.checked; this.showPrompt(); };
+      el.querySelector('.auto-tg input').onchange = (e) => { root.Room.send({ t: 'autopilot', on: e.target.checked }); };
       const stage = el.querySelector('.mono-stage');
       const b = new root.MonoBoard3D();
       b.init(stage, v.theme, R()).then(() => {
@@ -328,15 +329,6 @@
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: v.phase, yes: b.dataset.y === '1' }); m.hidden = true; });
       } else if (!m.querySelector('.mcard') && !m.querySelector('.tinfo')) m.hidden = true;
-      // 自動
-      clearTimeout(this._autoT);
-      if (this._auto && v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade'].includes(v.phase)) {
-        this._autoT = setTimeout(() => {
-          if (!this.canAct(v.phase)) return;
-          if (v.phase === 'roll') { this.ui.send({ type: 'roll' }); SFX.dice(); }
-          else { const t = R().BOARD[v.pending.tile]; const cost = v.phase === 'buy' ? t.price : t.up; this.ui.send({ type: v.phase, yes: v.players[v.seat].cash - cost >= 8000 }); m.hidden = true; }
-        }, 900);
-      }
     },
     tileInfo(i) {
       const v = this.v; if (!v || this.playing) return; const t = R().BOARD[i]; const th = TH()[v.theme];

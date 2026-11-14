@@ -74,8 +74,11 @@
     s.textContent = msg; s.hidden = false;
   };
   R.cb.left = () => { location.href = location.pathname + (window.Net.LOCAL ? '?local=1' : ''); };
+  $('#pilotBtn').onclick = () => { const me = R.room && R.room.members.find(m => m.cid === R.cid); const on = !(me && me.auto); R.send({ t: 'autopilot', on }); toast(on ? '已開啟託管：系統會幫你出牌，再按一次取消' : '已取消託管'); };
   R.cb.room = (room) => {
     document.body.dataset.skin = (room.lobby && room.lobby.skin) || 'classic';
+    { const me = room.members.find(m => m.cid === R.cid); const seated = room.game && me && room.game.seats.includes(me.cid);
+      $('#pilotBtn').hidden = !seated || (room.game && room.game.id === 'monopoly'); $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
     renderMembers(room);
     const host = R.isHost;
     $('#endBtn').hidden = !(host && room.game);
@@ -131,7 +134,7 @@
       <div class="mchip ${m.online ? '' : 'off'} ${m.role === 'spec' ? 'spec' : ''}" data-peer="${U.esc(m.peerId)}" data-cid="${U.esc(m.cid)}">
         <span class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</span>
         ${m.cid === room.hostCid ? '👑' : ''}${U.esc(m.name)}${m.cid === R.cid ? '（你）' : ''}
-        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
+        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.auto ? '<small>🤖託管</small>' : ''}${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
         ${meHost && m.cid !== R.cid ? `<button class="kick" data-kick="${U.esc(m.cid)}" title="請出房間">×</button>` : ''}
       </div>`).join('');
     $('#members').querySelectorAll('[data-kick]').forEach(b => b.onclick = (e) => {

@@ -313,7 +313,7 @@
     roomInfo() {
       return {
         pin: this.pin, hostCid: this.R.cid, heir: this.heir(), heirs: this.heirs(),
-        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, seat: this.seats().indexOf(m.cid) })),
+        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, auto: !!m.auto, seat: this.seats().indexOf(m.cid) })),
         lobby: this.lobby,
         game: this.game ? { id: this.game.id, seats: this.game.seats, opts: this.game.opts } : null
       };
@@ -339,7 +339,10 @@
         let w = null; try { w = mod.auto(this.game.state); } catch (e) {}
         if (w && w.seat >= 0) {
           const m = this.m(this.game.seats[w.seat]);
-          if (m && !m.online && Date.now() - (m.offAt || 0) > 40000 && Date.now() - (this._lastAuto || 0) > 1500) {
+          const key = JSON.stringify(w); if (key !== this._autoKey) { this._autoKey = key; this._autoSince = Date.now(); }
+          const offlineDue = m && !m.online && Date.now() - (m.offAt || 0) > 40000;
+          const pilotDue = m && m.auto && Date.now() - this._autoSince > 1300; // 託管：稍等一下再出，看起來比較自然
+          if ((offlineDue || pilotDue) && Date.now() - (this._lastAuto || 0) > 900) {
             this._lastAuto = Date.now();
             let err; try { err = mod.action(this.game.state, w.seat, w.a, { now: Date.now(), names: this.names(), relay() {}, seat: w.seat }); } catch (e) { err = e; }
             if (!err) { this.pushViews(); return; }
@@ -366,6 +369,7 @@
         case 'chat': if (m) this.all({ t: 'chat', from: m.name, text: String(d.text || '').slice(0, 200) }); break;
         case 'avatar': if (m && typeof d.img === 'string' && d.img.startsWith('data:image/') && d.img.length < 60000) { m.avatar = d.img; this.pushRoom(); this.pushViews(); } break;
         case 'quick': if (m && Date.now() - (m.lastQ || 0) > 1200) { m.lastQ = Date.now(); this.all({ t: 'quick', from: m.name, cid, text: String(d.text || '').slice(0, 30) }); } break;
+        case 'autopilot': if (m) { m.auto = !!d.on; this.pushRoom(); } break;
         case 'voice': if (m) { m.voice = d.mode === 'off' ? null : d.mode; this.pushRoom(); } break;
         case 'role': if (m && !this.game) { m.role = d.role === 'spec' ? 'spec' : 'player'; this.pushRoom(); } break;
         case 'lobby': if (isHost && !this.game) { this.lobby = { gameId: d.gameId, opts: d.opts || {}, skin: this.lobby.skin }; this.pushRoom(); } break;

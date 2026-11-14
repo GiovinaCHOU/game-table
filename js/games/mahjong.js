@@ -360,9 +360,10 @@
       return false;
     },
     auto(st) {
-      if (st.phase === 'claim') { const q = Object.keys(st.claim.opts).map(Number).find(q => !st.claim.resp[q]); return q != null ? { seat: st.act[q], a: { type: 'pass' } } : null; }
+      if (st.phase === 'claim') { const q = Object.keys(st.claim.opts).map(Number).find(q => !st.claim.resp[q]); if (q == null) return null; return { seat: st.act[q], a: { type: st.claim.opts[q].hu ? 'hu' : 'pass' } }; }
       if (st.phase !== 'discard') return null;
       const p = st.turn; const h = st.hands[p];
+      if (st.drawn != null && canWin(h.map(tt), st.melds[p].length)) return { seat: st.act[p], a: { type: 'hu' } };
       const tile = st.drawn != null && h.includes(st.drawn) ? st.drawn : h[h.length - 1];
       return { seat: st.act[p], a: { type: 'discard', tile } };
     },

@@ -13,10 +13,16 @@
     id: 'dice', name: '吹牛', icon: '🎲', min: 2, max: 8,
     desc: '每人 6 顆骰子（可選 6–8 顆），只看得到自己的。輪流喊「全場至少有幾個幾」，下一個人要喊得更大（數量更多，或數量一樣但點數更大，1 最大），不信就按「開」。1 點可以當任何點數（萬用），但只要有人喊過「1」，這一局 1 就不能當萬用了。輸的人罰一杯並先喊下一局。',
     options: [{ key: 'per', label: '每人骰子', choices: [[6, '6 顆'], [7, '7 顆'], [8, '8 顆']], def: 6 },
+      { key: 'tlimit', label: '每口時間', choices: [[25, '25 秒'], [40, '40 秒'], [15, '15 秒'], [0, '不限']], def: 25 },
       { key: 'minAdd', label: '開局最少喊', choices: [[1, '人數 +1 個'], [0, '人數 個'], [-99, '不限制']], def: 1 }],
-    init(n, o) { const st = { n, per: Math.max(6, +o.per || 6), minAdd: +o.minAdd, starter: 0, lose: Array(n).fill(0) }; roll(st); return st; },
+    init(n, o, names, now) { const st = { n, per: Math.max(6, +o.per || 6), minAdd: +o.minAdd, tlimit: o.tlimit == null ? 25 : +o.tlimit, starter: 0, lose: Array(n).fill(0) }; roll(st); this._dl(st, now || Date.now()); return st; },
+    _dl(st, now) { st.deadline = st.tlimit && st.phase === 'bid' ? now + st.tlimit * 1000 : 0; },
+    tick(st, now) { if (!st.deadline || now <= st.deadline || st.phase !== 'bid') return false; const w = this.auto(st); if (!w) return false; this.action(st, w.seat, w.a, { now }); return true; },
     minCount(st) { return st.minAdd < -50 ? 1 : Math.max(1, st.n + st.minAdd); },
-    action(st, seat, a) {
+    action(st, seat, a, ctx) {
+      const r = this._act(st, seat, a); if (!r) this._dl(st, (ctx && ctx.now) || Date.now()); return r;
+    },
+    _act(st, seat, a) {
       if (a.type === 'next') { if (st.phase !== 'reveal') return; roll(st); return; }
       if (st.phase !== 'bid') return 'silent';
       if (seat !== st.turn) return '還沒輪到你';
@@ -43,11 +49,15 @@
       if (st.phase !== 'bid') return null;
       const b = st.bid;
       if (!b) return { seat: st.turn, a: { type: 'bid', count: this.minCount(st), face: 2 } };
+      // 依自己的骰子估算：喊的數量明顯太多就開，否則加一
+      const mine = st.dice[st.turn].filter(d => d === b.face || (st.wild && b.face !== 1 && d === 1)).length;
+      const others = (st.n - 1) * st.per; const expect = mine + others * (st.wild && b.face !== 1 ? 1 / 3 : 1 / 6);
+      if (b.count > expect + 1) return { seat: st.turn, a: { type: 'open' } };
       return { seat: st.turn, a: { type: 'bid', count: b.count + 1, face: b.face } };
     },
     view(st, seat) {
       return { phase: st.phase, turn: st.turn, bid: st.bid, bids: st.bids.slice(-10), wild: st.wild, lose: st.lose, per: st.per, n: st.n,
-        mine: seat >= 0 ? st.dice[seat] : null, all: st.phase === 'reveal' ? st.dice : null, reveal: st.reveal, minCount: this.minCount(st) };
+        deadline: st.deadline, mine: seat >= 0 ? st.dice[seat] : null, all: st.phase === 'reveal' ? st.dice : null, reveal: st.reveal, minCount: this.minCount(st) };
     },
     _pick: null,
     render(el, v, ui) {
@@ -73,7 +83,7 @@
             <div class="cnt"><button class="btn sm" data-c="-1">－</button><b>${p.count}</b> 個<button class="btn sm" data-c="1">＋</button></div>
             <div class="faces">${[2, 3, 4, 5, 6, 1].map(f => `<button class="die-btn ${p.face === f ? 'on' : ''}" data-f="${f}">${PIP[f]}</button>`).join('')}</div>
             <div class="act-row"><button class="btn" data-a="bid" ${myTurn ? '' : 'disabled'}>喊 ${p.count} 個 ${PIP[p.face]}</button><button class="btn danger" data-a="open" ${myTurn && v.bid ? '' : 'disabled'}>開！</button></div>
-            ${myTurn ? '' : `<p class="hint">等 ${U.esc(v.names[v.turn])} 喊…</p>`}
+            <p class="hint">${myTurn ? '輪到你' : `等 ${U.esc(v.names[v.turn])} 喊…`} <span class="timer" data-deadline="${v.deadline || ''}"></span></p>
           </div>` : ''}
         <div class="bid-log">${v.bids.map(b => `<span>${U.esc(v.names[b.seat])}：${b.count}個${PIP[b.face]}</span>`).join(' → ')}</div>`;
       el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { p.count = Math.max(1, Math.min(v.n * v.per, p.count + +b.dataset.c)); this.render(el, v, ui); });
