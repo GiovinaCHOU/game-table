@@ -53,7 +53,8 @@
     let list = (CFG.iceServers || []).slice();
     if (CFG.turnApiUrl) {
       try {
-        const r = await fetch(CFG.turnApiUrl);
+        const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 5000);
+        const r = await fetch(CFG.turnApiUrl, { signal: ac.signal }); clearTimeout(t);
         const extra = await r.json();
         if (Array.isArray(extra)) list = list.concat(extra);
       } catch (e) { console.warn('TURN 取得失敗', e); }
