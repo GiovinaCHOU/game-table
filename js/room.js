@@ -11,6 +11,17 @@
     return c;
   }
   function randPin() { return String(Math.floor(100000 + Math.random() * 900000)); }
+  // ---- 本機暫存（localStorage）：讓房間在大家都切出去後還能用同一個 PIN 救回來 ----
+  const KEEP_MS = 6 * 3600 * 1000;
+  const LS = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+  // 清掉超過 6 小時的舊房間
+  try { Object.keys(localStorage).forEach(k => { if (/^(snap|seat):/.test(k)) { const v = LS.get(k); if (!v || Date.now() - (v.t || 0) > KEEP_MS) LS.del(k); } }); } catch (e) {}
+  // 同一個 PIN 用固定身分，重新整理或被系統關掉分頁後回來，還是坐回原本的位子
+  function cidFor(pin) { if (window.Net.LOCAL) return myCid(); const v = LS.get('seat:' + pin); if (v && v.cid) { LS.set('seat:' + pin, { cid: v.cid, t: Date.now() }); return v.cid; } const c = rid(); LS.set('seat:' + pin, { cid: c, t: Date.now() }); return c; }
 
   const Room = {
     isHost: false, pin: null, peer: null, cid: myCid(), name: '', conn: null,
@@ -35,7 +46,7 @@
         case 'err': this.cb.status(msg.msg, true); break;
         case 'ping': this.clockOffset = msg.now - Date.now(); this._lastHost = Date.now(); this.send({ t: 'pong' }); break;
         case 'kick': this.cb.status('你被房主請出房間', true); this.leave(); break;
-        case 'snap': this._snap = msg.s; this._snapAt = Date.now(); break;
+        case 'snap': this._snap = msg.s; this._snapAt = Date.now(); this.saveSnap(msg.s); break;
       }
     },
     _syncVoice() {
@@ -49,6 +60,10 @@
       this.send({ t: 'voice', mode });
     },
 
+    saveSnap(snap) { if (this.pin) LS.set('snap:' + this.pin, { t: Date.now(), snap }); },
+    loadSnap(pin) { const v = LS.get('snap:' + pin); if (!v || Date.now() - v.t > KEEP_MS) return null; return v.snap; },
+    hasSnap(pin) { return !!this.loadSnap(pin); },
+
     // ================= 建房 =================
     async create(name) {
       this.name = name; this.isHost = true;
@@ -56,7 +71,7 @@
         const pin = randPin();
         try {
           const peer = await this._openPeer(prefix + pin);
-          this.pin = pin; this.peer = peer;
+          this.pin = pin; this.peer = peer; this.cid = cidFor(pin);
           Voice.attach(peer);
           Host.init(this, pin);
           peer.on('connection', c => Host.accept(c));
@@ -83,10 +98,58 @@
       this.cb.status('你斷線太久，房主已交給其他人，重新以玩家身分加入…', true);
       try { await this.join(this.pin, this.name, false); } catch (e) { this.cb.status('重新加入失敗：' + (e.message || e), true); }
     },
+    // ================= 用暫存救回房間（大家都斷線後，第一個回來的人重開） =================
+    async revive(pin, name) {
+      const snap = this.loadSnap(pin); if (!snap) throw new Error('這台裝置沒有這個房間的暫存');
+      this.name = name; this.pin = pin; this.cid = cidFor(pin);
+      const peer = await this._openPeer(prefix + pin); // 房號被占用代表房間其實還在 → 丟出 unavailable
+      try { this.peer && this.peer !== peer && this.peer.destroy(); } catch (e) {}
+      this.peer = peer; this.isHost = true; clearInterval(this._watch);
+      try { this.conn && this.conn.close(); } catch (e) {} this.conn = null;
+      Voice.attach(peer);
+      Host.restore(this, pin, snap, '房間已從暫存救回，其他人用同一個 PIN 就能回來');
+      peer.on('connection', c => Host.accept(c));
+      this._hostPeerEvents(peer);
+      return pin;
+    },
+    // 回到網頁時：立刻重連；房間不見了就用暫存救回
+    async wake() {
+      if (!this.pin || this._leaving || this._waking) return;
+      this._waking = true;
+      try {
+        if (this.isHost) {
+          const p = this.hostPeer || this.peer;
+          if (p && p.destroyed) { this.isHost = false; await this.reenter(); }
+          else if (p && p.disconnected) { try { p.reconnect(); } catch (e) {} }
+          return;
+        }
+        if (this.peer && this.peer.disconnected && !this.peer.destroyed) { try { this.peer.reconnect(); } catch (e) {} await new Promise(r => setTimeout(r, 800)); }
+        if (this.peer && this.peer.destroyed) this.peer = null;
+        if (this.conn && this.conn.open && Date.now() - (this._lastHost || 0) < 6000) return;
+        await this.reenter();
+      } finally { this._waking = false; }
+    },
+    // 先試著加入；連不到而且有暫存，就由自己重開房間
+    async reenter() {
+      try {
+        if (!this.peer) { this.peer = await this._openPeer(null); Voice.attach(this.peer); this.peer.on('disconnected', () => { setTimeout(() => { try { this.peer.reconnect(); } catch (e) {} }, 1000); }); }
+        this._connecting = false; await this._connect(); return 'joined';
+      } catch (e) {
+        if (this.hasSnap(this.pin)) {
+          try { await this.revive(this.pin, this.name); return 'revived'; }
+          catch (e2) { if (/unavailable/.test(String(e2 && e2.message))) { await new Promise(r => setTimeout(r, 1500)); this._connecting = false; await this._connect(); return 'joined'; } throw e2; }
+        }
+        throw e;
+      }
+    },
     // ================= 接手房主 =================
     async _takeover() {
       if (this._takingOver || this.isHost || this._leaving) return;
-      if (!this.room || this.room.heir !== this.cid || !this._snap) return;
+      if (!this.room || !this._snap) return;
+      const heirs = this.room.heirs || [this.room.heir];
+      // 第一順位候補立刻接；第二順位等久一點才接（第一順位可能也切出去了）
+      const rank = heirs.indexOf(this.cid); if (rank < 0) return;
+      if (rank > 0 && Date.now() - (this._lastHost || 0) < 20000) return;
       this._takingOver = true;
       this.cb.status('房主斷線了，你是候補房主，正在接手…', true);
       for (let i = 0; i < 20 && !this._leaving; i++) {
@@ -121,18 +184,23 @@
 
     // ================= 加入 =================
     async join(pin, name, spec) {
-      this.name = name; this.pin = pin; this.isHost = false; this.spec = spec;
+      this.name = name; this.pin = pin; this.isHost = false; this.spec = spec; this.cid = cidFor(pin);
       if (!this.peer) {
         this.peer = await this._openPeer(null);
         Voice.attach(this.peer);
         this.peer.on('disconnected', () => { setTimeout(() => { try { this.peer.reconnect(); } catch (e) {} }, 1000); });
       }
-      await this._connect();
+      try { await this._connect(); }
+      catch (e) {
+        // 房間不在了，但這台裝置有暫存 → 直接救回
+        if (this.hasSnap(pin)) { try { await this.revive(pin, name); return 'revived'; } catch (e2) { if (!/unavailable/.test(String(e2 && e2.message))) throw e2; this._connecting = false; await this._connect(); } }
+        else throw e;
+      }
       clearInterval(this._watch);
       this._watch = setInterval(() => {
         if (this._leaving) return;
         if (this.isHost) return;
-        if (Date.now() - (this._lastHost || 0) > 13000) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._connect().catch(() => {}); }
+        if (Date.now() - (this._lastHost || 0) > 13000) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._connect().catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
       }, 4000);
     },
     _connect() {
@@ -182,14 +250,17 @@
       this._pingT = setInterval(() => this.ping(), 4000);
     },
     stop() { clearInterval(this.timer); clearInterval(this._pingT); },
-    restore(R, pin, snap) {
+    restore(R, pin, snap, msg) {
       this.init(R, pin);
       this.lobby = snap.lobby || this.lobby; this.game = snap.game || null;
-      this.members = (snap.members || []).map(m => Object.assign({}, m, { offAt: Date.now(), online: m.cid === R.cid, voice: m.cid === R.cid ? (window.Net.Voice.mode === 'off' ? null : window.Net.Voice.mode) : null, seen: Date.now() }));
+      this.members = (snap.members || []).map(m => Object.assign({}, m, { offAt: Date.now() + 20000, online: m.cid === R.cid, voice: m.cid === R.cid ? (window.Net.Voice.mode === 'off' ? null : window.Net.Voice.mode) : null, seen: Date.now() }));
       if (!this.m(R.cid)) this.members.push({ cid: R.cid, name: R.name, role: 'player', online: true, voice: null, peerId: R.peer.id, seen: Date.now() });
+      else { const me = this.m(R.cid); me.peerId = R.peer.id; me.name = R.name || me.name; }
+      // 時限重新給：避免一回來就被判逾時
+      try { const st = this.game && this.game.state; if (st && st.deadline) st.deadline = Math.max(st.deadline, Date.now() + 20000); } catch (e) {}
       // 被跳過的時限從現在重新算，避免一接手就逾時
       this.pushRoom(); this.pushViews();
-      this.sysChat(`原房主斷線，${R.name} 接手當房主，遊戲繼續`);
+      this.sysChat(msg || `原房主斷線，${R.name} 接手當房主，遊戲繼續`);
     },
     heir() {
       // 候補房主：最早加入、目前在線、不是房主的人（玩家優先）
@@ -197,13 +268,19 @@
       const p = c.filter(m => m.role === 'player');
       return (p[0] || c[0] || {}).cid || null;
     },
+    heirs() {
+      const c = this.members.filter(m => m.online && m.cid !== this.R.cid);
+      return c.filter(m => m.role === 'player').concat(c.filter(m => m.role !== 'player')).slice(0, 2).map(m => m.cid);
+    },
     sendSnap() {
       if (this._snapQ) return; this._snapQ = true;
       setTimeout(() => {
-        this._snapQ = false; const h = this.heir(); if (!h) return;
+        this._snapQ = false;
         const members = this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, peerId: m.peerId, avatar: m.avatar || null }));
-        this.to(h, { t: 'snap', s: { lobby: this.lobby, game: this.game, members } });
-      }, 50);
+        const s = { lobby: this.lobby, game: this.game, members };
+        this.R.saveSnap(s); // 房主自己也存一份：網頁被系統關掉後回來可以救回
+        this.heirs().forEach(h => this.to(h, { t: 'snap', s }));
+      }, 300);
     },
     accept(conn) {
       conn.on('data', d => {
@@ -213,7 +290,7 @@
       conn.on('close', () => {
         const cid = conn._mcid; if (!cid || this.conns[cid] !== conn) return;
         delete this.conns[cid];
-        const m = this.m(cid); if (m) { m.online = false; m.offAt = Date.now(); m.voice = null; this.pushRoom(); this.sysChat(`${m.name} 離線了（輪到他時 15 秒後由系統代打）`); }
+        const m = this.m(cid); if (m) { m.online = false; m.offAt = Date.now(); m.voice = null; this.pushRoom(); this.sysChat(`${m.name} 離線了（輪到他時 40 秒後由系統代打）`); }
       });
     },
     m(cid) { return this.members.find(x => x.cid === cid); },
@@ -235,7 +312,7 @@
     names() { return this.seats().map(cid => (this.m(cid) || {}).name || '?'); },
     roomInfo() {
       return {
-        pin: this.pin, hostCid: this.R.cid, heir: this.heir(),
+        pin: this.pin, hostCid: this.R.cid, heir: this.heir(), heirs: this.heirs(),
         members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, seat: this.seats().indexOf(m.cid) })),
         lobby: this.lobby,
         game: this.game ? { id: this.game.id, seats: this.game.seats, opts: this.game.opts } : null
@@ -262,7 +339,7 @@
         let w = null; try { w = mod.auto(this.game.state); } catch (e) {}
         if (w && w.seat >= 0) {
           const m = this.m(this.game.seats[w.seat]);
-          if (m && !m.online && Date.now() - (m.offAt || 0) > 15000 && Date.now() - (this._lastAuto || 0) > 1500) {
+          if (m && !m.online && Date.now() - (m.offAt || 0) > 40000 && Date.now() - (this._lastAuto || 0) > 1500) {
             this._lastAuto = Date.now();
             let err; try { err = mod.action(this.game.state, w.seat, w.a, { now: Date.now(), names: this.names(), relay() {}, seat: w.seat }); } catch (e) { err = e; }
             if (!err) { this.pushViews(); return; }

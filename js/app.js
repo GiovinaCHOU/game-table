@@ -14,7 +14,10 @@
   function show(id) { document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== id); }
   function inviteLink() { return location.origin + location.pathname + '?pin=' + R.pin + (window.Net.LOCAL ? '&local=1' : ''); }
   async function keepAwake() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && R.pin) keepAwake(); });
+  // 從 LINE 等其他 App 切回來：馬上重連；房間不見了就用暫存救回
+  const wake = () => { if (!R.pin) return; keepAwake(); R.wake().catch(() => {}); };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  window.addEventListener('pageshow', wake); window.addEventListener('online', wake); window.addEventListener('focus', wake);
 
   window.UI = { needAudioTap() { $('#audioTap').hidden = false; } };
   $('#audioTap').onclick = () => { V.resumeAll(); $('#audioTap').hidden = true; };
@@ -40,10 +43,21 @@
     const pin = $('#pinInput').value.replace(/\D/g, '');
     if (pin.length !== 6) { $('#homeMsg').textContent = 'PIN 是 6 位數字'; return; }
     busy(true); $('#homeMsg').textContent = '連線中…';
-    try { await R.join(pin, name, $('#specCheck').checked); enterRoom(); } catch (e) { $('#homeMsg').textContent = e.message || String(e); }
+    try { const r = await R.join(pin, name, $('#specCheck').checked); enterRoom(); if (r === 'revived') toast('房間已從這台裝置的暫存救回，請朋友用同一個 PIN 回來', 4000); } catch (e) { $('#homeMsg').textContent = e.message || String(e); }
     busy(false);
   };
   $('#pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
+  // 首頁：6 小時內玩過的房間，一鍵回去
+  (function resumeList() {
+    let list = [];
+    try { Object.keys(localStorage).filter(k => k.startsWith('snap:')).forEach(k => { const v = JSON.parse(localStorage.getItem(k)); if (v && Date.now() - v.t < 6 * 3600 * 1000) list.push({ pin: k.slice(5), t: v.t, game: v.snap && v.snap.game && v.snap.game.id }); }); } catch (e) {}
+    list.sort((a, b) => b.t - a.t); list = list.slice(0, 3);
+    if (!list.length) return;
+    const box = document.createElement('div'); box.className = 'resume';
+    box.innerHTML = '<p>回到最近的房間</p>' + list.map(r => `<button class="btn ghost sm" data-pin="${r.pin}">PIN ${r.pin}${r.game && window.GAMES[r.game] ? '・' + window.GAMES[r.game].name : ''}・${Math.max(1, Math.round((Date.now() - r.t) / 60000))} 分鐘前</button>`).join('');
+    $('.home-card').insertBefore(box, $('#homeMsg'));
+    box.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => { $('#pinInput').value = b.dataset.pin; $('#joinBtn').click(); });
+  })();
 
   function enterRoom() {
     $('#homeMsg').textContent = '';
