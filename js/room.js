@@ -174,7 +174,7 @@
 
   // =================== 房主（裁判） ===================
   const Host = {
-    members: [], conns: {}, game: null, lobby: { gameId: 'draw', opts: {} }, timer: null,
+    members: [], conns: {}, game: null, lobby: { gameId: 'monopoly', opts: {}, skin: 'classic' }, timer: null,
     init(R, pin) {
       this.R = R; this.pin = pin; this.members = []; this.conns = {}; this.game = null;
       clearInterval(this.timer);
@@ -201,7 +201,7 @@
       if (this._snapQ) return; this._snapQ = true;
       setTimeout(() => {
         this._snapQ = false; const h = this.heir(); if (!h) return;
-        const members = this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, peerId: m.peerId }));
+        const members = this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, peerId: m.peerId, avatar: m.avatar || null }));
         this.to(h, { t: 'snap', s: { lobby: this.lobby, game: this.game, members } });
       }, 50);
     },
@@ -236,7 +236,7 @@
     roomInfo() {
       return {
         pin: this.pin, hostCid: this.R.cid, heir: this.heir(),
-        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, seat: this.seats().indexOf(m.cid) })),
+        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, seat: this.seats().indexOf(m.cid) })),
         lobby: this.lobby,
         game: this.game ? { id: this.game.id, seats: this.game.seats, opts: this.game.opts } : null
       };
@@ -287,10 +287,12 @@
         }
         case 'pong': break;
         case 'chat': if (m) this.all({ t: 'chat', from: m.name, text: String(d.text || '').slice(0, 200) }); break;
+        case 'avatar': if (m && typeof d.img === 'string' && d.img.startsWith('data:image/') && d.img.length < 60000) { m.avatar = d.img; this.pushRoom(); this.pushViews(); } break;
         case 'quick': if (m && Date.now() - (m.lastQ || 0) > 1200) { m.lastQ = Date.now(); this.all({ t: 'quick', from: m.name, cid, text: String(d.text || '').slice(0, 30) }); } break;
         case 'voice': if (m) { m.voice = d.mode === 'off' ? null : d.mode; this.pushRoom(); } break;
         case 'role': if (m && !this.game) { m.role = d.role === 'spec' ? 'spec' : 'player'; this.pushRoom(); } break;
-        case 'lobby': if (isHost && !this.game) { this.lobby = { gameId: d.gameId, opts: d.opts || {} }; this.pushRoom(); } break;
+        case 'lobby': if (isHost && !this.game) { this.lobby = { gameId: d.gameId, opts: d.opts || {}, skin: this.lobby.skin }; this.pushRoom(); } break;
+        case 'skin': if (isHost) { this.lobby.skin = ['classic', 'ragnarok', 'cyber', 'animal', 'alien'].includes(d.skin) ? d.skin : 'classic'; this.pushRoom(); } break;
         case 'start': if (isHost) this.start(); break;
         case 'end': if (isHost) { this.game = null; this.pushRoom(); this.sysChat('回到大廳'); } break;
         case 'kick': if (isHost && d.cid !== this.R.cid) { this.to(d.cid, { t: 'kick' }); const i = this.members.findIndex(x => x.cid === d.cid); if (i >= 0) { const c = this.conns[d.cid]; this.members.splice(i, 1); setTimeout(() => { try { c && c.close(); } catch (e) {} }, 300); } this.pushRoom(); } break;

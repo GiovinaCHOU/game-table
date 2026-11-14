@@ -3,7 +3,7 @@
   const $ = (s) => document.querySelector(s);
   const U = window.GUTIL, R = window.Room, V = window.Net.Voice;
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  const GAME_ORDER = ['mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw'];
+  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw'];
 
   let curGame = null, chatOpen = false, unread = 0, wakeLock = null;
 
@@ -61,17 +61,19 @@
   };
   R.cb.left = () => { location.href = location.pathname + (window.Net.LOCAL ? '?local=1' : ''); };
   R.cb.room = (room) => {
+    document.body.dataset.skin = (room.lobby && room.lobby.skin) || 'classic';
     renderMembers(room);
     const host = R.isHost;
     $('#endBtn').hidden = !(host && room.game);
-    if (!room.game) { curGame = null; $('#game').innerHTML = ''; $('#game').dataset.g = ''; $('#lobby').hidden = false; renderLobby(room); }
+    if (!room.game) { document.body.classList.remove('in-mono'); if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = null; $('#game').innerHTML = ''; $('#game').dataset.g = ''; $('#lobby').hidden = false; renderLobby(room); }
     else { $('#lobby').hidden = true; }
   };
   R.cb.view = (v) => {
     const room = R.room; if (!room || !room.game) return;
     const mod = window.GAMES[room.game.id];
     const el = $('#game');
-    if (curGame !== room.game.id) { curGame = room.game.id; el.innerHTML = ''; el.dataset.g = ''; }
+    if (curGame !== room.game.id) { if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = room.game.id; el.innerHTML = ''; el.dataset.g = ''; }
+    document.body.classList.toggle('in-mono', room.game.id === 'monopoly');
     try { mod.render(el, v, gameUI(v)); } catch (e) { console.error(e); }
     tickTimers();
   };
@@ -135,6 +137,7 @@
         ${(mod.options || []).map(o => `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
+        <label class="opt"><span>桌面風格（所有遊戲）</span><select id="skinSel" ${host ? '' : 'disabled'}>${[['classic', '🟢 經典綠桌'], ['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '👽 外星寶貝']].map(([v, l]) => `<option value="${v}" ${(lobby.skin || 'classic') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <p class="pcount ${countOk ? '' : 'bad'}">玩家 ${players.length} 人（${mod.min}–${mod.max} 人）${countOk ? '' : ' — 人數不符'}</p>
         <div class="act-row">
           <button class="btn ghost" id="myRole">${me && me.role === 'spec' ? '我要當玩家' : '我改成觀戰'}</button>
@@ -149,6 +152,7 @@
     });
     $('#myRole').onclick = () => R.send({ t: 'role', role: me && me.role === 'spec' ? 'player' : 'spec' });
     if (host) $('#startBtn').onclick = () => R.send({ t: 'start' });
+    $('#skinSel').onchange = (e) => R.send({ t: 'skin', skin: e.target.value });
     $('#inviteBtn').onclick = copyInvite;
   }
 
