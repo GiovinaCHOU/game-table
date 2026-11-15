@@ -44,10 +44,29 @@
   // ---------- 各主題角色 ----------
   function ragnarok(T, i, color) {
     const skin = M(T, '#e6c7a6'), robe = M(T, '#f4efe4', { roughness: 0.8 }), trim = M(T, color), gold = M(T, '#d4af37', { metalness: 0.9, roughness: 0.25 });
-    if (i === 4) { // 芬里爾：巨狼
-      const r = quadruped(T, { bodyMat: M(T, '#6f747c', { roughness: 0.9 }), headR: 0.15, snout: 0.08, snoutLen: 1.8, len: 0.55, height: 0.36, tail: { r: 0.05, len: 0.35, lift: 0.9 } });
-      [-1, 1].forEach(s => { const e = mesh(T, new T.ConeGeometry(0.05, 0.12, 4), r.skull.material, s * 0.08, 0.14, -0.02, r.head); e.rotation.z = -s * 0.2; });
-      const chain = mesh(T, new T.TorusGeometry(0.15, 0.025, 6, 16), gold, 0, -0.08, 0.02, r.head); chain.rotation.x = Math.PI / 2.4;
+    if (i === 4) { // 芬里爾：巨狼（長吻、尖耳、鬃毛、發光的眼、蓬鬆尾巴、被金鍊鎖著）
+      const fur = M(T, '#4a4f58', { roughness: 0.95 }), pale = M(T, '#aeb4bc', { roughness: 0.95 }), dark = M(T, '#22252b', { roughness: 0.9 });
+      const r = quadruped(T, { bodyMat: fur, legMat: fur, legR: 0.065, headR: 0.15, len: 0.58, height: 0.3, wide: 0.24, bodyH: 0.4, neck: 0.14, tail: { r: 0.07, len: 0.34, lift: 0.5, mat: fur } });
+      r.body.scale.setScalar(1.2);
+      r.skull.scale.set(1, 0.9, 1.05);
+      // 長吻＋黑鼻頭＋下顎
+      const snout = mesh(T, new T.ConeGeometry(0.075, 0.24, 10), pale, 0, -0.035, 0.2, r.head); snout.rotation.x = Math.PI / 2; snout.scale.set(1, 1, 0.75);
+      mesh(T, new T.SphereGeometry(0.03, 8, 6), M(T, '#0b0b0b', { roughness: 0.3 }), 0, -0.02, 0.31, r.head);
+      const jaw = mesh(T, new T.BoxGeometry(0.08, 0.025, 0.15), dark, 0, -0.085, 0.17, r.head); jaw.rotation.x = 0.12;
+      for (let k = 0; k < 2; k++) mesh(T, new T.ConeGeometry(0.01, 0.04, 4), M(T, '#f4f1e6'), (k ? 1 : -1) * 0.03, -0.075, 0.24, r.head).rotation.x = Math.PI;
+      // 尖耳
+      [-1, 1].forEach(sd => { const e = mesh(T, new T.ConeGeometry(0.045, 0.17, 4), fur, sd * 0.075, 0.15, -0.03, r.head); e.rotation.z = -sd * 0.18; e.rotation.x = -0.15; const ei = mesh(T, new T.ConeGeometry(0.025, 0.1, 4), M(T, '#7a5560'), sd * 0.075, 0.14, -0.015, r.head); ei.rotation.copy(e.rotation); });
+      // 發光的琥珀色眼睛（蓋在原本的黑眼上）
+      const glow = M(T, '#ffb020', { emissive: '#ff9000', emissiveIntensity: 2.2 });
+      [-1, 1].forEach(sd => { const e = mesh(T, new T.SphereGeometry(0.024, 10, 8), glow, sd * 0.065, 0.045, 0.12, r.head); e.scale.set(1.3, 0.7, 0.6); e.rotation.z = sd * 0.35; });
+      // 頸部鬃毛
+      for (let k = 0; k < 9; k++) { const a = (k / 8 - 0.5) * 2.6; const m = mesh(T, new T.ConeGeometry(0.06, 0.2, 5), fur, Math.sin(a) * 0.15, 0.62 + Math.cos(a) * 0.05, 0.3 - Math.abs(Math.sin(a)) * 0.04, r.body); m.rotation.set(-1.9, 0, -Math.sin(a) * 0.6); }
+      mesh(T, new T.SphereGeometry(0.13, 12, 10), pale, 0, 0.42, 0.3, r.body).scale.set(1, 1.1, 0.7); // 胸口淺色毛
+      // 蓬鬆尾巴＋淺色尾尖
+      const tip = mesh(T, new T.SphereGeometry(0.075, 10, 8), pale, 0, 0, -0.36, r.tail); tip.scale.set(1, 1, 1.4); void tip;
+      // 神鍊格萊普尼爾
+      const gold2 = M(T, '#d4af37', { metalness: 0.9, roughness: 0.25, emissive: '#5a4300', emissiveIntensity: 0.4 });
+      const chain = mesh(T, new T.TorusGeometry(0.15, 0.022, 6, 18), gold2, 0, 0.6, 0.32, r.body); chain.rotation.x = Math.PI / 2.3;
       return r;
     }
     const r = humanoid(T, { bodyMat: robe, legMat: skin, armMat: skin, headMat: skin });
@@ -138,9 +157,13 @@
   // ---------- 對外：建立角色 ----------
   C.make = function (T, theme, idx, color, avatarTex) {
     let r;
-    if (avatarTex) { // 自畫角色：人形身體＋臉部貼上你畫的圖
-      r = humanoid(T, { bodyMat: M(T, color, { roughness: 0.6 }), legMat: M(T, '#2b2b33'), headMat: M(T, '#f2f2f2') , eyes: false });
-      const face = new T.Mesh(new T.CircleGeometry(0.125, 24), new T.MeshBasicMaterial({ map: avatarTex })); face.position.z = 0.131; r.head.add(face);
+    if (avatarTex) { // 自畫角色：你畫的圖本身就是角色（紙板立牌，永遠面向鏡頭）
+      const g = new T.Group(), body = new T.Group(); g.add(body);
+      const card = new T.Group(); card.position.y = 0.08; body.add(card);
+      const pic = new T.Mesh(new T.PlaneGeometry(1.0, 1.0), new T.MeshBasicMaterial({ map: avatarTex, transparent: true, alphaTest: 0.35, side: T.DoubleSide }));
+      pic.position.y = 0.52; pic.castShadow = true; card.add(pic);
+      const base = new T.Mesh(new T.CylinderGeometry(0.17, 0.2, 0.06, 20), M(T, color, { roughness: 0.4, metalness: 0.2 })); base.position.y = 0.03; base.castShadow = true; g.add(base);
+      r = { g, body, head: null, skull: null, legs: [], arms: [], kind: 'standee', billboard: card };
     } else if (theme === 'ragnarok') r = ragnarok(T, idx, color);
     else if (theme === 'cyber') r = cyber(T, idx, color);
     else if (theme === 'animal') r = animal(T, idx, color);
@@ -160,7 +183,8 @@
     const sw = Math.sin(r.phase);
     const legs = r.legs, arms = r.arms;
     let bodyY = 0, bodyRX = 0, headRX = 0, armUp = 0;
-    if (s === 'walk') { bodyY = Math.abs(Math.sin(r.phase)) * 0.04; legs.forEach((l, k) => l.rotation.x = (k % 2 ? -1 : 1) * sw * 0.7 * (r.kind === 'quad' && k > 1 ? -1 : 1)); arms.forEach((a, k) => a.rotation.x = (k % 2 ? 1 : -1) * sw * 0.6); }
+    if (r.kind === 'standee') { r.body.rotation.z = s === 'walk' ? sw * 0.14 : s === 'scared' ? Math.sin(t * 40) * 0.06 : r.body.rotation.z * 0.85; }
+    if (s === 'walk') { bodyY = Math.abs(Math.sin(r.phase)) * (r.kind === 'standee' ? 0.12 : 0.04); legs.forEach((l, k) => l.rotation.x = (k % 2 ? -1 : 1) * sw * 0.7 * (r.kind === 'quad' && k > 1 ? -1 : 1)); arms.forEach((a, k) => a.rotation.x = (k % 2 ? 1 : -1) * sw * 0.6); }
     else { legs.forEach(l => l.rotation.x *= 0.8); arms.forEach((a, k) => a.rotation.x = Math.sin(t * 1.5 + k) * 0.05); bodyY = Math.sin(t * 2 + r.phase) * 0.012; }
     if (s === 'joy') { bodyY = Math.abs(Math.sin(t * 9)) * 0.22; armUp = -2.6; }
     if (s === 'sad') { headRX = 0.55; bodyRX = 0.15; }

@@ -11,8 +11,8 @@
 
   // ---------------- 調色盤 ----------------
   A.STYLE = {
-    ragnarok: { bg: '#cfd8e6', fog: ['#dfe6f0', 30, 90], hemi: [0xfff6e6, 0x8a9bb5, 0.8], sun: [0xffe7b8, 2.4], env: ['#fff4dc', '#a9b8cf'], panels: [['#fff2c0', 0, 8, 0]], envI: 0.7 },
-    cyber: { bg: '#07050f', fog: ['#120a24', 16, 60], hemi: [0x8a7cff, 0x1a0a2a, 0.9], sun: [0xb4c4ff, 0.9], env: ['#2a1450', '#0a0618'], panels: [['#ff2e88', 6, 2, 0], ['#00e5ff', -6, 2, 0], ['#b14cff', 0, 3, 6], ['#ffd400', 0, 2, -6]], envI: 1.0 },
+    ragnarok: { bg: '#b4c2d8', fog: ['#c9d3e2', 34, 100], hemi: [0xfff1dc, 0x6f7f9a, 0.65], sun: [0xffdca0, 2.1], env: ['#ffe9c4', '#8796b0'], panels: [['#fff2c0', 0, 8, 0]], envI: 0.55 },
+    cyber: { bg: '#21173f', fog: ['#2c1f55', 26, 85], hemi: [0xc0b4ff, 0x3a2a60, 1.7], sun: [0xd8e0ff, 1.9], env: ['#6a48b0', '#241848'], panels: [['#ff2e88', 6, 2, 0], ['#00e5ff', -6, 2, 0], ['#b14cff', 0, 3, 6], ['#ffd400', 0, 2, -6], ['#ffffff', 0, 8, 0]], envI: 1.5 },
     animal: { bg: '#a9cde6', fog: ['#c9dbe2', 30, 90], hemi: [0xfff3d6, 0x6b5a3a, 0.9], sun: [0xffe2b0, 2.6], env: ['#cfe6f5', '#7a6a48'], envI: 0.5 },
     alien: { bg: '#050806', fog: ['#0a120d', 12, 48], hemi: [0x9fbfa7, 0x0a0f0a, 0.9], sun: [0xd6eedc, 1.3], env: ['#6f8f77', '#101810'], panels: [['#c8ffd0', 0, 8, 0], ['#5cff7a', 6, 1, 0], ['#d9d3b8', -6, 2, 3]], envI: 1.2 }
   };
@@ -22,7 +22,7 @@
     const [c, g] = cvs(256); g.textAlign = 'center'; g.textBaseline = 'middle';
     const prop = b.type === 'prop';
     if (theme === 'cyber') {
-      g.fillStyle = '#0d0b1c'; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = '#231d44'; g.fillRect(0, 0, 256, 256);
       for (let y = 0; y < 256; y += 4) { g.fillStyle = 'rgba(255,255,255,0.025)'; g.fillRect(0, y, 256, 1); }
       const neon = prop ? b.color : ({ luck: '#00e5ff', bad: '#ff2e63', start: '#ffd400', jail: '#ff2e63', gotojail: '#ff2e63', free: '#3cff9e', tax: '#ffd400', teleport: '#b14cff' }[b.type] || '#00e5ff');
       g.shadowColor = neon; g.shadowBlur = 18; g.strokeStyle = neon; g.lineWidth = 5; g.strokeRect(10, 10, 236, 236);

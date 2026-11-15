@@ -14,11 +14,45 @@
     + '筷子 便當 電鍋 茶壺 珍珠 布丁 爆米花 棒棒糖 '
     + '馬桶塞 掃把 垃圾車 衛生紙 牙膏 安全帽 口罩').split(/\s+/).filter(Boolean);
 
-  function pick3() { return U.shuffle(WORDS.slice()).slice(0, 3); }
+  const MEDIUM = ('打瞌睡 塞車 排隊 自拍 搭捷運 夾娃娃機 健身房 刷牙 洗衣服 遛狗 吸塵器 晾衣服 便利商店店員 外送員 計程車 收銀台 '
+    + '溜滑梯 盪鞦韆 蹺蹺板 摩天輪 旋轉木馬 鬼屋 動物園 水族館 遊樂園 露營 烤肉 跨年煙火 中秋烤肉 端午划龍舟 元宵燈籠 '
+    + '過年發紅包 拜拜 算命 結婚 畢業典禮 生日派對 求婚 失戀 加班 開會 面試 考試作弊 補習班 '
+    + '颱風假 停電 地震 下冰雹 沙塵暴 海嘯 極光 流星雨 日蝕 '
+    + '恐龍化石 木乃伊 金字塔 萬里長城 自由女神 艾菲爾鐵塔 比薩斜塔 '
+    + '牙醫 理髮師 獸醫 太空人 偵探 小偷 法官 指揮家 魔術方塊 拼圖 積木 撲克牌 麻將 骰子 '
+    + '腳踏車環島 衝浪 潛水 滑雪 高空彈跳 跳傘 攀岩 拔河 跳繩 呼拉圈 '
+    + '火鍋吃到飽 珍奶大杯 雞蛋糕 鹹酥雞 牛肉麵 蚵仔煎 刈包 豆花 芒果冰 '
+    + '鬧鐘 體重計 指甲剪 自拍棒 行李箱 保溫瓶 衣架 電燈泡 延長線 '
+    + '貓咪踩奶 狗狗搖尾巴 鸚鵡學說話 企鵝滑倒 熊抱 長頸鹿脖子').split(/\s+/).filter(Boolean);
+  const HARD = ('時差 冷戰 社恐 拖延症 選擇障礙 起床氣 鬼壓床 既視感 斷捨離 薪水小偷 月光族 '
+    + '畫蛇添足 對牛彈琴 井底之蛙 守株待兔 亡羊補牢 杯弓蛇影 一石二鳥 雞同鴨講 狐假虎威 掩耳盜鈴 '
+    + '盲人摸象 葉公好龍 對症下藥 破釜沉舟 打草驚蛇 火上加油 錦上添花 雪中送炭 半途而廢 '
+    + '網路斷線 電量不足 已讀不回 手機沒訊號 塞車遲到 誤點的火車 迷路 外送送錯 '
+    + '黑洞 量子力學 萬有引力 進化論 光合作用 溫室效應 蝴蝶效應 '
+    + '蒙娜麗莎 吶喊 星夜 沉思者 '
+    + '回音 影子 夢遊 失眠 打嗝 腳麻 '
+    + '小確幸 厭世 躺平 內卷 爆肝 社畜 '
+    + '自由 時間 秘密 謊言 運氣 嫉妒 後悔 尷尬 驕傲 孤單 '
+    + '鄉愁 初戀 青春 中年危機 退休生活 '
+    + '颱風眼 海市蜃樓 北極熊融冰 '
+    + '平行宇宙 時光機 外星人綁架 殭屍末日 機器人叛變').split(/\s+/).filter(Boolean);
+  function pool(st) {
+    const base = st.level === 'hard' ? HARD : st.level === 'medium' ? MEDIUM : st.level === 'mix' ? WORDS.concat(MEDIUM, HARD) : WORDS;
+    const custom = st.custom || [];
+    if (st.source === 'custom' && custom.length >= 3) return custom;
+    if (st.source === 'both' && custom.length) return base.concat(custom, custom); // 自訂題目出現機率加倍
+    return base;
+  }
+  function pick3(st) {
+    const used = st.used || (st.used = []);
+    let p = pool(st).filter(w => !used.includes(w)); if (p.length < 3) { st.used = []; p = pool(st).slice(); }
+    const out = []; U.shuffle(p.slice()).forEach(w => { if (out.length < 3 && !out.includes(w)) out.push(w); });
+    out.forEach(w => st.used.push(w)); return out;
+  }
   function norm(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
 
   function startTurn(st, now) {
-    st.phase = 'choose'; st.choices = pick3(); st.word = ''; st.strokes = []; st.guessed = {};
+    st.phase = 'choose'; st.choices = pick3(st); st.word = ''; st.strokes = []; st.guessed = {};
     st.deadline = now + 15000; st.hint = [];
   }
   function nextTurn(st, now) {
@@ -34,10 +68,14 @@
     desc: '輪流畫圖，其他人在下面打字猜。越快猜對分數越高，畫的人也會加分。',
     options: [
       { key: 'rounds', label: '輪數', choices: [[1, '1 輪'], [2, '2 輪'], [3, '3 輪']], def: 2 },
-      { key: 'time', label: '每題秒數', choices: [[60, '60 秒'], [80, '80 秒'], [100, '100 秒']], def: 80 }
+      { key: 'time', label: '每題秒數', choices: [[60, '60 秒'], [80, '80 秒'], [100, '100 秒']], def: 80 },
+      { key: 'level', label: '難度', choices: [['easy', '簡單（日常物品）'], ['medium', '中等（動作、場景）'], ['hard', '困難（成語、抽象）'], ['mix', '全部混合']], def: 'medium' },
+      { key: 'source', label: '題庫', choices: [['builtin', '內建題目'], ['both', '內建＋自訂'], ['custom', '只用自訂']], def: 'builtin' },
+      { key: 'custom', label: '自訂題目（朋友名字、圈內哏都可以）', type: 'text', placeholder: '用逗號或空白分開，例如：小美, 阿傑的貓, 姵希堆積木', def: '' }
     ],
     init(n, o, names, now) {
-      const st = { n, rounds: +o.rounds, time: +o.time, roundNo: 1, turnIdx: 0, scores: Array(n).fill(0), log: [] };
+      const custom = String(o.custom || '').split(/[,，、\s\n]+/).map(w => w.trim()).filter(w => w && w.length <= 20).slice(0, 200);
+      const st = { n, rounds: +o.rounds, time: +o.time, level: o.level || 'medium', source: o.source || 'builtin', custom, roundNo: 1, turnIdx: 0, scores: Array(n).fill(0), log: [] };
       startTurn(st, now); return st;
     },
     drawer(st) { return st.turnIdx; },
@@ -120,13 +158,21 @@
       const me = v.seat, iDraw = me === v.drawer && v.phase === 'draw';
       if (el.dataset.g !== 'draw') {
         el.dataset.g = 'draw';
-        el.innerHTML = `
-          <div class="dr-top"><span class="dr-round"></span><span class="dr-word"></span><span class="timer" data-deadline=""></span></div>
-          <div class="dr-canvas-wrap"><canvas width="1000" height="1000"></canvas><div class="dr-overlay"></div></div>
-          <div class="dr-tools"></div>
-          <div class="dr-bottom"><div class="dr-log"></div>
-            <form class="dr-guess"><input placeholder="輸入答案或聊天…" maxlength="40" autocomplete="off"><button>送出</button></form></div>
-          <div class="dr-scores"></div>`;
+        el.innerHTML = `<div class="dr">
+          <div class="dr-main">
+            <div class="dr-top"><span class="dr-round"></span><span class="dr-word"></span><span class="timer" data-deadline=""></span></div>
+            <div class="dr-area"><div class="dr-canvas-wrap"><canvas width="1000" height="1000"></canvas><div class="dr-overlay"></div></div></div>
+            <div class="dr-tools"></div>
+          </div>
+          <div class="dr-side">
+            <div class="dr-scores"></div>
+            <div class="dr-log"></div>
+            <form class="dr-guess"><input placeholder="輸入答案或聊天…" maxlength="40" autocomplete="off" enterkeyhint="send"><button class="btn">送出</button></form>
+          </div></div>`;
+        // 畫布永遠取可用空間裡最大的正方形
+        const area = el.querySelector('.dr-area'), wrap = el.querySelector('.dr-canvas-wrap');
+        const fit = () => { const w = area.clientWidth, h = area.clientHeight; const s2 = Math.max(120, Math.min(w, h)); wrap.style.width = wrap.style.height = s2 + 'px'; };
+        if (this._ro) this._ro.disconnect(); this._ro = new ResizeObserver(fit); this._ro.observe(area); fit();
         this._canvas = el.querySelector('canvas');
         this._bindCanvas(ui);
         el.querySelector('.dr-guess').onsubmit = (e) => { e.preventDefault(); const i = e.target.querySelector('input'); if (i.value.trim()) ui.send({ type: 'guess', text: i.value }); i.value = ''; };

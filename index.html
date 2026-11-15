@@ -56,11 +56,14 @@
     <div id="lobby"></div>
     <div id="game"></div>
   </main>
-  <button id="pilotBtn" class="pilot-fab" hidden>🤖<span>託管</span></button>
-  <button id="quickBtn" class="quick-fab">⚡</button>
   <div id="quick" class="quick" hidden></div>
   <div id="bubbles" class="bubbles"></div>
-  <button id="chatBtn" class="chat-fab">💬<span id="chatBadge" hidden></span></button>
+  <nav class="dock">
+    <button id="pilotBtn" class="dock-btn pilot" hidden>🤖<span>託管</span></button>
+    <span class="dock-sp"></span>
+    <button id="quickBtn" class="dock-btn">⚡<span>快捷</span></button>
+    <button id="chatBtn" class="dock-btn">💬<span>聊天</span><em id="chatBadge" hidden></em></button>
+  </nav>
   <div id="chat" class="chat" hidden>
     <div class="chat-head">聊天 <button id="chatClose" class="iconbtn">✕</button></div>
     <div id="chatLog" class="chat-log"></div>

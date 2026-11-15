@@ -59,7 +59,11 @@
     box.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => { $('#pinInput').value = b.dataset.pin; $('#joinBtn').click(); });
   })();
 
+  // 鎖定版面高度＝實際可視高度（含手機鍵盤彈出時），避免畫面上下跳
+  function setVH() { const h = (window.visualViewport && window.visualViewport.height) || window.innerHeight; document.documentElement.style.setProperty('--vh', h + 'px'); if (document.body.classList.contains('in-room')) window.scrollTo(0, 0); }
+  setVH(); window.addEventListener('resize', setVH); if (window.visualViewport) { window.visualViewport.addEventListener('resize', setVH); window.visualViewport.addEventListener('scroll', setVH); }
   function enterRoom() {
+    document.body.classList.add('in-room');
     $('#homeMsg').textContent = '';
     show('room'); $('#pinText').textContent = R.pin;
     history.replaceState(null, '', '?pin=' + R.pin + (window.Net.LOCAL ? '&local=1' : ''));
@@ -78,7 +82,7 @@
   R.cb.room = (room) => {
     document.body.dataset.skin = (room.lobby && room.lobby.skin) || 'classic';
     { const me = room.members.find(m => m.cid === R.cid); const seated = room.game && me && room.game.seats.includes(me.cid);
-      $('#pilotBtn').hidden = !seated || (room.game && room.game.id === 'monopoly'); $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
+      $('#pilotBtn').hidden = !seated; $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
     renderMembers(room);
     const host = R.isHost;
     $('#endBtn').hidden = !(host && room.game);
@@ -144,6 +148,7 @@
   }
 
   function renderLobby(room) {
+    const ae = document.activeElement; if (ae && ae.tagName === 'TEXTAREA' && $('#lobby').contains(ae)) { ae.onblur = () => { ae.dispatchEvent(new Event('change')); setTimeout(() => renderLobby(R.room), 50); }; return; }
     const host = R.isHost; const lobby = room.lobby; const sel = lobby.gameId;
     const mod = window.GAMES[sel];
     const players = room.members.filter(m => m.online && m.role === 'player');
@@ -157,7 +162,9 @@
           <span class="gi">${g.icon}</span><b>${g.name}</b><small>${g.min === g.max ? g.min : g.min + '–' + g.max} 人</small></button>`; }).join('')}</div>
       <div class="lobby-detail">
         <p class="gdesc">${U.esc(mod.desc)}</p>
-        ${(mod.options || []).map(o => `<label class="opt"><span>${o.label}</span>
+        ${(mod.options || []).map(o => o.type === 'text' ? (host ? `<label class="opt col"><span>${o.label}</span>
+          <textarea data-opt="${o.key}" rows="2" maxlength="1500" placeholder="${U.esc(o.placeholder || '')}">${U.esc(opts[o.key] || '')}</textarea><small class="hint">其他人看不到內容，只會看到題目數量</small></label>`
+          : `<label class="opt"><span>${o.label}</span><span class="hint">${String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
         <label class="opt"><span>桌面風格（所有遊戲）</span><select id="skinSel" ${host ? '' : 'disabled'}>${[['classic', '🟢 經典綠桌'], ['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '👽 外星寶貝']].map(([v, l]) => `<option value="${v}" ${(lobby.skin || 'classic') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -170,7 +177,7 @@
       </div>`;
     $('#lobby').querySelectorAll('[data-g]').forEach(b => b.onclick = () => R.send({ t: 'lobby', gameId: b.dataset.g, opts: {} }));
     $('#lobby').querySelectorAll('[data-opt]').forEach(s => s.onchange = () => {
-      const o = Object.assign({}, lobby.opts); o[s.dataset.opt] = isNaN(+s.value) ? s.value : +s.value;
+      const o = Object.assign({}, lobby.opts); o[s.dataset.opt] = s.tagName === 'TEXTAREA' || isNaN(+s.value) || s.value === '' ? s.value : +s.value;
       R.send({ t: 'lobby', gameId: sel, opts: o });
     });
     $('#myRole').onclick = () => R.send({ t: 'role', role: me && me.role === 'spec' ? 'player' : 'spec' });
@@ -238,8 +245,10 @@
 
   // ---------------- 快捷文字 ----------------
   const QDEF = ['是想好了沒', null, '我要去尿尿', '屁眼派對', '你們這些輸家'];
+  function inMjNow() { return !!(R.room && ((R.room.game && R.room.game.id === 'mahjong') || (!R.room.game && R.room.lobby.gameId === 'mahjong'))); }
+  function qKey() { return inMjNow() ? 'quick-mj' : 'quick'; }
   function quickList() {
-    let saved = []; try { saved = JSON.parse(ls.get('quick') || '[]'); } catch (e) {}
+    let saved = []; try { saved = JSON.parse(ls.get(qKey()) || '[]'); } catch (e) {}
     const inMj = R.room && ((R.room.game && R.room.game.id === 'mahjong') || (!R.room.game && R.room.lobby.gameId === 'mahjong'));
     return QDEF.map((d, i) => (saved[i] && saved[i].trim()) || d || (inMj ? '姵希又在堆積木' : '可以用點心嗎'));
   }
@@ -254,14 +263,14 @@
     R.send({ t: 'quick', text: quickList()[+b.dataset.q] }); $('#quick').hidden = true;
   };
   function editQuick() {
-    let saved = []; try { saved = JSON.parse(ls.get('quick') || '[]'); } catch (e) {}
+    let saved = []; try { saved = JSON.parse(ls.get(qKey()) || '[]'); } catch (e) {}
     const sh = $('#sheet');
-    sh.querySelector('.sheet-body').innerHTML = `<h3>自訂快捷文字（最多 30 字）</h3>` +
-      QDEF.map((d, i) => `<input class="qin" maxlength="30" value="${U.esc(saved[i] || '')}" placeholder="${U.esc(d || '預設：姵希又在堆積木（麻將）／可以用點心嗎')}">`).join('') +
+    sh.querySelector('.sheet-body').innerHTML = `<h3>自訂快捷文字（最多 30 字）</h3><p class="hint">${inMjNow() ? '這組只用在麻將' : '這組用在麻將以外的遊戲（麻將有自己的一組）'}</p>` +
+      QDEF.map((d, i) => `<input class="qin" maxlength="30" value="${U.esc(saved[i] || '')}" placeholder="${U.esc(d || (inMjNow() ? '預設：姵希又在堆積木' : '預設：可以用點心嗎'))}">`).join('') +
       `<p class="hint">留空就用預設</p><div class="act-row"><button class="btn ghost" id="qReset">全部恢復預設</button><button class="btn" id="qSave">儲存</button></div>`;
     sh.hidden = false;
-    $('#qSave').onclick = () => { ls.set('quick', JSON.stringify([...sh.querySelectorAll('.qin')].map(i => i.value.trim()))); sh.hidden = true; toast('已儲存'); };
-    $('#qReset').onclick = () => { ls.set('quick', '[]'); sh.hidden = true; toast('已恢復預設'); };
+    $('#qSave').onclick = () => { ls.set(qKey(), JSON.stringify([...sh.querySelectorAll('.qin')].map(i => i.value.trim()))); sh.hidden = true; toast('已儲存'); };
+    $('#qReset').onclick = () => { ls.set(qKey(), '[]'); sh.hidden = true; toast('已恢復預設'); };
   }
   R.cb.quick = (m) => {
     const b = document.createElement('div'); b.className = 'bubble';

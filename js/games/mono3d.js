@@ -26,7 +26,7 @@
       const r = this.renderer = new T.WebGLRenderer({ antialias: this.q.high, powerPreference: 'high-performance' });
       r.setPixelRatio(Math.min(this.q.high ? 2 : 1.25, window.devicePixelRatio || 1)); r.setSize(w, h);
       r.shadowMap.enabled = this.q.high; r.shadowMap.type = T.PCFSoftShadowMap;
-      r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' || theme === 'alien' ? 1.15 : 1.0;
+      r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.2 : 1.0;
       el.appendChild(r.domElement); r.domElement.style.touchAction = 'none';
       const sc = this.scene = new T.Scene();
       sc.background = new T.Color(S.bg); sc.fog = new T.Fog(S.fog[0], S.fog[1], S.fog[2]);
@@ -82,7 +82,7 @@
         const dx = cur.x - prev.x, dy = cur.y - prev.y; moved += Math.abs(dx) + Math.abs(dy);
         const g = this.goal;
         if (cur.n === 1 && !(p.btn === 2 || p.shift)) { // 單指拖曳：平移地圖
-          if (moved > 6) { this.follow(null); this.userMoved = true; }
+          if (moved > 6) { if (this.following != null && this.onPan) this.onPan(); this.follow(null); this.userMoved = true; }
           const s = g.dist * 0.0016, az = g.azim;
           g.target.x += -Math.cos(az) * dx * s - Math.sin(az) * dy * s * 1.4;
           g.target.z += Math.sin(az) * dx * s - Math.cos(az) * dy * s * 1.4;
@@ -126,7 +126,10 @@
       this.cam.position.set(c.target.x + c.dist * sp * Math.sin(c.azim), Math.max(0.45, c.target.y + c.dist * Math.cos(c.polar)), c.target.z + c.dist * sp * Math.cos(c.azim));
       this.cam.lookAt(c.target.x, c.target.y + (c.polar > 1.1 ? 0.4 : 0), c.target.z);
       this.upd.forEach(f => f(t, dt));
-      Object.values(this.tokens).forEach(tk => root.MONO_CHARS.update(tk.r, t, dt));
+      Object.values(this.tokens).forEach(tk => {
+        root.MONO_CHARS.update(tk.r, t, dt);
+        if (tk.r.billboard) { const gp = tk.r.g.position; tk.r.billboard.rotation.y = Math.atan2(this.cam.position.x - gp.x, this.cam.position.z - gp.z) - tk.r.g.rotation.y; }
+      });
       this.renderer.render(this.scene, this.cam);
     }
     tween(dur, step) { return new Promise(res => this.anim.push({ start: performance.now(), dur, step, done: res })); }
@@ -175,10 +178,23 @@
     }
 
     // ================= 角色 =================
+    // 自畫角色：白底去背＋白色貼紙描邊，做成紙板立牌
     avatarTexture(img) {
-      const T = THREE; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 128, 128);
+      const T = THREE, S = 256; const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
       const tx = new T.CanvasTexture(c); tx.colorSpace = T.SRGBColorSpace;
-      const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, 128, 128); tx.needsUpdate = true; }; im.src = img; return tx;
+      const im = new Image(); im.onload = () => {
+        const cut = document.createElement('canvas'); cut.width = cut.height = S; const cg = cut.getContext('2d');
+        cg.drawImage(im, 16, 16, S - 32, S - 32);
+        const d = cg.getImageData(0, 0, S, S), x = d.data; let ink = 0;
+        for (let i = 0; i < x.length; i += 4) { const m = Math.min(x[i], x[i + 1], x[i + 2]); if (m > 225) x[i + 3] = 0; else { if (m > 190) x[i + 3] = Math.round((225 - m) / 35 * 255); ink++; } }
+        cg.putImageData(d, 0, 0);
+        if (ink < 50) { g.fillStyle = '#fff'; g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 10, 0, 7); g.fill(); g.drawImage(im, 24, 24, S - 48, S - 48); tx.needsUpdate = true; return; } // 幾乎空白就用圓牌
+        // 描邊：把剪影往四周位移疊起來，塗白
+        const ol = document.createElement('canvas'); ol.width = ol.height = S; const og = ol.getContext('2d');
+        for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; og.drawImage(cut, Math.cos(a) * 7, Math.sin(a) * 7); }
+        og.globalCompositeOperation = 'source-in'; og.fillStyle = '#ffffff'; og.fillRect(0, 0, S, S);
+        g.clearRect(0, 0, S, S); g.drawImage(ol, 0, 0); g.drawImage(cut, 0, 0); tx.needsUpdate = true;
+      }; im.src = img; return tx;
     }
     nameTag(name, color) {
       const T = THREE; const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');

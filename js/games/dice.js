@@ -79,18 +79,29 @@
               ${v.all.map((ds, i) => `<div class="dice-line"><span>${U.esc(v.names[i])}</span>${ds.map(d => dieHTML(d, match(d))).join('')}</div>`).join('')}
               ${me >= 0 ? '<button class="btn" data-a="next">下一局（重新搖）</button>' : ''}</div>` : ''}
         ${v.mine && !r ? `<div class="my-dice"><small>你的骰子（只有你看得到）</small><div>${v.mine.slice().sort().map(d => dieHTML(d)).join('')}</div></div>` : ''}
-        ${me >= 0 && v.phase === 'bid' ? `<div class="bid-pad ${myTurn ? '' : 'dim'}">
-            <div class="cnt"><button class="btn sm" data-c="-1">－</button><b>${p.count}</b> 個<button class="btn sm" data-c="1">＋</button></div>
-            <div class="faces">${[2, 3, 4, 5, 6, 1].map(f => `<button class="die-btn ${p.face === f ? 'on' : ''}" data-f="${f}">${PIP[f]}</button>`).join('')}</div>
-            <div class="act-row"><button class="btn" data-a="bid" ${myTurn ? '' : 'disabled'}>喊 ${p.count} 個 ${PIP[p.face]}</button><button class="btn danger" data-a="open" ${myTurn && v.bid ? '' : 'disabled'}>開！</button></div>
-            <p class="hint">${myTurn ? '輪到你' : `等 ${U.esc(v.names[v.turn])} 喊…`} <span class="timer" data-deadline="${v.deadline || ''}"></span></p>
+        ${me >= 0 && v.phase === 'bid' ? `<div class="bid-pad ${myTurn ? 'mine' : 'dim'}">
+            <p class="turn-line">${myTurn ? '👉 輪到你了' : `等 ${U.esc(v.names[v.turn])} 喊…`} <span class="timer" data-deadline="${v.deadline || ''}"></span></p>
+            <div class="bid-compose"><small>你要喊</small>
+              <div class="cnt"><button class="btn sm" data-c="-1">－</button><b>${p.count}</b><span>個</span><button class="btn sm" data-c="1">＋</button></div>
+              <div class="faces">${[2, 3, 4, 5, 6, 1].map(f => `<button class="die-btn ${p.face === f ? 'on' : ''}" data-f="${f}">${PIP[f]}</button>`).join('')}</div>
+              <button class="btn big bid-go" data-a="bid" ${myTurn ? '' : 'disabled'}>📣 喊 ${p.count} 個 ${PIP[p.face]}</button>
+            </div>
+            <div class="open-zone"><small>不相信上一家？</small>
+              <button class="btn open-go ${this._armed ? 'armed' : ''}" data-a="open" ${myTurn && v.bid ? '' : 'disabled'}>${this._armed ? '再按一次確定開！' : `🫵 開 ${v.bid ? U.esc(v.names[v.bid.seat]) + ' 的 ' + v.bid.count + ' 個' + PIP[v.bid.face] : ''}`}</button>
+            </div>
           </div>` : ''}
         <div class="bid-log">${v.bids.map(b => `<span>${U.esc(v.names[b.seat])}：${b.count}個${PIP[b.face]}</span>`).join(' → ')}</div>`;
       el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { p.count = Math.max(1, Math.min(v.n * v.per, p.count + +b.dataset.c)); this.render(el, v, ui); });
       el.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { p.face = +b.dataset.f; this.render(el, v, ui); });
       el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
-        if (b.dataset.a === 'bid') ui.send({ type: 'bid', count: p.count, face: p.face }); else ui.send({ type: b.dataset.a });
+        const a = b.dataset.a;
+        if (a === 'bid') { this._armed = false; ui.send({ type: 'bid', count: p.count, face: p.face }); }
+        else if (a === 'open') { // 開要按兩次，避免誤按
+          if (!this._armed) { this._armed = true; clearTimeout(this._armT); this._armT = setTimeout(() => { this._armed = false; this.render(el, this._lastV || v, ui); }, 2500); this.render(el, v, ui); }
+          else { this._armed = false; ui.send({ type: 'open' }); }
+        } else ui.send({ type: a });
       });
+      this._lastV = v;
     }
   };
   root.GAMES.dice = M;

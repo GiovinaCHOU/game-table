@@ -115,13 +115,12 @@
           v.phase === 'over' ? `🎉 ${U.esc(v.names[v.winner])} 出完牌，獲勝！`
           : res ? (res.reason === 'wrong' ? `😵 ${U.esc(v.names[res.loser])} 拍錯了，收走 ${res.got} 張` : res.reason === 'noslap' ? `😴 ${U.esc(v.names[res.loser])} 沒拍到，收走 ${res.got} 張` : `🐢 ${U.esc(v.names[res.loser])} 最慢，收走 ${res.got} 張`)
             + (res.slaps.length > 1 ? `<small>${res.slaps.slice().sort((a, b) => a.rt - b.rt).map(s => `${U.esc(v.names[s.seat])} ${s.rt}ms`).join('、')}</small>` : '')
-          : v.phase === 'slap' ? '<b class="hot">拍！！</b>'
           : `輪到 <b>${U.esc(v.names[v.turn])}</b>，下一張喊 <b>${v.nextCall}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span>`
         }</div>
         ${me >= 0 ? `<div class="slap-btns">
           ${v.phase === 'over' ? '<button class="btn big" data-a="next">再來一局</button>' :
             `<button class="btn big flipbtn" data-a="flip" ${v.phase === 'flip' && v.turn === me ? '' : 'disabled'}>翻牌（喊 ${v.nextCall}）</button>
-             <button class="slapbtn ${v.phase === 'slap' ? 'hot' : ''}" data-a="slap">✋ 拍！</button>`}
+             <button class="slapbtn" data-a="slap">✋ 拍！</button>`}
         </div>` : ''}`;
       el.querySelectorAll('[data-a]').forEach(b => b.addEventListener('pointerdown', (e) => {
         e.preventDefault();

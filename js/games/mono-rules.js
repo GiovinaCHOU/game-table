@@ -7,8 +7,10 @@
   const LAYOUT = ['S', 'P0', 'L', 'P0', 'X', 'P1', 'B', 'J', 'P1', 'P2', 'L', 'P2', 'P3', 'B', 'F', 'P3', 'P4', 'L', 'P4', 'T', 'P5', 'G', 'P5', 'B', 'P6', 'P6', 'P7', 'P7'];
   const GROUP_PRICE = [3000, 4000, 5000, 6000, 8000, 9000, 11000, 13000];
   const GROUP_COLOR = ['#8d6e63', '#4fc3f7', '#ec407a', '#ffa726', '#ef5350', '#ffee58', '#66bb6a', '#5c6bc0'];
-  const RENT_MUL = [0.12, 0.45, 1.0, 1.8, 2.8];
-  const START_BONUS = 5000, TAX = 3000, JAIL = 7;
+  const RENT_MUL = [0.1, 0.38, 0.8, 1.4, 2.2];
+  const BUYOUT_MUL = 1.4, ROUND_CAP = 40;
+  const START_BONUS = 5000, BOOST = 3000, JAIL = 7;
+  const taxOf = (st, s) => Math.max(2000, Math.round(worth(st, s) * 0.06 / 100) * 100); // 累進稅：越有錢繳越多
   const BOARD = []; { let pi = 0; LAYOUT.forEach((c, i) => {
     if (c[0] === 'P') { const g = +c[1]; BOARD.push({ i, type: 'prop', g, pi: pi++, price: GROUP_PRICE[g], up: Math.round(GROUP_PRICE[g] * 0.6), color: GROUP_COLOR[g] }); }
     else BOARD.push({ i, type: { S: 'start', L: 'luck', B: 'bad', X: 'tax', J: 'jail', F: 'free', G: 'gotojail', T: 'teleport' }[c] });
@@ -23,16 +25,20 @@
     if (t.type === 'tax') return th.tax; if (t.type === 'teleport') return th.teleport;
     if (t.type === 'luck') return th.luckName; return th.badName;
   }
+  // 「打到有人破產／剩一人」模式：第 4 回合後過路費每回合漲 30%（最多 8 倍），避免無限拖長
+  function inflation(st) { return st.inflate ? Math.min(8, 1 + Math.max(0, st.round - 4) * 0.3) : 1; }
   function rentOf(st, i) {
-    const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv]);
+    const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
     if (lv === 0) { const same = BOARD.filter(b => b.type === 'prop' && b.g === t.g); if (same.every(b => st.owners[b.i] === st.owners[i])) r *= 2; }
     return r;
   }
-  function worth(st, s) {
-    let w = st.players[s].cash;
-    BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s) w += t.price + st.levels[t.i] * t.up; });
-    return w;
+  function assets(st, s) {
+    const a = { cash: st.players[s].cash, land: 0, bld: 0, tiles: [] };
+    BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s) { a.land += t.price; a.bld += st.levels[t.i] * t.up; a.tiles.push(t.i); } });
+    a.total = a.cash + a.land + a.bld; return a;
   }
+  function worth(st, s) { return assets(st, s).total; }
+  const buyoutOf = (st, i) => Math.round((BOARD[i].price + st.levels[i] * BOARD[i].up) * BUYOUT_MUL / 100) * 100;
   const alive = (st) => U.range(st.n).filter(s => st.players[s].alive);
 
   function ev(st, e) { st.ev.push(e); st.anim += ({ move: 0.3 * ((e.path && e.path.length) || 1), card: 2.6, dice: 1.0, tp: 1.0, jail: 1.2 }[e.t] || 0.4) * 1000; }
@@ -42,7 +48,10 @@
     const dir = steps >= 0 ? 1 : -1;
     for (let k = 0; k < Math.abs(steps); k++) {
       pos = (pos + dir + N) % N; path.push(pos);
-      if (dir > 0 && pos === 0) { p.cash += START_BONUS; ev(st, { t: 'cash', seat: s, amt: START_BONUS, why: '經過起點' }); }
+      if (dir > 0 && pos === 0) {
+        p.cash += START_BONUS; ev(st, { t: 'cash', seat: s, amt: START_BONUS, why: '經過起點' });
+        if (isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
+      }
     }
     p.pos = pos; ev(st, { t: 'move', seat: s, path });
   }
@@ -51,14 +60,20 @@
     if (bonusIfPassStart) { let steps = (to - p.pos + N) % N; if (steps === 0) steps = N; moveTo(st, s, steps); return; }
     p.pos = to; ev(st, { t: 'tp', seat: s, to });
   }
-  function pay(st, from, to, amt, why) {
+  // 資產最少（且明顯落後）的人：經過起點多領補助
+  function isLast(st, s) {
+    const al = alive(st); if (al.length < 2) return false;
+    const w = al.map(k => worth(st, k)); const me = worth(st, s);
+    return me === Math.min(...w) && me < Math.max(...w) * 0.7;
+  }
+  function pay(st, from, to, amt, why, tile) {
     if (amt <= 0) return 0;
     const p = st.players[from];
     p.cash -= amt; liquidate(st, from);
     let paid = amt;
     if (p.cash < 0) { paid = amt + p.cash; p.cash = 0; bankrupt(st, from); }
     if (to >= 0 && st.players[to].alive) st.players[to].cash += paid;
-    ev(st, { t: 'pay', from, to, amt: paid, why });
+    ev(st, { t: 'pay', from, to, amt: paid, why, tile });
     return paid;
   }
   function liquidate(st, s) {
@@ -134,11 +149,14 @@
       const o = st.owners[t.i];
       if (o === -1) { if (p.cash >= t.price) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } ev(st, { t: 'note', seat: s, text: '錢不夠買這塊地' }); return false; }
       if (o === s) { if (st.levels[t.i] < 4 && p.cash >= t.up) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } return false; }
-      if (st.players[o].alive) pay(st, s, o, rentOf(st, t.i), '過路費');
+      if (!st.players[o].alive) return false;
+      pay(st, s, o, rentOf(st, t.i), '過路費', t.i);
+      // 翻盤機制：付完過路費後，可以用 1.4 倍價格強制收購（地標 Lv4 不能收購）
+      if (p.alive && st.levels[t.i] < 4 && !(st.boLock[t.i] > st.round) && p.cash >= buyoutOf(st, t.i)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i) }; return true; }
       return false;
     }
     if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase === 'buy' || st.phase === 'upgrade'; }
-    if (t.type === 'tax') { pay(st, s, -1, TAX, t.type); return false; }
+    if (t.type === 'tax') { pay(st, s, -1, taxOf(st, s), '稅金'); return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
     return false;
@@ -147,10 +165,11 @@
     st.phase = 'roll'; st.pending = null;
     const al = alive(st);
     if (al.length <= 1) return finish(st);
+    if (st.maxRounds === 0 && al.length < st.n) return finish(st); // 有人破產就結束
     let s = st.turn;
     for (let guard = 0; guard < st.n * 4; guard++) {
       s = (s + 1) % st.n;
-      if (s === st.first) { st.round++; if (st.round > st.maxRounds) return finish(st); }
+      if (s === st.first) { st.round++; if (st.round > (st.maxRounds || ROUND_CAP)) return finish(st); }
       const p = st.players[s]; if (!p.alive) continue;
       if (p.skip > 0) { p.skip--; ev(st, { t: 'skip', seat: s }); continue; }
       break;
@@ -159,20 +178,20 @@
   }
   function finish(st) {
     st.phase = 'over'; st.deadline = 0;
-    const ranks = U.range(st.n).map(s => ({ s, w: st.players[s].alive ? worth(st, s) : -1 })).sort((a, b) => b.w - a.w);
+    const ranks = U.range(st.n).map(s => { const a = assets(st, s); return { s, w: st.players[s].alive ? a.total : -1, cash: a.cash, land: a.land, bld: a.bld }; }).sort((a, b) => b.w - a.w);
     st.winner = ranks[0].s; st.ranks = ranks;
   }
   function setDeadline(st, now, ms) { st.deadline = now + st.anim + ms; }
 
   const R = {
-    BOARD, N, LAYOUT, GROUP_COLOR, START_BONUS, JAIL, tileName, rentOf, worth,
+    BOARD, N, LAYOUT, GROUP_COLOR, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
       const st = {
-        n, theme, maxRounds: +o.rounds || 20, round: 1, first: 0, turn: 0, phase: 'pick',
+        n, theme, maxRounds: o.rounds == null || o.rounds === '' ? 20 : +o.rounds, inflate: +o.rounds === 0 || +o.rounds >= 900, round: 1, first: 0, turn: 0, phase: 'pick',
         players: U.range(n).map(() => ({ cash, pos: 0, alive: true, skip: 0, immune: 0, jailfree: 0, char: null })),
-        owners: Array(N).fill(-1), levels: Array(N).fill(0), decks: {}, ev: [], evId: 0, anim: 0, pending: null, dice: null
+        owners: Array(N).fill(-1), levels: Array(N).fill(0), boLock: Array(N).fill(0), decks: {}, ev: [], evId: 0, anim: 0, pending: null, dice: null
       };
       st.deadline = now + 90000;
       return st;
@@ -218,12 +237,23 @@
         }
         endTurn(st, now); return;
       }
+      if (a.type === 'buyout') {
+        if (st.phase !== 'buyout') return 'silent';
+        const { tile, from, cost } = st.pending;
+        if (a.yes) {
+          if (p.cash < cost || st.owners[tile] !== from || st.levels[tile] >= 4) return '不能收購';
+          p.cash -= cost; st.players[from].cash += cost; st.owners[tile] = s; st.boLock[tile] = st.round + 3; // 收購後保護 3 回合
+          ev(st, { t: 'buyout', seat: s, from, tile, amt: cost });
+        }
+        endTurn(st, now); return;
+      }
       return 'silent';
     },
     // 輪到的人沒反應（逾時或斷線）時的預設動作
     autoAct(st) {
       if (st.phase === 'pick') return { seat: -1, a: { type: 'start' } };
       if (st.phase === 'roll') return { seat: st.turn, a: { type: 'roll' } };
+      if (st.phase === 'buyout') return { seat: st.turn, a: { type: 'buyout', yes: st.players[st.turn].cash - st.pending.cost >= 25000 } };
       if (st.phase === 'buy' || st.phase === 'upgrade') {
         const t = BOARD[st.pending.tile]; const cost = st.phase === 'buy' ? t.price : t.up;
         return { seat: st.turn, a: { type: st.phase, yes: st.players[st.turn].cash - cost >= 8000 } };
