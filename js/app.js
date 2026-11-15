@@ -260,6 +260,7 @@
   $('#quick').onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.edit != null) { $('#quick').hidden = true; editQuick(); return; }
+    const nowQ = Date.now(); if (nowQ - (window.__qLast || 0) < 1500) { toast('慢一點～'); return; } window.__qLast = nowQ;
     R.send({ t: 'quick', text: quickList()[+b.dataset.q] }); $('#quick').hidden = true;
   };
   function editQuick() {
@@ -273,9 +274,12 @@
     $('#qReset').onclick = () => { ls.set(qKey(), '[]'); sh.hidden = true; toast('已恢復預設'); };
   }
   R.cb.quick = (m) => {
-    const b = document.createElement('div'); b.className = 'bubble';
+    // 小而半透明、不擋操作：同一人新的取代舊的，最多同時 3 則
+    const box = $('#bubbles'); const old = box.querySelector(`[data-cid="${CSS.escape(m.cid || '')}"]`); if (old) old.remove();
+    const b = document.createElement('div'); b.className = 'bubble'; b.dataset.cid = m.cid || '';
     b.innerHTML = `<b>${U.esc(m.from)}</b>${U.esc(m.text)}`;
-    $('#bubbles').appendChild(b); setTimeout(() => b.classList.add('out'), 2600); setTimeout(() => b.remove(), 3100);
+    box.appendChild(b); while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => b.classList.add('out'), 2600); setTimeout(() => b.remove(), 3100);
     const ch = document.querySelector(`.mchip[data-cid="${CSS.escape(m.cid)}"]`);
     if (ch) { ch.classList.add('talking'); setTimeout(() => ch.classList.remove('talking'), 2500); }
     if (navigator.vibrate && m.cid !== R.cid) navigator.vibrate(20);

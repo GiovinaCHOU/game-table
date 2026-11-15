@@ -75,7 +75,7 @@
     options: [
       { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '👽 外星寶貝']], def: 'ragnarok' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
-      { key: 'rounds', label: '遊戲長度', choices: [[0, '有人破產就結束（約 20～30 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
+      { key: 'rounds', label: '遊戲長度', choices: [[0, '有人破產就結束（約 25～30 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
     init(n, o, names, now) { return R().init(n, o, now); },
     action(st, seat, a, ctx) {
@@ -301,8 +301,7 @@
         <button class="mcard-x" aria-label="關閉">✕</button>
         <div class="mcard-head">${good ? th.luckName : th.badName}</div>
         <div class="mcard-who">${this.faceHTML(v, e.seat, 52)}<b>${U.esc(v.names[e.seat])}</b>${e.seat === v.seat ? '<em>（你）</em>' : ''}</div>
-        <p>${U.esc(e.text)}</p><div class="mcard-eff">${this.effText(e.eff, th)}</div>
-        <small>點一下收起來・下一位擲骰前會自動收起</small></div></div>`;
+        <p>${U.esc(e.text)}</p><div class="mcard-eff">${this.effText(e.eff, th)}</div></div></div>`;
       L.classList.add('on'); L.onclick = () => this.closeCard();
       clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 25000);
       await sleep(2200);

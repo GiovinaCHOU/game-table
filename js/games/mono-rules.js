@@ -25,8 +25,8 @@
     if (t.type === 'tax') return th.tax; if (t.type === 'teleport') return th.teleport;
     if (t.type === 'luck') return th.luckName; return th.badName;
   }
-  // 「打到有人破產／剩一人」模式：第 4 回合後過路費每回合漲 30%（最多 8 倍），避免無限拖長
-  function inflation(st) { return st.inflate ? Math.min(8, 1 + Math.max(0, st.round - 4) * 0.3) : 1; }
+  // 「打到有人破產／剩一人」模式：第 8 回合後過路費每回合漲 20%（最多 6 倍），避免無限拖長
+  function inflation(st) { return st.inflate ? Math.min(6, 1 + Math.max(0, st.round - 8) * 0.2) : 1; }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
     if (lv === 0) { const same = BOARD.filter(b => b.type === 'prop' && b.g === t.g); if (same.every(b => st.owners[b.i] === st.owners[i])) r *= 2; }
