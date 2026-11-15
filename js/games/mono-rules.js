@@ -71,7 +71,7 @@
     const p = st.players[from];
     p.cash -= amt; liquidate(st, from);
     let paid = amt;
-    if (p.cash < 0) { paid = amt + p.cash; p.cash = 0; bankrupt(st, from); }
+    if (p.cash < 0) { paid = amt + p.cash; p.cash = 0; bankrupt(st, from, to); }
     if (to >= 0 && st.players[to].alive) st.players[to].cash += paid;
     ev(st, { t: 'pay', from, to, amt: paid, why, tile });
     return paid;
@@ -85,10 +85,11 @@
     }
     for (const t of mine) { if (p.cash >= 0) break; st.owners[t.i] = -1; p.cash += Math.round(t.price / 2); ev(st, { t: 'sell', seat: s, tile: t.i, what: 'land' }); }
   }
-  function bankrupt(st, s) {
+  function bankrupt(st, s, by) {
     const p = st.players[s]; p.alive = false;
     BOARD.forEach(t => { if (st.owners[t.i] === s) { st.owners[t.i] = -1; st.levels[t.i] = 0; } });
-    ev(st, { t: 'bankrupt', seat: s });
+    ev(st, { t: 'bankrupt', seat: s, by: by >= 0 && st.players[by].alive ? by : -1 });
+    if (by >= 0 && st.theme === 'alien') st.anim += 7000; // 吞食動畫
   }
   function sendJail(st, s) {
     const p = st.players[s];

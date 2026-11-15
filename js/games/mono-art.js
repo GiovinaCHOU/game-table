@@ -170,7 +170,7 @@
       };
       for (let k = 0; k < (q.high ? 46 : 24); k++) { const a = rnd(0, 6.28), d = rnd(11, 30); flora(Math.cos(a) * d, Math.sin(a) * d, k % 4, rnd(0.7, 1.4)); }
       // 中央：古老星門（立著的石環＋符文＋波動的事件視界）
-      { const gate = new T.Group(); gate.position.set(0, 0, 0); scene.add(gate);
+      { const gate = new T.Group(); gate.position.set(0, 0, 0); scene.add(gate); (scene.userData.occl = scene.userData.occl || []).push({ g: gate, c: new T.Vector3(0, 2.1, 0), r: 2.6 });
         const stone = M('#8d8798', { roughness: 0.6, metalness: 0.3 });
         const ringM = new T.Mesh(new T.TorusGeometry(1.9, 0.32, 16, 64), stone); ringM.position.y = 2.15; gate.add(ringM);
         const inner = new T.Mesh(new T.TorusGeometry(1.62, 0.07, 8, 64), black); inner.position.y = 2.15; gate.add(inner);

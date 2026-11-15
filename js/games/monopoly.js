@@ -69,6 +69,12 @@
       this.noise(2.0, { f: 2500, type: 'bandpass', q: 0.7, vol: 0.06, attack: 1.4, delay: 0.5 });
       this.tone(55, 1.2, { type: 'sine', vol: 0.12, delay: 2.5, glide: 30 }); this.noise(0.8, { f: 200, vol: 0.12, delay: 2.5 });
     },
+    growl() { this.tone(70, 1.4, { type: 'sawtooth', vol: 0.07, lp: 400, glide: 52, attack: 0.2 }); this.tone(73, 1.4, { type: 'sawtooth', vol: 0.05, lp: 350, glide: 50, attack: 0.3 }); this.noise(1.2, { f: 300, vol: 0.05, attack: 0.3 }); },
+    hiss() { this.noise(0.9, { f: 4500, type: 'highpass', vol: 0.05, attack: 0.15 }); this.tone(180, 0.6, { type: 'sawtooth', vol: 0.03, lp: 900, glide: 120 }); },
+    snap() { this.noise(0.08, { f: 1800, type: 'bandpass', q: 2, vol: 0.2, attack: 0.002 }); this.tone(90, 0.25, { type: 'square', vol: 0.08, lp: 600, glide: 40, wet: 0.2 }); },
+    crunch() { for (let i = 0; i < 6; i++) this.noise(0.05, { f: 900 + Math.random() * 1500, type: 'bandpass', q: 4, vol: 0.12, delay: i * 0.035, attack: 0.002 }); this.noise(0.25, { f: 350, vol: 0.06, delay: 0.05 }); },
+    splat() { this.noise(0.35, { f: 600, type: 'lowpass', vol: 0.1, attack: 0.005 }); this.tone(220, 0.3, { type: 'sine', vol: 0.04, glide: 70, wet: 0.2 }); },
+    roar() { this.tone(110, 1.0, { type: 'sawtooth', vol: 0.06, lp: 900, glide: 70, attack: 0.05 }); this.tone(165, 1.0, { type: 'sawtooth', vol: 0.04, lp: 1200, glide: 100, attack: 0.05 }); this.noise(0.9, { f: 800, type: 'bandpass', q: 0.8, vol: 0.06, attack: 0.05 }); },
     glitch() { for (let i = 0; i < 14; i++) { this.noise(0.06, { f: 500 + Math.random() * 4000, type: 'bandpass', q: 8, vol: 0.08, delay: i * 0.07 }); this.tone(80 + Math.random() * 900, 0.06, { type: 'square', vol: 0.03, delay: i * 0.07 + 0.03, wet: false }); } }
   };
   try { SFX.on = localStorage.getItem('mono-sfx') !== '0'; } catch (e) {}
@@ -239,7 +245,7 @@
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
       b.setTurn(v.phase === 'over' ? -1 : v.turn);
       // 換人時鏡頭自動切到輪到的人（自己拖地圖後，這一輪就不再自動跟）；輪到自己一定拉回來
-      if (v.phase !== 'over' && this._camTurn !== v.turn) { this._camTurn = v.turn; this._camFree = false; b.focusSeat(v.turn, v.turn === v.seat); }
+      if (v.phase !== 'over' && this._camTurn !== v.turn) { this._camTurn = v.turn; this._camFree = false; b.focusSeat(v.turn, true); }
       const myTurn = v.seat >= 0 && v.turn === v.seat && v.phase === 'roll';
       if (myTurn && this._lastMyTurn !== v.evId) { this._lastMyTurn = v.evId; this._camFree = false; b.focusSeat(v.seat, true); }
       if (first && v.seat < 0) b.overview(true);
@@ -263,7 +269,7 @@
         for (const e of evs) {
           if (!this.board) break;
           switch (e.t) {
-            case 'dice': this.closeCard(); if (!this._camFree) b.focusSeat(e.seat, e.seat === v.seat); await this.rollDice(e.d); break;
+            case 'dice': this.closeCard(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
             case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
             case 'tp': if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
             case 'cash': SFX.coin(); this.fx(`+${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${fmt(e.amt)}</b>`, 'good'); await sleep(450); break;
@@ -284,7 +290,12 @@
             case 'jail': this.feed(`${this.who(e.seat)} 被送進 ${U.esc(TH()[v.theme].corners.jail)}`, 'pay'); SFX.doom(); this.vfx('doom'); this.fx(`⛓ ${TH()[v.theme].corners.jail}`, 'loss', e.seat); await b.teleport(e.seat, R().JAIL, watch(e.seat)); b.mood(e.seat, 'sad', 2000); break;
             case 'skip': this.fx('⏸ 暫停一回合', 'loss', e.seat); await sleep(700); break;
             case 'skipset': this.fx(`⏸ 停 ${e.n} 回合`, 'loss', e.seat); await sleep(500); break;
-            case 'bankrupt': this.feed(`💥 ${this.who(e.seat)} 破產了！`, 'big'); SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
+            case 'bankrupt':
+              if (v.theme === 'alien' && e.by >= 0 && b.tokens[e.by] && b.tokens[e.seat]) {
+                this.feed(`🩸 ${this.who(e.seat)} 破產了，被 ${this.who(e.by)} 吞掉了`, 'big'); SFX.doom(); this.vfx('doom');
+                await b.devour(e.by, e.seat, k => SFX[k] && SFX[k]()); break;
+              }
+              this.feed(`💥 ${this.who(e.seat)} 破產了！`, 'big'); SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
             case 'note': this.fx(e.text, '', e.seat); await sleep(600); break;
           }
         }

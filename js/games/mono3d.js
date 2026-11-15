@@ -70,7 +70,7 @@
       if (snap) this.snap();
     }
     snap() { const c = this.cr, g = this.goal; c.target.copy(g.target); c.dist = g.dist; c.polar = g.polar; c.azim = g.azim; }
-    focusSeat(seat, close) { const tk = this.tokens[seat]; if (!tk) return; this.follow(seat); if (close) { this.goal.dist = Math.min(this.goal.dist, 9); this.goal.polar = Math.max(0.7, Math.min(this.goal.polar, 1.0)); } }
+    focusSeat(seat, close) { const tk = this.tokens[seat]; if (!tk) return; this.follow(seat); if (close) { this.goal.dist = Math.min(this.goal.dist, 6.5); this.goal.polar = Math.max(0.85, Math.min(this.goal.polar, 1.1)); } }
     follow(seat) { this.following = seat; }
     focusTile(i) { const [x, z] = tileXZ(i); this.follow(null); this.goal.target.set(x, 0, z); this.clampGoal(); }
     bindGestures() {
@@ -127,13 +127,21 @@
       this.cam.position.set(c.target.x + c.dist * sp * Math.sin(c.azim), Math.max(0.45, c.target.y + c.dist * Math.cos(c.polar)), c.target.z + c.dist * sp * Math.cos(c.azim));
       this.cam.lookAt(c.target.x, c.target.y + (c.polar > 1.1 ? 0.4 : 0), c.target.z);
       this.upd.forEach(f => f(t, dt));
+      // 擋住鏡頭的大型物件（例如中央星門）自動變透明
+      (this.scene.userData.occl || []).forEach(o => {
+        const cp = this.cam.position, tg = c.target, seg = tg.clone().sub(cp), L = seg.length(); seg.normalize();
+        const tt = Math.max(0, Math.min(L, o.c.clone().sub(cp).dot(seg))), d = cp.clone().addScaledVector(seg, tt).distanceTo(o.c);
+        const want = (d < o.r && tt < L - 0.5) || cp.distanceTo(o.c) < o.r + 0.6 ? 0.12 : 1; o.cur = o.cur == null ? 1 : o.cur + (want - o.cur) * Math.min(1, dt * 8);
+        if (!o.mats) { o.mats = []; o.g.traverse(m => { if (m.material && !o.mats.includes(m.material)) { o.mats.push(m.material); m.material.userData.op = m.material.opacity; } }); }
+        o.mats.forEach(m => { m.transparent = true; m.opacity = (m.userData.op || 1) * o.cur; m.depthWrite = o.cur > 0.9; });
+      });
       Object.values(this.tokens).forEach(tk => {
         root.MONO_CHARS.update(tk.r, t, dt);
         if (tk.r.billboard) { const gp = tk.r.g.position; tk.r.billboard.rotation.y = Math.atan2(this.cam.position.x - gp.x, this.cam.position.z - gp.z) - tk.r.g.rotation.y; }
       });
       this.renderer.render(this.scene, this.cam);
     }
-    tween(dur, step) { return new Promise(res => this.anim.push({ start: performance.now(), dur, step, done: res })); }
+    tween(dur, step) { dur *= (root.__monoSlow || 1); return new Promise(res => this.anim.push({ start: performance.now(), dur, step, done: res })); }
 
     // ================= 格子 =================
     buildTiles() {
@@ -216,14 +224,15 @@
           r.g.add(this.nameTag(p.name, p.color)); r.g.scale.setScalar(1.15); this.scene.add(r.g);
           tk = this.tokens[p.seat] = { r, key, pos: -1 };
         }
-        if (p.alive === false && tk.r.state !== 'fall') root.MONO_CHARS.set(tk.r, 'fall');
+        if (tk.eaten) tk.r.g.visible = false;
+        else if (p.alive === false && tk.r.state !== 'fall') root.MONO_CHARS.set(tk.r, 'fall');
       });
     }
     setTurn(seat) { Object.entries(this.tokens).forEach(([s, tk]) => { tk.r.arrow.visible = +s === seat; }); }
     slot(i, seat) { const [x, z] = tileXZ(i); const a = seat / 6 * Math.PI * 2 + 0.5; return new THREE.Vector3(x + Math.cos(a) * 0.3, 0.005, z + Math.sin(a) * 0.3); }
     place(seat, i) { const tk = this.tokens[seat]; if (!tk) return; tk.r.g.position.copy(this.slot(i, seat)); tk.pos = i; const [x, z] = tileXZ(i); tk.r.g.rotation.y = Math.atan2(-x, -z); }
     mood(seat, m, ms) { const tk = this.tokens[seat]; if (tk) root.MONO_CHARS.set(tk.r, m, ms); }
-    async hop(seat, path, watch) {
+    async hop(seat, path, watch, ms) {
       const tk = this.tokens[seat]; if (!tk || !path.length) return;
       tk.busy = true; if (watch) this.follow(seat);
       root.MONO_CHARS.set(tk.r, 'walk');
@@ -231,7 +240,7 @@
         const from = tk.r.g.position.clone(), to = this.slot(i, seat);
         const yaw = Math.atan2(to.x - from.x, to.z - from.z);
         if (this.onStep) this.onStep(i);
-        await this.tween(300, k => { tk.r.g.position.lerpVectors(from, to, k); let d = yaw - tk.r.g.rotation.y; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; tk.r.g.rotation.y += d * 0.3; });
+        await this.tween(ms || 300, k => { tk.r.g.position.lerpVectors(from, to, k); let d = yaw - tk.r.g.rotation.y; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; tk.r.g.rotation.y += d * 0.3; });
         tk.pos = i; this.pulseTile(i);
       }
       root.MONO_CHARS.set(tk.r, 'idle'); tk.busy = false;
@@ -243,6 +252,96 @@
       g.position.copy(this.slot(i, seat)); g.position.y = 4; tk.pos = i;
       await this.tween(450, k => { g.position.y = (1 - k) * (1 - k) * 4 + 0.005; g.rotation.y += 0.3; g.scale.setScalar(base * (0.4 + k * 0.6)); });
       g.scale.setScalar(base); tk.busy = false; this.pulseTile(i);
+    }
+    // ===== 深空異種：債主走過去，把破產的人吞掉 =====
+    async devour(eater, victim, sfx) {
+      const T = THREE, E = this.tokens[eater], V = this.tokens[victim]; if (!E || !V) return;
+      const S = (k) => sfx && sfx(k), wait = (ms) => new Promise(r => setTimeout(r, ms * (root.__monoSlow || 1)));
+      E.busy = V.busy = true; const home = E.pos; const N = this.R.N;
+      root.MONO_CHARS.set(V.r, 'scared', 9000);
+      // 1. 鏡頭跟著債主，走（快步）到破產者那一格
+      this.follow(eater); this.goal.dist = 6.5; this.goal.polar = 1.05; this.clampGoal();
+      S('growl');
+      const fw = (V.pos - E.pos + N) % N, bw = (E.pos - V.pos + N) % N, dir = fw <= bw ? 1 : -1, n = Math.min(fw, bw);
+      const path = []; for (let k = 1; k <= n; k++) path.push((E.pos + dir * k + N) % N);
+      if (path.length) await this.hop(eater, path, true, Math.max(90, Math.min(180, 1800 / path.length)));
+      // 2. 貼近、面對獵物，鏡頭拉近
+      const vp = V.r.g.position.clone(), ep0 = E.r.g.position.clone(); const dirV = vp.clone().sub(ep0); dirV.y = 0; if (dirV.length() < 0.05) dirV.set(0.3, 0, 0.3);
+      dirV.normalize(); const stand = vp.clone().sub(dirV.clone().multiplyScalar(0.55));
+      const yaw = Math.atan2(dirV.x, dirV.z);
+      root.MONO_CHARS.set(E.r, 'walk');
+      await this.tween(350, k => { E.r.g.position.lerpVectors(ep0, stand, k); E.r.g.rotation.y += (yaw - E.r.g.rotation.y) * 0.3; });
+      root.MONO_CHARS.set(E.r, 'idle'); E.r.g.rotation.y = yaw; V.r.g.rotation.y = yaw + Math.PI;
+      this.follow(victim); this.goal.dist = 3.4; this.goal.polar = 1.18; this.goal.azim = yaw + Math.PI / 2 + 0.5; this.clampGoal();
+      await wait(450);
+      // 3. 生物機械巨顎：從債主頭部長出來
+      const black = new T.MeshStandardMaterial({ color: '#1d1622', roughness: 0.12, metalness: 0.8 }), gum = new T.MeshStandardMaterial({ color: '#5a0d18', roughness: 0.35, side: T.BackSide }),
+        bone = new T.MeshStandardMaterial({ color: '#e8dfc8', roughness: 0.3 }), slime = new T.MeshStandardMaterial({ color: '#c9d8a0', roughness: 0.05, transparent: true, opacity: 0.6 });
+      const maw = new T.Group(); this.scene.add(maw);
+      const mk = (up) => { const j = new T.Group(); maw.add(j);
+        const sh = new T.Mesh(new T.SphereGeometry(0.42, 24, 12, 0, Math.PI * 2, up ? 0 : Math.PI / 2, Math.PI / 2), black); sh.scale.set(1, 0.7, 1.25); sh.position.z = 0.32; j.add(sh);
+        const in_ = new T.Mesh(new T.SphereGeometry(0.4, 20, 10, 0, Math.PI * 2, up ? 0 : Math.PI / 2, Math.PI / 2), gum); in_.scale.set(0.97, 0.66, 1.2); in_.position.z = 0.32; j.add(in_);
+        for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; const tth = new T.Mesh(new T.ConeGeometry(0.03, 0.13 + (k % 3 === 0 ? 0.06 : 0), 5), bone); tth.position.set(Math.cos(a) * 0.38, 0, 0.32 + Math.sin(a) * 0.48); tth.rotation.x = up ? Math.PI : 0; j.add(tth); }
+        for (let k = 0; k < 4; k++) { const rb = new T.Mesh(new T.TorusGeometry(0.42, 0.018, 6, 20, Math.PI), bone); rb.scale.set(1, 0.7, 1); rb.rotation.set(up ? 0 : Math.PI, Math.PI / 2, 0); rb.position.z = 0.05 + k * 0.17; j.add(rb); }
+        for (let k = 0; k < 3; k++) { const d = new T.Mesh(new T.CylinderGeometry(0.008, 0.004, 0.25, 4), slime); d.position.set(-0.15 + k * 0.15, up ? -0.12 : 0.12, 0.45); j.add(d); }
+        return j; };
+      const upper = mk(true), lower = mk(false);
+      const inner = new T.Group(); maw.add(inner); // 內顎（會彈射出來）
+      const ij = new T.Mesh(new T.CapsuleGeometry(0.06, 0.3, 6, 10), black); ij.rotation.x = Math.PI / 2; ij.position.z = 0.15; inner.add(ij);
+      for (let k = 0; k < 4; k++) { const tt = new T.Mesh(new T.ConeGeometry(0.014, 0.05, 4), bone); tt.position.set(-0.03 + k * 0.02, 0, 0.36); tt.rotation.x = Math.PI / 2; inner.add(tt); }
+      const head0 = E.r.g.position.clone().add(new T.Vector3(0, 0.9, 0)), target = V.r.g.position.clone().add(new T.Vector3(0, 0.45, 0));
+      maw.position.copy(head0); maw.lookAt(target); maw.scale.setScalar(0.01);
+      S('hiss');
+      const open = (a) => { upper.rotation.x = -a; lower.rotation.x = a; };
+      await this.tween(500, k => { const e = 1 - Math.pow(1 - k, 3); maw.scale.setScalar(0.01 + e * 1.15); open(e * 0.9); });
+      // 張大嘴移到獵物上方，唾液滴落
+      const over = target.clone().sub(dirV.clone().multiplyScalar(0.25)); over.y += 0.15;
+      await this.tween(550, k => { maw.position.lerpVectors(head0, over, k); maw.lookAt(target); open(0.9 + k * 0.35); });
+      await this.tween(220, k => { inner.position.z = Math.sin(k * Math.PI) * 0.45; });
+      // 4. 咬合！
+      S('snap');
+      await this.tween(110, k => { open(1.25 * (1 - k)); maw.position.lerpVectors(over, target, k); });
+      V.r.g.visible = false; V.eaten = true;
+      this.gore(target, S);
+      // 震動鏡頭
+      const c0 = this.goal.target.clone(); await this.tween(450, k => { const a = (1 - k) * 0.12; this.goal.target.set(c0.x + (Math.random() - 0.5) * a, 0, c0.z + (Math.random() - 0.5) * a); });
+      this.goal.target.copy(c0);
+      // 咀嚼兩下
+      for (let c = 0; c < 2; c++) { S('crunch'); await this.tween(260, k => open(Math.sin(k * Math.PI) * 0.28)); }
+      await wait(250);
+      // 5. 巨顎縮回債主體內，債主得意
+      const back = E.r.g.position.clone().add(new T.Vector3(0, 0.9, 0)), mp = maw.position.clone();
+      await this.tween(420, k => { maw.position.lerpVectors(mp, back, k); maw.scale.setScalar(1.15 * (1 - k) + 0.01); });
+      this.scene.remove(maw);
+      root.MONO_CHARS.set(E.r, 'joy', 1300); S('roar'); await wait(1100);
+      // 6. 跳回原本的位置
+      this.follow(eater); this.goal.dist = 8;
+      E.busy = false; await this.teleport(eater, home, true);
+    }
+    // 血花：深紅與黑色體液噴濺、骨頭碎片，落地變成一灘一灘，幾秒後慢慢淡掉
+    gore(at, S) {
+      const T = THREE, parts = [], splats = [];
+      const cols = ['#5c0010', '#8a0018', '#b3001b', '#3a0008', '#1a0a12'];
+      for (let k = 0; k < 110; k++) {
+        const m = new T.Mesh(new T.SphereGeometry(0.022 + Math.random() * 0.045, 6, 5), new T.MeshStandardMaterial({ color: cols[k % cols.length], roughness: 0.15, metalness: 0.1 }));
+        m.position.copy(at); const a = Math.random() * 6.28, sp = 0.8 + Math.random() * 2.4;
+        m.userData.v = new T.Vector3(Math.cos(a) * sp, 1.2 + Math.random() * 3, Math.sin(a) * sp); this.scene.add(m); parts.push(m);
+      }
+      for (let k = 0; k < 10; k++) { const m = new T.Mesh(new T.CapsuleGeometry(0.012, 0.05 + Math.random() * 0.06, 3, 5), new T.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.4 })); m.position.copy(at); const a = Math.random() * 6.28; m.userData.v = new T.Vector3(Math.cos(a) * 1.4, 2 + Math.random() * 2, Math.sin(a) * 1.4); m.userData.spin = Math.random() * 10; this.scene.add(m); parts.push(m); }
+      // 獵物原地慢慢擴散的一大灘
+      const pool = new T.Mesh(new T.CircleGeometry(0.5, 28), new T.MeshStandardMaterial({ color: '#4a0010', roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.95 }));
+      pool.rotation.x = -Math.PI / 2; pool.position.set(at.x, 0.012, at.z); pool.scale.setScalar(0.05); this.scene.add(pool); splats.push(pool);
+      const p0 = performance.now(); const grow = () => { const k = Math.min(1, (performance.now() - p0) / 1500); pool.scale.set(0.05 + k * 1.1, 0.05 + k * 0.9, 1); if (k < 1 && !this.dead) requestAnimationFrame(grow); }; grow();
+      let landed = 0;
+      const step = (t, dt) => {
+        parts.forEach(m => { if (m.userData.done) return; const v = m.userData.v; v.y -= 9.8 * dt; m.position.addScaledVector(v, dt); if (m.userData.spin) m.rotation.z += m.userData.spin * dt;
+          if (m.position.y <= 0.03) { m.userData.done = true; m.position.y = 0.03; landed++;
+            if (!m.userData.spin) { const sz = 0.07 + Math.random() * 0.2; const sp = new T.Mesh(new T.CircleGeometry(sz, 12), new T.MeshStandardMaterial({ color: m.material.color, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.95 })); sp.rotation.x = -Math.PI / 2; sp.position.set(m.position.x, 0.02 + Math.random() * 0.004, m.position.z); sp.scale.set(1, 1 + Math.random() * 0.8, 1); this.scene.add(sp); splats.push(sp); this.scene.remove(m); }
+            if (landed === 12) S && S('splat'); } });
+      };
+      this.upd.push(step);
+      setTimeout(() => { const i = this.upd.indexOf(step); if (i >= 0) this.upd.splice(i, 1); parts.forEach(m => this.scene.remove(m));
+        const t0 = performance.now(); const fade = () => { const k = (performance.now() - t0) / 3000; splats.forEach(s2 => s2.material.opacity = Math.max(0, 0.95 * (1 - k))); if (k < 1 && !this.dead) requestAnimationFrame(fade); else splats.forEach(s2 => this.scene.remove(s2)); }; fade(); }, 9000);
     }
     async shake(seat) { this.mood(seat, 'scared', 700); await new Promise(r => setTimeout(r, 700)); }
     async jumpJoy(seat) { this.mood(seat, 'joy', 900); }
