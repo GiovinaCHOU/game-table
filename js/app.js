@@ -241,7 +241,7 @@
   function quickList() {
     let saved = []; try { saved = JSON.parse(ls.get('quick') || '[]'); } catch (e) {}
     const inMj = R.room && ((R.room.game && R.room.game.id === 'mahjong') || (!R.room.game && R.room.lobby.gameId === 'mahjong'));
-    return QDEF.map((d, i) => (saved[i] && saved[i].trim()) || d || (inMj ? '珮希又在堆積木' : '可以用點心嗎'));
+    return QDEF.map((d, i) => (saved[i] && saved[i].trim()) || d || (inMj ? '姵希又在堆積木' : '可以用點心嗎'));
   }
   function renderQuick() {
     $('#quick').innerHTML = quickList().map((q, i) => `<button data-q="${i}">${U.esc(q)}</button>`).join('') + '<button class="edit" data-edit>✏️ 自訂快捷文字</button>';
@@ -257,7 +257,7 @@
     let saved = []; try { saved = JSON.parse(ls.get('quick') || '[]'); } catch (e) {}
     const sh = $('#sheet');
     sh.querySelector('.sheet-body').innerHTML = `<h3>自訂快捷文字（最多 30 字）</h3>` +
-      QDEF.map((d, i) => `<input class="qin" maxlength="30" value="${U.esc(saved[i] || '')}" placeholder="${U.esc(d || '預設：珮希又在堆積木（麻將）／可以用點心嗎')}">`).join('') +
+      QDEF.map((d, i) => `<input class="qin" maxlength="30" value="${U.esc(saved[i] || '')}" placeholder="${U.esc(d || '預設：姵希又在堆積木（麻將）／可以用點心嗎')}">`).join('') +
       `<p class="hint">留空就用預設</p><div class="act-row"><button class="btn ghost" id="qReset">全部恢復預設</button><button class="btn" id="qSave">儲存</button></div>`;
     sh.hidden = false;
     $('#qSave').onclick = () => { ls.set('quick', JSON.stringify([...sh.querySelectorAll('.qin')].map(i => i.value.trim()))); sh.hidden = true; toast('已儲存'); };
