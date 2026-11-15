@@ -14,7 +14,7 @@
     ragnarok: { bg: '#b4c2d8', fog: ['#c9d3e2', 34, 100], hemi: [0xfff1dc, 0x6f7f9a, 0.65], sun: [0xffdca0, 2.1], env: ['#ffe9c4', '#8796b0'], panels: [['#fff2c0', 0, 8, 0]], envI: 0.55 },
     cyber: { bg: '#21173f', fog: ['#2c1f55', 26, 85], hemi: [0xc0b4ff, 0x3a2a60, 1.7], sun: [0xd8e0ff, 1.9], env: ['#6a48b0', '#241848'], panels: [['#ff2e88', 6, 2, 0], ['#00e5ff', -6, 2, 0], ['#b14cff', 0, 3, 6], ['#ffd400', 0, 2, -6], ['#ffffff', 0, 8, 0]], envI: 1.5 },
     animal: { bg: '#a9cde6', fog: ['#c9dbe2', 30, 90], hemi: [0xfff3d6, 0x6b5a3a, 0.9], sun: [0xffe2b0, 2.6], env: ['#cfe6f5', '#7a6a48'], envI: 0.5 },
-    alien: { bg: '#050806', fog: ['#0a120d', 12, 48], hemi: [0x9fbfa7, 0x0a0f0a, 0.9], sun: [0xd6eedc, 1.3], env: ['#6f8f77', '#101810'], panels: [['#c8ffd0', 0, 8, 0], ['#5cff7a', 6, 1, 0], ['#d9d3b8', -6, 2, 3]], envI: 1.2 }
+    alien: { bg: '#f29ab8', fog: ['#f4a7a6', 34, 120], hemi: [0xffe0f2, 0x6a3f8a, 1.25], sun: [0xfff0d6, 2.3], env: ['#ffc2dc', '#5a3a8a'], panels: [['#7df9ff', 6, 2, 0], ['#ff79c6', -6, 2, 0], ['#ffd27a', 0, 8, 0]], envI: 0.8 }
   };
 
   // ---------------- 格子貼圖 ----------------
@@ -32,19 +32,22 @@
       const ls = wrap(g, name, 220); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 104 : 178) + k * 42 - (ls.length - 1) * (prop ? 20 : 0)));
       if (prop) { g.font = `bold 28px ${SANS}`; g.fillStyle = '#c9c3ff'; g.shadowBlur = 0; g.fillText('$' + b.price.toLocaleString(), 128, 214); }
     } else if (theme === 'alien') {
-      // 生物機械：骨白板上刻紋、暗色血管
-      const gr = g.createRadialGradient(128, 128, 20, 128, 128, 180); gr.addColorStop(0, '#2b2f28'); gr.addColorStop(1, '#0d100c');
+      // 骨白板＋黑色生物機械紋路＋主題色發光條
+      const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#f1e9d6'); gr.addColorStop(1, '#d9ceb4');
       g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
-      g.strokeStyle = 'rgba(200,194,168,0.18)'; g.lineWidth = 2;
-      for (let k = 0; k < 9; k++) { g.beginPath(); g.moveTo(0, 20 + k * 28); g.bezierCurveTo(80, 10 + k * 28 + rnd(-12, 12), 170, 30 + k * 28 + rnd(-12, 12), 256, 20 + k * 28); g.stroke(); }
-      const acc = prop ? b.color : ({ luck: '#8fd18a', bad: '#b8322c', start: '#c8c2a8', jail: '#b8322c', gotojail: '#b8322c' }[b.type] || '#7fa88a');
-      g.strokeStyle = '#c8c2a8'; g.lineWidth = 6; g.strokeRect(8, 8, 240, 240);
-      g.fillStyle = acc; g.fillRect(8, 8, 240, prop ? 34 : 10);
-      g.fillStyle = '#d9d3b8';
-      if (!prop) { g.font = `80px ${EMOJI}`; g.globalAlpha = 0.9; g.fillText(icon, 128, 96); g.globalAlpha = 1; }
+      g.strokeStyle = 'rgba(40,30,50,0.16)'; g.lineWidth = 3;
+      for (let k = 0; k < 7; k++) { g.beginPath(); g.moveTo(0, 30 + k * 34); g.bezierCurveTo(80, 18 + k * 34 + rnd(-14, 14), 170, 42 + k * 34 + rnd(-14, 14), 256, 30 + k * 34); g.stroke(); }
+      for (let k = 0; k < 6; k++) { g.fillStyle = 'rgba(40,30,50,0.10)'; g.beginPath(); g.ellipse(rnd(20, 236), rnd(20, 236), rnd(6, 16), rnd(3, 7), rnd(0, 3), 0, 7); g.fill(); }
+      const acc = prop ? b.color : ({ luck: '#3fd8c8', bad: '#e04a6a', start: '#8a6bff', jail: '#e04a6a', gotojail: '#e04a6a', free: '#3fd8c8', tax: '#ffb347', teleport: '#8a6bff' }[b.type] || '#8a6bff');
+      g.strokeStyle = '#2a2232'; g.lineWidth = 10; g.strokeRect(5, 5, 246, 246);
+      g.strokeStyle = '#bfb39a'; g.lineWidth = 3; g.strokeRect(13, 13, 230, 230);
+      for (const [x, y] of [[5, 5], [251, 5], [5, 251], [251, 251]]) { g.fillStyle = '#2a2232'; g.beginPath(); g.arc(x, y, 16, 0, 7); g.fill(); g.fillStyle = acc; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); }
+      g.fillStyle = acc; g.fillRect(16, 16, 224, prop ? 30 : 8);
+      g.fillStyle = '#2b2430';
+      if (!prop) { g.font = `80px ${EMOJI}`; g.fillText(icon, 128, 96); }
       g.font = `bold ${prop ? 38 : 32}px ${SANS}`;
-      const ls = wrap(g, name, 220); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 110 : 180) + k * 40 - (ls.length - 1) * (prop ? 20 : 0)));
-      if (prop) { g.font = `bold 26px ${SANS}`; g.fillStyle = '#9fae96'; g.fillText(b.price.toLocaleString() + ' 星幣', 128, 214); }
+      const ls = wrap(g, name, 210); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 110 : 180) + k * 40 - (ls.length - 1) * (prop ? 20 : 0)));
+      if (prop) { g.font = `bold 26px ${SANS}`; g.fillStyle = '#6a5a7a'; g.fillText(b.price.toLocaleString() + ' 星幣', 128, 214); }
     } else if (theme === 'ragnarok') {
       // 大理石＋金邊
       g.fillStyle = '#f3efe6'; g.fillRect(0, 0, 256, 256);
@@ -113,35 +116,85 @@
         upd.push((t, dt) => { const p = geo.attributes.position.array; for (let i = 0; i < N; i++) { let y = p[i * 6 + 1] - dt * 18; if (y < -0.3) y += 18; p[i * 6 + 1] = y; p[i * 6 + 4] = y - 0.45; } geo.attributes.position.needsUpdate = true; });
       }
     } else if (theme === 'alien') {
-      // 生物機械地面
-      const [c, g] = cvs(512); g.fillStyle = '#0d110e'; g.fillRect(0, 0, 512, 512);
-      for (let k = 0; k < 60; k++) { g.strokeStyle = `rgba(${rnd(120, 200)},${rnd(120, 190)},${rnd(100, 160)},${rnd(0.05, 0.18)})`; g.lineWidth = rnd(2, 8); g.beginPath(); const y = rnd(0, 512); g.moveTo(0, y); g.bezierCurveTo(170, y + rnd(-60, 60), 340, y + rnd(-60, 60), 512, y); g.stroke(); }
-      for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(200,194,168,${rnd(0.04, 0.12)})`; g.beginPath(); g.ellipse(rnd(0, 512), rnd(0, 512), rnd(6, 26), rnd(3, 10), rnd(0, 3), 0, 7); g.fill(); }
-      const gnd = add(new T.PlaneGeometry(140, 140), M('#ffffff', { map: tex(T, c, 14), roughness: 0.35, metalness: 0.55 }), 0, -0.36, 0, false); gnd.rotation.x = -Math.PI / 2; gnd.receiveShadow = q.high;
-      const bone = M('#b9b29a', { roughness: 0.35, metalness: 0.25 }), black = M('#141714', { roughness: 0.2, metalness: 0.8 });
-      // 肋骨拱門（遠景）
-      for (let k = 0; k < 9; k++) {
-        const a = k / 9 * Math.PI * 2, d = 23;
-        for (let r = 0; r < 5; r++) { const arch = add(new T.TorusGeometry(5 + r * 0.2, 0.22 - r * 0.02, 8, 28, Math.PI), bone, Math.cos(a) * (d + r * 1.1), -0.4, Math.sin(a) * (d + r * 1.1), false); arch.rotation.y = -a + Math.PI / 2; }
+      // ===== 無人深空色彩的外星球＋Giger 生物機械棋盤＋中央星門 =====
+      // 天空：粉紫到青綠的漸層，加星星和星雲
+      { const [c, g] = cvs(64, 512); const gr = g.createLinearGradient(0, 0, 0, 512);
+        gr.addColorStop(0, '#2a1a5e'); gr.addColorStop(0.3, '#7b3fa0'); gr.addColorStop(0.5, '#e86aa6'); gr.addColorStop(0.58, '#ffb38a'); gr.addColorStop(0.62, '#f4a7a6'); gr.addColorStop(1, '#5a2e6e');
+        g.fillStyle = gr; g.fillRect(0, 0, 64, 512); for (let k = 0; k < 120; k++) { g.fillStyle = `rgba(255,255,255,${rnd(0.3, 0.9)})`; g.fillRect(rnd(0, 64), rnd(0, 200), 1, 1); }
+        const sky = new T.Mesh(new T.SphereGeometry(140, 32, 16), new T.MeshBasicMaterial({ map: tex(T, c), side: T.BackSide, fog: false, depthWrite: false })); scene.add(sky); }
+      scene.background = null;
+      // 星雲
+      { const [c, g] = cvs(512, 256); for (let k = 0; k < 40; k++) { const x = rnd(40, 470), y = rnd(40, 216), r = rnd(30, 110), col = ['255,120,200', '120,230,255', '190,130,255', '255,190,120'][k % 4]; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${col},0.16)`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 0, 512, 256); }
+        const neb = new T.Mesh(new T.PlaneGeometry(160, 80), new T.MeshBasicMaterial({ map: tex(T, c), transparent: true, fog: false, depthWrite: false, blending: T.AdditiveBlending })); neb.position.set(10, 48, -110); scene.add(neb); upd.push(t => { neb.material.opacity = 0.8 + Math.sin(t * 0.3) * 0.2; }); }
+      // 帶光環的大行星＋小衛星
+      { const [c, g] = cvs(256, 128); for (let y = 0; y < 128; y++) { const h = 20 + Math.sin(y * 0.18) * 14 + Math.sin(y * 0.05) * 20; g.fillStyle = `hsl(${185 + h},60%,${55 + Math.sin(y * 0.3) * 8}%)`; g.fillRect(0, y, 256, 1); }
+        const pl = new T.Mesh(new T.SphereGeometry(16, 40, 24), new T.MeshStandardMaterial({ map: tex(T, c), roughness: 0.9, emissive: '#3a2a6a', emissiveIntensity: 0.3, fog: false })); pl.position.set(-46, 34, -88); pl.rotation.z = 0.35; scene.add(pl);
+        const ring = new T.Mesh(new T.RingGeometry(21, 30, 64), new T.MeshBasicMaterial({ color: '#ffd9b0', transparent: true, opacity: 0.55, side: T.DoubleSide, fog: false })); ring.position.copy(pl.position); ring.rotation.set(1.25, 0.2, 0.35); scene.add(ring);
+        const moon = new T.Mesh(new T.SphereGeometry(4, 24, 16), new T.MeshStandardMaterial({ color: '#ffd0e0', roughness: 1, emissive: '#7a4060', emissiveIntensity: 0.25, fog: false })); moon.position.set(52, 40, -80); scene.add(moon);
+        upd.push(t => { pl.rotation.y = t * 0.02; ring.rotation.z = 0.35 + Math.sin(t * 0.05) * 0.02; }); }
+      // 地面：珊瑚色沙地＋紋理
+      { const [c, g] = cvs(512); g.fillStyle = '#e9855f'; g.fillRect(0, 0, 512, 512);
+        for (let k = 0; k < 140; k++) { g.fillStyle = `rgba(${rnd(170, 255)},${rnd(80, 140)},${rnd(80, 140)},${rnd(0.08, 0.25)})`; g.beginPath(); g.ellipse(rnd(0, 512), rnd(0, 512), rnd(10, 60), rnd(4, 20), rnd(0, 3), 0, 7); g.fill(); }
+        for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(80,230,210,${rnd(0.1, 0.3)})`; g.beginPath(); g.arc(rnd(0, 512), rnd(0, 512), rnd(4, 14), 0, 7); g.fill(); }
+        const gnd = add(new T.PlaneGeometry(260, 260), M('#ffffff', { map: tex(T, c, 18), roughness: 0.95 }), 0, -0.9, 0, false); gnd.rotation.x = -Math.PI / 2; gnd.receiveShadow = q.high; }
+      const bone = M('#e3d9c0', { roughness: 0.4, metalness: 0.15 }), black = M('#231c2c', { roughness: 0.18, metalness: 0.75 });
+      // 生物機械平台：黑色金屬底座＋一圈骨頭肋條＋管線
+      const plat = add(new T.CylinderGeometry(8.6, 8.0, 0.75, 32), black, 0, -0.78, 0);
+      for (let k = 0; k < 48; k++) { const a = k / 48 * Math.PI * 2; const rb = add(new T.TorusGeometry(0.5, 0.08, 6, 12, Math.PI), bone, Math.cos(a) * 8.45, -0.85, Math.sin(a) * 8.45, false); rb.rotation.y = -a; }
+      const tube = add(new T.TorusGeometry(8.75, 0.16, 10, 96), black, 0, -0.45, 0); tube.rotation.x = Math.PI / 2; void plat;
+      // 遠方：巨大骨骼拱門與脊椎塔（Giger）
+      for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.4, d = 34;
+        for (let r = 0; r < 4; r++) { const arch = add(new T.TorusGeometry(6 + r * 0.25, 0.32 - r * 0.04, 8, 28, Math.PI), r % 2 ? black : bone, Math.cos(a) * (d + r * 1.3), -0.9, Math.sin(a) * (d + r * 1.3), false); arch.rotation.y = -a + Math.PI / 2; } }
+      for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 1.1, d = rnd(44, 52), h = rnd(10, 18);
+        for (let j = 0; j < 14; j++) { const v = add(new T.TorusGeometry(1.1 - j * 0.05, 0.38, 8, 16), j % 2 ? bone : black, Math.cos(a) * d, j * h / 14, Math.sin(a) * d, false); v.rotation.x = Math.PI / 2; } }
+      // 外星植物：球莖樹、巨大蘑菇、水晶、會呼吸的發光孢子
+      const glowM = (c) => new T.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.9, roughness: 0.3, transparent: true, opacity: 0.85 });
+      const flora = (x, z, kind, s) => {
+        if (kind === 0) { // 球莖樹
+          const pts = []; for (let j = 0; j < 5; j++) pts.push(new T.Vector3(x + Math.sin(j) * 0.3 * s, j * 1.1 * s, z + Math.cos(j * 0.7) * 0.3 * s));
+          add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 16, 0.18 * s, 6), M('#5a2e6e', { roughness: 0.6 }), 0, -0.9, 0, false);
+          const b = add(new T.SphereGeometry(0.9 * s, 16, 12), glowM(['#7df9ff', '#ff79c6', '#ffd27a'][Math.floor(rnd(0, 3))]), pts[4].x, pts[4].y - 0.4, pts[4].z, false);
+          upd.push(t => { const k = 1 + Math.sin(t * 1.5 + x) * 0.06; b.scale.set(k, k * 1.1, k); b.material.emissiveIntensity = 0.6 + Math.sin(t * 1.5 + x) * 0.3; });
+        } else if (kind === 1) { // 巨大蘑菇
+          add(new T.CylinderGeometry(0.25 * s, 0.4 * s, 2.6 * s, 10), M('#f6e6d0', { roughness: 0.8 }), x, -0.9 + 1.3 * s, z, false);
+          const cap = add(new T.SphereGeometry(1.5 * s, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2.2), M(['#3fd8c8', '#a66bff', '#ff79c6'][Math.floor(rnd(0, 3))], { roughness: 0.5, emissive: '#301a40', emissiveIntensity: 0.3 }), x, -0.9 + 2.5 * s, z, false); cap.scale.y = 0.6;
+          for (let j = 0; j < 7; j++) add(new T.SphereGeometry(0.12 * s, 6, 6), glowM('#fff6b0'), x + Math.cos(j) * 0.9 * s, -0.9 + 2.75 * s, z + Math.sin(j) * 0.9 * s, false);
+        } else if (kind === 2) { // 水晶簇
+          const col = ['#7df9ff', '#ff79c6', '#b388ff'][Math.floor(rnd(0, 3))];
+          for (let j = 0; j < 5; j++) { const c = add(new T.OctahedronGeometry(rnd(0.4, 0.9) * s, 0), new T.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.5, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.8 }), x + rnd(-0.6, 0.6) * s, -0.5 + rnd(0, 0.8) * s, z + rnd(-0.6, 0.6) * s, false); c.scale.y = rnd(1.6, 2.6); c.rotation.set(rnd(-0.3, 0.3), rnd(0, 3), rnd(-0.3, 0.3)); }
+        } else { // 浮空岩塊
+          const r = add(new T.DodecahedronGeometry(rnd(0.8, 1.6) * s, 0), M('#8a5a7a', { flatShading: true, roughness: 0.9 }), x, rnd(4, 9), z, false); const y0 = r.position.y, ph = rnd(0, 6);
+          add(new T.ConeGeometry(0.5 * s, 1.4 * s, 6), M('#6a4060', { flatShading: true }), 0, 0, 0, false).position.set(x, y0 - 1.1 * s, z);
+          upd.push(t => { r.position.y = y0 + Math.sin(t * 0.5 + ph) * 0.4; r.rotation.y = t * 0.05 + ph; });
+        }
+      };
+      for (let k = 0; k < (q.high ? 46 : 24); k++) { const a = rnd(0, 6.28), d = rnd(11, 30); flora(Math.cos(a) * d, Math.sin(a) * d, k % 4, rnd(0.7, 1.4)); }
+      // 中央：古老星門（立著的石環＋符文＋波動的事件視界）
+      { const gate = new T.Group(); gate.position.set(0, 0, 0); scene.add(gate);
+        const stone = M('#8d8798', { roughness: 0.6, metalness: 0.3 });
+        const ringM = new T.Mesh(new T.TorusGeometry(1.9, 0.32, 16, 64), stone); ringM.position.y = 2.15; gate.add(ringM);
+        const inner = new T.Mesh(new T.TorusGeometry(1.62, 0.07, 8, 64), black); inner.position.y = 2.15; gate.add(inner);
+        const runes = []; for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2 + Math.PI / 2; const ch = new T.Mesh(new T.ConeGeometry(0.2, 0.32, 3), new T.MeshStandardMaterial({ color: '#ffb347', emissive: '#ff8a00', emissiveIntensity: 0.2 })); ch.position.set(Math.cos(a) * 2.25, 2.15 + Math.sin(a) * 2.25, 0); ch.rotation.z = a + Math.PI / 2; gate.add(ch); runes.push(ch); }
+        const [c, g] = cvs(256); const tx = tex(T, c);
+        const hz = new T.Mesh(new T.CircleGeometry(1.6, 48), new T.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.92, side: T.DoubleSide })); hz.position.y = 2.15; gate.add(hz);
+        add(new T.BoxGeometry(4.6, 0.3, 1.2), stone, 0, 0.0, 0); add(new T.BoxGeometry(3.4, 0.3, 1.0), stone, 0, 0.3, 0);
+        const L = new T.PointLight('#7fc8ff', 6, 9, 1.6); L.position.set(0, 2.2, 1.2); scene.add(L);
+        upd.push(t => {
+          gate.rotation.y = Math.sin(t * 0.15) * 0.5;
+          const kk = Math.floor(t * 1.2) % 12; runes.forEach((r, i) => r.material.emissiveIntensity = i < kk ? 1.6 : 0.2);
+          g.fillStyle = '#16307a'; g.fillRect(0, 0, 256, 256);
+          for (let i = 0; i < 6; i++) { const rr = ((t * 40 + i * 22) % 128); g.strokeStyle = `rgba(150,220,255,${0.6 - rr / 220})`; g.lineWidth = 6; g.beginPath(); g.arc(128 + Math.sin(t + i) * 6, 128 + Math.cos(t * 1.3 + i) * 6, rr, 0, 6.283); g.stroke(); }
+          const cg = g.createRadialGradient(128, 128, 0, 128, 128, 128); cg.addColorStop(0, 'rgba(255,255,255,0.75)'); cg.addColorStop(0.4, 'rgba(120,200,255,0.25)'); cg.addColorStop(1, 'rgba(30,60,160,0)'); g.fillStyle = cg; g.fillRect(0, 0, 256, 256);
+          tx.needsUpdate = true; L.intensity = 5 + Math.sin(t * 2) * 1.5;
+        });
       }
-      // 管線
-      for (let k = 0; k < 12; k++) {
-        const a = rnd(0, 6.28), pts = []; for (let j = 0; j < 6; j++) pts.push(new T.Vector3(Math.cos(a + j * 0.18) * (19 + j * 2.5), rnd(-0.2, 2.5), Math.sin(a + j * 0.18) * (11 + j * 2.5)));
-        add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 40, rnd(0.15, 0.35), 8), black, 0, 0, 0, false);
-      }
-      // 中央：脊椎尖塔
-      const spine = new T.Group(); scene.add(spine);
-      for (let k = 0; k < 14; k++) { const v = new T.Mesh(new T.TorusGeometry(0.55 - k * 0.025, 0.16, 8, 18), k % 2 ? bone : black); v.rotation.x = Math.PI / 2; v.position.y = k * 0.33; spine.add(v); }
-      for (let k = 0; k < 8; k++) { const rib = new T.Mesh(new T.TorusGeometry(1.1, 0.06, 6, 20, Math.PI * 0.8), bone); rib.position.y = 0.8 + k * 0.45; rib.rotation.set(Math.PI / 2, 0, k * 0.8); spine.add(rib); }
-      const eye = new T.Mesh(new T.SphereGeometry(0.28, 16, 12), new T.MeshBasicMaterial({ color: '#7cff6b' })); eye.position.y = 4.9; spine.add(eye);
-      const glow = new T.PointLight('#5cff7a', 10, 10, 1.5); glow.position.set(0, 4.6, 0); scene.add(glow);
-      upd.push((t) => { glow.intensity = 8 + Math.sin(t * 1.3) * 4; eye.scale.setScalar(1 + Math.sin(t * 2) * 0.08); });
-      // 孢子塵
+      // 漂浮的彩色孢子
       if (q.high) {
-        const N = 500, pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) pos.set([rnd(-20, 20), rnd(0, 10), rnd(-20, 20)], i * 3);
-        const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
-        const pts = new T.Points(geo, new T.PointsMaterial({ color: '#a8ff9a', size: 0.06, transparent: true, opacity: 0.6 })); scene.add(pts);
-        upd.push((t) => { pts.rotation.y = t * 0.02; pts.position.y = Math.sin(t * 0.3) * 0.3; });
+        const N = 400, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), pal = [[1, 0.5, 0.8], [0.5, 1, 1], [1, 0.85, 0.5]];
+        for (let i = 0; i < N; i++) { pos.set([rnd(-24, 24), rnd(0, 10), rnd(-24, 24)], i * 3); col.set(pal[i % 3], i * 3); }
+        const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3)); geo.setAttribute('color', new T.BufferAttribute(col, 3));
+        const pts = new T.Points(geo, new T.PointsMaterial({ size: 0.12, vertexColors: true, transparent: true, opacity: 0.85 })); scene.add(pts);
+        upd.push((t) => { pts.rotation.y = t * 0.015; pts.position.y = Math.sin(t * 0.3) * 0.4; });
       }
     } else if (theme === 'ragnarok') {
       // 雲海＋浮空大理石平台
@@ -215,7 +268,7 @@
       if (level === 4) { add(new T.CylinderGeometry(0.015, 0.015, 0.7, 6), M('#aaaaaa', { metalness: 0.9 }), 0.15, H + 0.35, 0.15); const r = add(new T.TorusGeometry(0.42, 0.025, 8, 32), M(ctx.color, { emissive: ctx.color, emissiveIntensity: 2 }), 0, H + 0.15, 0); r.rotation.x = Math.PI / 2; upd.push(t => { r.rotation.z = t; }); }
       void sign;
     } else if (theme === 'alien') {
-      const bone = M('#bdb59c', { roughness: 0.32, metalness: 0.2 }), dark = M('#151915', { roughness: 0.15, metalness: 0.85 }), glow = M('#7cff6b', { emissive: '#4cff5a', emissiveIntensity: 1.2 });
+      const bone = M('#e3d9c0', { roughness: 0.32, metalness: 0.2 }), dark = M('#2a2034', { roughness: 0.15, metalness: 0.8 }), glow = M(ctx.color, { emissive: ctx.color, emissiveIntensity: 1.2 });
       const pod = (s, x, z) => { // 卵囊
         const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new T.Vector2(Math.sin(t * Math.PI) * 0.22 * s * (1 - t * 0.35), t * 0.6 * s)); }
         const m = add(new T.LatheGeometry(pts, 14), dark, x, 0, z);
@@ -233,7 +286,7 @@
         for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI; const arch = add(new T.TorusGeometry(0.42, 0.035, 6, 20, Math.PI), bone, 0, 0, 0); arch.rotation.y = a; }
         for (let k = 0; k < 12; k++) { const v = add(new T.TorusGeometry(0.11 - k * 0.005, 0.045, 6, 12), k % 2 ? bone : dark, 0, 0.1 + k * 0.13, 0); v.rotation.x = Math.PI / 2; }
         const head = add(new T.CapsuleGeometry(0.1, 0.35, 4, 10), dark, 0.08, 1.75, 0); head.rotation.z = -1.1;
-        const L = new T.PointLight('#5cff7a', 2.5, 2.2, 2); L.position.set(0, 0.6, 0); g.add(L); upd.push(t => { L.intensity = 1.8 + Math.sin(t * 1.7) * 1; });
+        const L = new T.PointLight(ctx.color, 2.5, 2.2, 2); L.position.set(0, 0.6, 0); g.add(L); upd.push(t => { L.intensity = 1.8 + Math.sin(t * 1.7) * 1; });
       }
       // 地主顏色的發光血管
       const vein = add(new T.TorusGeometry(0.5, 0.012, 4, 32), M(ctx.color, { emissive: ctx.color, emissiveIntensity: 1 }), 0, 0.02, 0); vein.rotation.x = Math.PI / 2;

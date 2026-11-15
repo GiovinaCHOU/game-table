@@ -209,45 +209,109 @@
     return r;
   }
   function alien(T, i, color) {
-    // H.R. Giger 風格：生物機械、骨白＋濕黑、拉長頭顱、肋骨、尾巴
-    const black = M(T, '#2c322c', { roughness: 0.22, metalness: 0.7 }), bone = M(T, '#bdb59c', { roughness: 0.35, metalness: 0.2 }), acc = M(T, color, { emissive: color, emissiveIntensity: 0.7, roughness: 0.3 });
-    if (i === 3) { // 黏液族：會抖動的半透明團塊
-      const g = new T.Group(), body = new T.Group(); g.add(body);
-      const blob = mesh(T, new T.SphereGeometry(0.3, 20, 16), M(T, color, { transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.1, emissive: color, emissiveIntensity: 0.25 }), 0, 0.3, 0, body);
-      const core = mesh(T, new T.IcosahedronGeometry(0.1, 0), black, 0, 0.3, 0, body); void core;
-      const head = new T.Group(); head.position.y = 0.45; body.add(head);
-      [-1, 1].forEach(s => mesh(T, new T.SphereGeometry(0.035, 8, 6), M(T, '#0a0a0a', { roughness: 0.05 }), s * 0.08, 0, 0.24, head));
-      return { g, body, head, skull: blob, legs: [], arms: [], kind: 'blob', blob };
+    // 深空異種：Giger 生物機械（骨白＋濕黑）＋各自的代表色發光部位，8 種完全不同的輪廓
+    const black = M(T, '#241c2c', { roughness: 0.16, metalness: 0.75 }), bone = M(T, '#e6dcc4', { roughness: 0.35, metalness: 0.15 }),
+      acc = M(T, color, { emissive: color, emissiveIntensity: 1.1, roughness: 0.3 });
+    const glowOrb = (parent, x, y, z, r) => mesh(T, new T.SphereGeometry(r, 12, 10), acc, x, y, z, parent);
+    const seg = (parent, n, r0, step, mats, dir) => { const g = new T.Group(); parent.add(g); for (let k = 0; k < n; k++) mesh(T, new T.SphereGeometry(r0 * (1 - k / (n + 2)), 10, 8), mats[k % mats.length], 0, (dir ? dir[1] : 0) * k * step, (dir ? dir[2] : -1) * k * step, g); return g; };
+    if (i === 0) { // 巢母：四腳爬行、往後拉長的頭顱、背上的管子、分節尾巴
+      const r = quadruped(T, { bodyMat: black, legMat: black, pawMat: bone, headR: 0.12, len: 0.6, height: 0.3, wide: 0.2, bodyH: 0.3, legR: 0.035, neck: 0.06, eyeR: 0.0001, tail: null });
+      r.eyes.forEach(e => e.visible = false); r.eyes = [];
+      const dome = mesh(T, new T.CapsuleGeometry(0.1, 0.42, 8, 14), black, 0, 0.07, -0.2, r.head); dome.rotation.x = -1.2;
+      const jaw = mesh(T, new T.CapsuleGeometry(0.06, 0.14, 6, 10), bone, 0, -0.04, 0.12, r.head); jaw.rotation.x = 1.4;
+      for (let k = 0; k < 6; k++) mesh(T, new T.ConeGeometry(0.008, 0.035, 3), bone, -0.035 + k * 0.014, -0.075, 0.17, r.head).rotation.x = Math.PI;
+      glowOrb(r.head, 0, 0.0, 0.2, 0.02);
+      for (let k = 0; k < 4; k++) [-1, 1].forEach(sd => { const p = mesh(T, new T.CylinderGeometry(0.025, 0.03, 0.32, 8), k % 2 ? bone : black, sd * 0.07, 0.62, 0.15 - k * 0.12, r.body); p.rotation.set(-0.9, 0, sd * 0.25); });
+      for (let k = 0; k < 5; k++) { const rb = mesh(T, new T.TorusGeometry(0.2, 0.018, 6, 14, Math.PI), bone, 0, 0.42, 0.2 - k * 0.1, r.body); rb.rotation.set(0, 0, Math.PI); }
+      const tail = new T.Group(); tail.position.set(0, 0.42, -0.4); r.body.add(tail); r.tail = tail;
+      for (let k = 0; k < 10; k++) mesh(T, new T.SphereGeometry(0.05 - k * 0.004, 8, 6), k % 2 ? bone : black, 0, k * 0.025, -k * 0.07, tail);
+      mesh(T, new T.ConeGeometry(0.03, 0.14, 4), acc, 0, 0.26, -0.75, tail).rotation.x = -1.3;
+      return r;
     }
-    if (i === 5) { // 水母族：漂浮的鐘形＋觸手
-      const g = new T.Group(), body = new T.Group(); g.add(body);
-      const bell = mesh(T, new T.SphereGeometry(0.28, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), M(T, color, { transparent: true, opacity: 0.6, emissive: color, emissiveIntensity: 0.6, side: T.DoubleSide }), 0, 0.7, 0, body);
-      const legs = []; for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; const p = limb(T, M(T, color, { transparent: true, opacity: 0.5, emissive: color, emissiveIntensity: 0.4 }), 0.45, 0.018, Math.cos(a) * 0.15, 0.7, Math.sin(a) * 0.15); body.add(p); legs.push(p); }
-      const head = new T.Group(); head.position.y = 0.8; body.add(head);
-      return { g, body, head, skull: bell, legs, arms: [], kind: 'float' };
+    if (i === 1) { // 骨翼者：雙足、背後一對骨架翅膀＋半透明翼膜，會拍動
+      const r = humanoid(T, { bodyMat: black, legMat: black, armMat: black, headMat: bone, handMat: bone, shoeMat: bone, eyes: false, limbR: 0.04, torsoR: 0.11 });
+      r.skull.scale.set(0.8, 1.15, 1.1);
+      [-1, 1].forEach(sd => { const e = mesh(T, new T.SphereGeometry(0.03, 10, 8), acc, sd * 0.045, 0.02, 0.1, r.head); e.scale.set(1.4, 0.6, 0.5); e.rotation.z = sd * 0.4; });
+      for (let k = 0; k < 2; k++) [-1, 1].forEach(sd => { const h = mesh(T, new T.ConeGeometry(0.025, 0.18, 6), bone, sd * 0.07, 0.12, -0.04 - k * 0.04, r.head); h.rotation.set(-0.6, 0, -sd * 0.5); });
+      for (let k = 0; k < 4; k++) { const rb = mesh(T, new T.TorusGeometry(0.1, 0.012, 6, 14, Math.PI * 1.2), bone, 0, 0.52 + k * 0.07, 0, r.body); rb.rotation.set(Math.PI / 2, 0, Math.PI * 1.4); }
+      const wings = [];
+      [-1, 1].forEach(sd => {
+        const w = new T.Group(); w.position.set(sd * 0.08, 0.78, -0.1); r.body.add(w); wings.push(w);
+        const mem = new T.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, transparent: true, opacity: 0.45, side: T.DoubleSide, roughness: 0.4 });
+        const shape = new T.Shape(); shape.moveTo(0, 0); shape.lineTo(sd * 0.7, 0.35); shape.lineTo(sd * 0.62, -0.05); shape.lineTo(sd * 0.48, -0.25); shape.lineTo(sd * 0.3, -0.2); shape.lineTo(0, -0.1); shape.closePath();
+        const m = new T.Mesh(new T.ShapeGeometry(shape), mem); w.add(m);
+        [[0.7, 0.35], [0.62, -0.05], [0.48, -0.25]].forEach(([x, y]) => { const len = Math.hypot(x, y); const b = mesh(T, new T.CylinderGeometry(0.012, 0.02, len, 6), bone, sd * x / 2, y / 2, 0, w); b.rotation.z = Math.atan2(y, sd * x) - Math.PI / 2; });
+      });
+      r.tick = (t, s) => { const f = s === 'walk' ? 6 : s === 'joy' ? 12 : 2; wings.forEach((w, k) => { w.rotation.y = (k ? -1 : 1) * (0.5 + Math.sin(t * f) * 0.35); }); };
+      return r;
     }
-    const r = humanoid(T, { bodyMat: black, legMat: black, armMat: black, headMat: black, eyes: false, limbR: 0.035, torsoR: 0.1, shoeMat: bone });
-    [r.handL, r.handR].forEach(h => { for (let k = 0; k < 3; k++) { const cl = mesh(T, new T.ConeGeometry(0.008, 0.06, 4), bone, -0.015 + k * 0.015, -0.04, 0.01, h); cl.rotation.x = Math.PI; } }); // 爪子
-    // 肋骨與脊椎
-    for (let k = 0; k < 4; k++) { const rb = mesh(T, new T.TorusGeometry(0.11, 0.012, 6, 14, Math.PI * 1.2), bone, 0, 0.52 + k * 0.07, 0, r.body); rb.rotation.set(Math.PI / 2, 0, Math.PI * 1.4); }
-    for (let k = 0; k < 6; k++) mesh(T, new T.SphereGeometry(0.03, 8, 6), bone, 0, 0.45 + k * 0.08, -0.1, r.body);
-    // 尾巴
-    const tail = new T.Group(); tail.position.set(0, 0.45, -0.1); r.body.add(tail);
-    for (let k = 0; k < 7; k++) mesh(T, new T.SphereGeometry(0.035 - k * 0.003, 8, 6), k % 2 ? bone : black, 0, -k * 0.04, -k * 0.07, tail);
-    r.tail = tail;
-    // 拉長頭顱
-    r.skull.scale.set(0.85, 0.9, 1);
-    const dome = mesh(T, new T.CapsuleGeometry(0.1, 0.28, 6, 12), black, 0, 0.08, -0.16, r.head); dome.rotation.x = -1.15;
-    const jaw = mesh(T, new T.BoxGeometry(0.08, 0.03, 0.06), bone, 0, -0.08, 0.1, r.head); void jaw;
-    for (let k = 0; k < 5; k++) mesh(T, new T.ConeGeometry(0.006, 0.03, 3), bone, -0.03 + k * 0.015, -0.065, 0.13, r.head).rotation.x = Math.PI;
-    if (i === 0) { r.skull.scale.set(1.25, 1.1, 1); [-1, 1].forEach(s => { const e = mesh(T, new T.SphereGeometry(0.04, 10, 8), M(T, '#050505', { roughness: 0.02, metalness: 0.5 }), s * 0.055, 0.02, 0.1, r.head); e.scale.set(1, 1.5, 0.6); e.rotation.z = s * 0.4; }); }
-    if (i === 1) { for (let k = 0; k < 6; k++) { const t = limb(T, black, 0.15, 0.012, -0.05 + k * 0.02, -0.05, 0.08); t.rotation.x = 0.4; r.head.add(t); } }
-    if (i === 2) { const a2 = limb(T, black, 0.18, 0.025, -0.15, 0.62, 0.05), a3 = limb(T, black, 0.18, 0.025, 0.15, 0.62, 0.05); r.body.add(a2, a3); r.arms.push(a2, a3); [-1, 1].forEach(s => mesh(T, new T.SphereGeometry(0.03, 8, 6), acc, s * 0.05, 0.03, 0.1, r.head)); }
-    if (i === 4) { [r.skull, r.torso].forEach(m => m.material = M(T, '#8f9599', { metalness: 1, roughness: 0.15 })); for (let k = 0; k < 3; k++) mesh(T, new T.TorusGeometry(0.06, 0.008, 4, 12), acc, 0, 0.55 + k * 0.08, 0.1, r.body); }
-    if (i === 6) { r.skull.material = M(T, '#3c4a35', { roughness: 0.4, metalness: 0.4 }); for (let k = 0; k < 5; k++) mesh(T, new T.ConeGeometry(0.015, 0.06, 4), bone, 0, 0.1 - k * 0.02, -0.1 - k * 0.04, r.head); }
-    if (i === 7) { const cap = mesh(T, new T.SphereGeometry(0.2, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M(T, color, { emissive: color, emissiveIntensity: 0.3, roughness: 0.6 }), 0, 0.1, 0, r.head); for (let k = 0; k < 7; k++) mesh(T, new T.SphereGeometry(0.02, 6, 6), bone, Math.cos(k) * 0.12, 0.2, Math.sin(k) * 0.12, r.head); void cap; }
-    // 生物發光管線（角色代表色）
-    const vein = mesh(T, new T.TorusGeometry(0.105, 0.006, 4, 20), acc, 0, 0.62, 0, r.body); vein.rotation.x = Math.PI / 2;
+    if (i === 2) { // 織網者：六隻腳的生物機械蜘蛛
+      const g = new T.Group(), body = new T.Group(); g.add(body);
+      const thorax = mesh(T, new T.SphereGeometry(0.16, 16, 12), black, 0, 0.38, 0.05, body); thorax.scale.set(1, 0.7, 1.1);
+      const abd = mesh(T, new T.SphereGeometry(0.24, 16, 12), black, 0, 0.45, -0.3, body); abd.scale.set(0.9, 0.8, 1.2);
+      for (let k = 0; k < 5; k++) { const rb = mesh(T, new T.TorusGeometry(0.2 - Math.abs(k - 2) * 0.03, 0.014, 6, 16, Math.PI), bone, 0, 0.47, -0.42 + k * 0.08, body); rb.rotation.set(0, Math.PI / 2, Math.PI / 2); }
+      glowOrb(body, 0, 0.6, -0.36, 0.05);
+      const head = new T.Group(); head.position.set(0, 0.4, 0.22); body.add(head);
+      const sk = mesh(T, new T.SphereGeometry(0.09, 12, 10), bone, 0, 0, 0, head);
+      for (let k = 0; k < 6; k++) glowOrb(head, (k % 3 - 1) * 0.035, 0.03 + Math.floor(k / 3) * 0.03, 0.08, 0.014);
+      [-1, 1].forEach(sd => { const f = mesh(T, new T.ConeGeometry(0.015, 0.09, 4), bone, sd * 0.03, -0.06, 0.07, head); f.rotation.x = 2.6; });
+      const legs = [];
+      for (let k = 0; k < 6; k++) { const sd = k < 3 ? -1 : 1, j = k % 3; const hip = new T.Group(); hip.position.set(sd * 0.1, 0.38, 0.12 - j * 0.12); hip.rotation.set(0, sd * (0.4 - j * 0.4), sd * 1.0); body.add(hip);
+        const up = limb(T, j % 2 ? bone : black, 0.22, 0.022, 0, 0, 0); hip.add(up); const knee = new T.Group(); knee.position.y = -0.27; up.add(knee); knee.rotation.z = -sd * 1.9;
+        const lo = limb(T, black, 0.3, 0.016, 0, 0, 0); knee.add(lo); legs.push(up); }
+      return { g, body, head, skull: sk, legs, arms: [], kind: 'quad' };
+    }
+    if (i === 3) { // 漂浮觸手：一顆大眼球核心＋機械環＋垂下的觸手
+      const g = new T.Group(), body = new T.Group(); g.add(body);
+      const head = new T.Group(); head.position.y = 0.75; body.add(head);
+      const ball = mesh(T, new T.SphereGeometry(0.22, 24, 18), bone, 0, 0, 0, head);
+      const iris = mesh(T, new T.SphereGeometry(0.1, 16, 12), acc, 0, 0, 0.16, head); iris.scale.z = 0.45;
+      mesh(T, new T.SphereGeometry(0.05, 12, 10), M(T, '#080808', { roughness: 0.05 }), 0, 0, 0.205, head).scale.z = 0.4;
+      const lid = mesh(T, new T.SphereGeometry(0.235, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), black, 0, 0, 0, head); lid.rotation.x = -0.25;
+      const ring = mesh(T, new T.TorusGeometry(0.3, 0.03, 8, 32), black, 0, 0, 0, head); ring.rotation.x = Math.PI / 2;
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; glowOrb(head, Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3, 0.018); }
+      const legs = []; for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28; const p = new T.Group(); p.position.set(Math.cos(a) * 0.14, 0.58, Math.sin(a) * 0.14); body.add(p);
+        let par = p; for (let j = 0; j < 5; j++) { const sg = mesh(T, new T.SphereGeometry(0.035 - j * 0.005, 8, 6), j % 2 ? bone : black, 0, -j * 0.07, 0, par); void sg; } legs.push(p); }
+      glowOrb(body, 0, 0.5, 0, 0.04);
+      return { g, body, head, skull: ball, legs, arms: [], kind: 'float', eyes: [] };
+    }
+    if (i === 4) { // 高瘦行者：很高很瘦、長手、皇冠狀頭骨、發光的臉部裂縫
+      const r = humanoid(T, { bodyMat: black, legMat: black, armMat: black, headMat: black, handMat: bone, shoeMat: black, eyes: false, limbR: 0.028, torsoR: 0.08 });
+      r.body.scale.set(0.9, 1.35, 0.9); r.arms.forEach(a => a.scale.y = 1.35);
+      for (let k = 0; k < 7; k++) { const a = (k / 6 - 0.5) * 2.2; const c = mesh(T, new T.ConeGeometry(0.025, 0.2 + (k === 3 ? 0.1 : 0), 5), bone, Math.sin(a) * 0.1, 0.12 + Math.cos(a) * 0.04, -0.02 + Math.cos(a) * 0.02, r.head); c.rotation.z = -a * 0.6; }
+      const slit = mesh(T, new T.BoxGeometry(0.1, 0.014, 0.02), acc, 0, 0.0, 0.125, r.head); void slit;
+      for (let k = 0; k < 6; k++) mesh(T, new T.TorusGeometry(0.075, 0.01, 4, 14), bone, 0, 0.5 + k * 0.06, 0, r.body).rotation.x = Math.PI / 2;
+      [r.handL, r.handR].forEach(h => { for (let k = 0; k < 3; k++) mesh(T, new T.CylinderGeometry(0.006, 0.003, 0.12, 4), bone, -0.012 + k * 0.012, -0.07, 0, h); });
+      const cape = mesh(T, new T.PlaneGeometry(0.3, 0.6), new T.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.2, side: T.DoubleSide, transparent: true, opacity: 0.6 }), 0, 0.55, -0.1, r.body); cape.rotation.x = 0.1;
+      return r;
+    }
+    if (i === 5) { // 甲殼獸：矮壯、分節的圓形甲殼、短腳、發光縫隙
+      const r = quadruped(T, { bodyMat: black, legMat: black, pawMat: bone, headR: 0.1, snout: 0.05, snoutLen: 0.8, snoutMat: bone, nose: false, len: 0.42, height: 0.16, wide: 0.24, bodyH: 0.3, legR: 0.05, eyeR: 0.022, iris: color, tail: { r: 0.04, len: 0.12, mat: bone } });
+      for (let k = 0; k < 6; k++) { const band = mesh(T, new T.SphereGeometry(0.34 - Math.abs(k - 2.5) * 0.03, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), k % 2 ? bone : black, 0, 0.18, -0.28 + k * 0.11, r.body); band.scale.set(1, 0.85, 0.3); }
+      for (let k = 0; k < 5; k++) mesh(T, new T.TorusGeometry(0.3 - Math.abs(k - 2) * 0.03, 0.01, 4, 24, Math.PI), acc, 0, 0.18, -0.22 + k * 0.11, r.body);
+      for (let k = 0; k < 5; k++) mesh(T, new T.ConeGeometry(0.03, 0.08, 4), bone, 0, 0.47, -0.22 + k * 0.11, r.body);
+      return r;
+    }
+    if (i === 6) { // 晶體生命：由會發光的水晶組成
+      const crys = new T.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.82 });
+      const core = M(T, '#ffffff', { emissive: '#ffffff', emissiveIntensity: 1.5 });
+      const r = humanoid(T, { bodyMat: crys, legMat: crys, armMat: crys, headMat: crys, handMat: crys, shoeMat: black, hipMat: black, eyes: false, limbR: 0.045 });
+      r.skull.visible = false; mesh(T, new T.OctahedronGeometry(0.14, 0), crys, 0, 0.02, 0, r.head).scale.y = 1.4;
+      mesh(T, new T.OctahedronGeometry(0.05, 0), core, 0, 0.02, 0, r.head);
+      mesh(T, new T.OctahedronGeometry(0.07, 0), core, 0, 0.65, 0, r.body);
+      const shards = []; for (let k = 0; k < 9; k++) { const sh = mesh(T, new T.OctahedronGeometry(0.05 + Math.random() * 0.04, 0), crys, (Math.random() - 0.5) * 0.3, 0.55 + Math.random() * 0.35, -0.08 - Math.random() * 0.06, r.body); sh.scale.y = 2.2; sh.rotation.set(Math.random() - 0.5, 0, (Math.random() - 0.5) * 1.2); shards.push(sh); }
+      r.tick = (t) => { crys.emissiveIntensity = 0.45 + Math.sin(t * 3) * 0.25; shards.forEach((s2, k) => s2.rotation.y = t * 0.6 + k); };
+      return r;
+    }
+    // 孢子旅者：無人深空風格的外星生物，大頭、皮膚是代表色、頭上長著發光植物
+    const skin = M(T, color, { roughness: 0.6 }), belly = M(T, '#fff1d6', { roughness: 0.7 });
+    const r = humanoid(T, { bodyMat: skin, legMat: skin, armMat: skin, headMat: skin, handMat: belly, shoeMat: M(T, '#5a2e6e'), headR: 0.17, iris: '#2a1a5e', browColor: '#5a2e6e', scale: 0.95 });
+    r.head.position.y = 1.02; r.eyes.forEach(e => { e.scale.setScalar(1.6); e.position.y += 0.02; e.position.x *= 1.25; e.position.z += 0.02; });
+    mesh(T, new T.SphereGeometry(0.09, 12, 10), belly, 0, 0.6, 0.07, r.body).scale.set(1, 1.3, 0.6);
+    [-1, 1].forEach(sd => { const fr = mesh(T, new T.ConeGeometry(0.06, 0.2, 6), M(T, '#7df9ff', { emissive: '#3fd8c8', emissiveIntensity: 0.5 }), sd * 0.17, 0.02, -0.02, r.head); fr.rotation.z = -sd * 1.3; });
+    const stalks = []; for (let k = 0; k < 3; k++) { const a = (k - 1) * 0.5; const st = new T.Group(); st.position.set(Math.sin(a) * 0.08, 0.14, -0.02); st.rotation.z = -a; r.head.add(st);
+      mesh(T, new T.CylinderGeometry(0.008, 0.012, 0.18, 6), M(T, '#3a7a4a'), 0, 0.09, 0, st); const bulb = mesh(T, new T.SphereGeometry(0.035, 10, 8), M(T, ['#ff79c6', '#7df9ff', '#ffd27a'][k], { emissive: ['#ff79c6', '#7df9ff', '#ffd27a'][k], emissiveIntensity: 1.2 }), 0, 0.2, 0, st); void bulb; stalks.push(st); }
+    r.tick = (t) => stalks.forEach((st, k) => st.rotation.x = Math.sin(t * 2 + k) * 0.15);
     return r;
   }
 
@@ -296,6 +360,7 @@
     if (r.kind === 'float') legs.forEach((l, k) => { l.rotation.x = Math.sin(t * 3 + k) * 0.25; l.rotation.z = Math.cos(t * 2.5 + k) * 0.2; });
     // 倒地
     const fallT = s === 'fall' ? -Math.PI / 2 : 0; r.g.rotation.z += (fallT - r.g.rotation.z) * 0.12;
+    if (r.tick) r.tick(t, s);
     if (r.eyes && r.eyes.length) { const bl = ((t + r.phase * 0.7) % 3.7) < 0.12 ? 0.12 : 1; r.eyes.forEach(e => e.scale.y = bl); }
     if (r.arrow.visible) { r.arrow.position.y = 1.35 + Math.sin(t * 4) * 0.06; r.arrow.rotation.y = t * 2; }
   };

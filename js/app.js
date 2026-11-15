@@ -167,7 +167,7 @@
           : `<label class="opt"><span>${o.label}</span><span class="hint">${String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
-        <label class="opt"><span>桌面風格（所有遊戲）</span><select id="skinSel" ${host ? '' : 'disabled'}>${[['classic', '🟢 經典綠桌'], ['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '👽 外星寶貝']].map(([v, l]) => `<option value="${v}" ${(lobby.skin || 'classic') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="opt"><span>桌面風格（所有遊戲）</span><select id="skinSel" ${host ? '' : 'disabled'}>${[['classic', '🟢 經典綠桌'], ['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']].map(([v, l]) => `<option value="${v}" ${(lobby.skin || 'classic') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <p class="pcount ${countOk ? '' : 'bad'}">玩家 ${players.length} 人（${mod.min}–${mod.max} 人）${countOk ? '' : ' — 人數不符'}</p>
         <div class="act-row">
           <button class="btn ghost" id="myRole">${me && me.role === 'spec' ? '我要當玩家' : '我改成觀戰'}</button>

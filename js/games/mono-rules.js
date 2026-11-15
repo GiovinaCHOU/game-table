@@ -108,6 +108,10 @@
     if (deck === 'bad' && p.immune > 0) { p.immune--; ev(st, { t: 'immune', seat: s }); return; }
     const [k, v0] = card.eff.split(':'); const v = +v0;
     switch (k) {
+      case 'gm': p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '星門彼端' }); break;
+      case 'gagain': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
+      case 'gtp': { const to = Math.floor(Math.random() * N); p.pos = to; ev(st, { t: 'tp', seat: s, to, gate: true }); land(st, s, depth + 1); break; }
+      case 'gate': st.phase = 'gate'; st.pending = { gate: true }; break;
       case 'm': if (v >= 0) { p.cash += v; ev(st, { t: 'cash', seat: s, amt: v }); } else pay(st, s, -1, -v, '卡片'); break;
       case 'mv': moveTo(st, s, v); land(st, s, depth + 1); break;
       case 'go': jump(st, s, v, true); land(st, s, depth + 1); break;
@@ -155,7 +159,7 @@
       if (p.alive && st.levels[t.i] < 4 && !(st.boLock[t.i] > st.round) && p.cash >= buyoutOf(st, t.i)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i) }; return true; }
       return false;
     }
-    if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase === 'buy' || st.phase === 'upgrade'; }
+    if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
     if (t.type === 'tax') { pay(st, s, -1, taxOf(st, s), '稅金'); return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
@@ -163,6 +167,7 @@
   }
   function endTurn(st, now) {
     st.phase = 'roll'; st.pending = null;
+    if (st.extra) { st.extra = false; if (st.players[st.turn].alive && alive(st).length > 1) { setDeadline(st, now, 15000); return; } }
     const al = alive(st);
     if (al.length <= 1) return finish(st);
     if (st.maxRounds === 0 && al.length < st.n) return finish(st); // 有人破產就結束
@@ -237,6 +242,13 @@
         }
         endTurn(st, now); return;
       }
+      if (a.type === 'gate') {
+        if (st.phase !== 'gate') return 'silent';
+        const to = a.to | 0; if (to < 0 || to >= N) return '沒有這一格';
+        p.pos = to; ev(st, { t: 'tp', seat: s, to, gate: true }); st.phase = 'roll'; st.pending = null;
+        if (!land(st, s, 1)) endTurn(st, now); else setDeadline(st, now, 15000);
+        return;
+      }
       if (a.type === 'buyout') {
         if (st.phase !== 'buyout') return 'silent';
         const { tile, from, cost } = st.pending;
@@ -253,6 +265,12 @@
     autoAct(st) {
       if (st.phase === 'pick') return { seat: -1, a: { type: 'start' } };
       if (st.phase === 'roll') return { seat: st.turn, a: { type: 'roll' } };
+      if (st.phase === 'gate') { // 代打：去能升級的自己的地 → 買得起的空地 → 休息站
+        const p = st.players[st.turn];
+        const up = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === st.turn && st.levels[t.i] < 4 && p.cash >= t.up).sort((a, b) => b.price - a.price)[0];
+        const buy = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === -1 && p.cash >= t.price).sort((a, b) => b.price - a.price)[0];
+        return { seat: st.turn, a: { type: 'gate', to: (up || buy || BOARD[14]).i } };
+      }
       if (st.phase === 'buyout') return { seat: st.turn, a: { type: 'buyout', yes: st.players[st.turn].cash - st.pending.cost >= 25000 } };
       if (st.phase === 'buy' || st.phase === 'upgrade') {
         const t = BOARD[st.pending.tile]; const cost = st.phase === 'buy' ? t.price : t.up;

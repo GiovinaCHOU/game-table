@@ -26,7 +26,7 @@
       const r = this.renderer = new T.WebGLRenderer({ antialias: this.q.high, powerPreference: 'high-performance' });
       r.setPixelRatio(Math.min(this.q.high ? 2 : 1.25, window.devicePixelRatio || 1)); r.setSize(w, h);
       r.shadowMap.enabled = this.q.high; r.shadowMap.type = T.PCFSoftShadowMap;
-      r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.2 : 1.0;
+      r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.0 : 1.0;
       el.appendChild(r.domElement); r.domElement.style.touchAction = 'none';
       const sc = this.scene = new T.Scene();
       sc.background = new T.Color(S.bg); sc.fog = new T.Fog(S.fog[0], S.fog[1], S.fog[2]);
@@ -51,7 +51,7 @@
       this.overview(true);
       this.bindGestures();
       this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
-      const loop = () => { if (this.dead) return; this.raf = requestAnimationFrame(loop); this.frame(); };
+      const loop = () => { if (this.dead) return; this.raf = requestAnimationFrame(loop); if (!this.paused) this.frame(); };
       loop();
     }
     resize() { const w = this.el.clientWidth, h = this.el.clientHeight; if (!w || !h) return; this.renderer.setSize(w, h); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
@@ -72,6 +72,7 @@
     snap() { const c = this.cr, g = this.goal; c.target.copy(g.target); c.dist = g.dist; c.polar = g.polar; c.azim = g.azim; }
     focusSeat(seat, close) { const tk = this.tokens[seat]; if (!tk) return; this.follow(seat); if (close) { this.goal.dist = Math.min(this.goal.dist, 9); this.goal.polar = Math.max(0.7, Math.min(this.goal.polar, 1.0)); } }
     follow(seat) { this.following = seat; }
+    focusTile(i) { const [x, z] = tileXZ(i); this.follow(null); this.goal.target.set(x, 0, z); this.clampGoal(); }
     bindGestures() {
       const el = this.renderer.domElement; const P = new Map(); let start = null, prev = null, moved = 0, tap0 = 0;
       const info = () => { const ps = [...P.values()]; if (!ps.length) return null; if (ps.length === 1) return { x: ps[0].x, y: ps[0].y, n: 1 }; const [a, b] = ps; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), n: 2 }; };
@@ -142,12 +143,12 @@
       shape.lineTo(-s + rr, s); shape.quadraticCurveTo(-s, s, -s, s - rr); shape.lineTo(-s, -s + rr); shape.quadraticCurveTo(-s, -s, -s + rr, -s);
       const geo = new T.ExtrudeGeometry(shape, { depth: 0.24, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 });
       geo.rotateX(-Math.PI / 2); geo.translate(0, -0.27, 0);
-      const side = { ragnarok: ['#e9e2d2', 0.35, 0.1], cyber: ['#1a1830', 0.3, 0.7], animal: ['#6e5a3e', 0.95, 0], alien: ['#26291f', 0.25, 0.7] }[this.theme];
+      const side = { ragnarok: ['#e9e2d2', 0.35, 0.1], cyber: ['#1a1830', 0.3, 0.7], animal: ['#6e5a3e', 0.95, 0], alien: ['#2a2232', 0.3, 0.6] }[this.theme];
       const sideMat = new T.MeshStandardMaterial({ color: side[0], roughness: side[1], metalness: side[2] });
       for (let i = 0; i < N; i++) {
         const [x, z] = tileXZ(i), b = this.R.BOARD[i];
         const base = new T.Mesh(geo, sideMat); base.position.set(x, 0, z); base.castShadow = base.receiveShadow = this.q.high; this.scene.add(base);
-        const emis = this.theme === 'cyber' ? 0.55 : this.theme === 'alien' ? 0.25 : 0;
+        const emis = this.theme === 'cyber' ? 0.55 : this.theme === 'alien' ? 0 : 0;
         const tx = A.tileTexture(T, this.theme, b, this.R.tileName(this.theme, i), ICON[this.theme][b.type] || '★');
         const top = new T.Mesh(new T.PlaneGeometry(1.32, 1.32), new T.MeshStandardMaterial({ map: tx, roughness: this.theme === 'ragnarok' ? 0.3 : 0.55, metalness: this.theme === 'cyber' ? 0.3 : 0, emissive: '#ffffff', emissiveMap: emis ? tx : null, emissiveIntensity: emis }));
         top.rotation.x = -Math.PI / 2; top.position.set(x, 0.005, z); top.receiveShadow = this.q.high; top.userData.i = i;

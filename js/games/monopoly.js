@@ -62,6 +62,13 @@
       this.noise(2.2, { f: 160, vol: 0.06, attack: 0.6 });
     },
     // 神機錯亂：故障雜訊
+    warp() { // 星門：上升的呼嘯＋最後一聲轟
+      this.tone(80, 0.6, { type: 'sine', vol: 0.06, glide: 220, attack: 0.2 });
+      [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.2].forEach((d, i) => this.tone(330 * Math.pow(1.122, i), 0.12, { type: 'triangle', vol: 0.03, delay: d * 0.55, wet: 0.6 }));
+      this.tone(110, 2.4, { type: 'sawtooth', vol: 0.03, lp: 1800, glide: 880, attack: 0.5, delay: 0.5 });
+      this.noise(2.0, { f: 2500, type: 'bandpass', q: 0.7, vol: 0.06, attack: 1.4, delay: 0.5 });
+      this.tone(55, 1.2, { type: 'sine', vol: 0.12, delay: 2.5, glide: 30 }); this.noise(0.8, { f: 200, vol: 0.12, delay: 2.5 });
+    },
     glitch() { for (let i = 0; i < 14; i++) { this.noise(0.06, { f: 500 + Math.random() * 4000, type: 'bandpass', q: 8, vol: 0.08, delay: i * 0.07 }); this.tone(80 + Math.random() * 900, 0.06, { type: 'square', vol: 0.03, delay: i * 0.07 + 0.03, wet: false }); } }
   };
   try { SFX.on = localStorage.getItem('mono-sfx') !== '0'; } catch (e) {}
@@ -73,7 +80,7 @@
     id: 'monopoly', name: '大富翁', icon: '🎩', min: 2, max: 6,
     desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
     options: [
-      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '👽 外星寶貝']], def: 'ragnarok' },
+      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '有人破產就結束（約 25～30 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
@@ -162,7 +169,7 @@
       b.init(stage, v.theme, R()).then(() => {
         b.ready = true; this.board = b; stage.querySelector('.mono-loading').remove();
         b.onPan = () => { this._camFree = true; };
-        b.onTap = (h) => { if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
+        b.onTap = (h) => { if (h.tile != null && this.canAct('gate')) this.pickGate(h.tile); else if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
         try { if (!localStorage.getItem('mono-hint')) { const hn = el.querySelector('.mono-hint'); hn.hidden = false; setTimeout(() => hn.hidden = true, 6000); localStorage.setItem('mono-hint', '1'); } } catch (x) {}
         b.onStep = () => SFX.step();
         this.syncBoard(true);
@@ -258,7 +265,7 @@
           switch (e.t) {
             case 'dice': this.closeCard(); if (!this._camFree) b.focusSeat(e.seat, e.seat === v.seat); await this.rollDice(e.d); break;
             case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
-            case 'tp': await b.teleport(e.seat, e.to, watch(e.seat)); break;
+            case 'tp': if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
             case 'cash': SFX.coin(); this.fx(`+${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${fmt(e.amt)}</b>`, 'good'); await sleep(450); break;
             case 'pay':
               SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
@@ -305,6 +312,7 @@
       L.classList.add('on'); L.onclick = () => this.closeCard();
       clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 25000);
       await sleep(2200);
+      if (e.eff === 'gagain' || e.eff.startsWith('gm:')) { this.closeCard(); await this.stargate(); }
     },
     closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
@@ -333,11 +341,12 @@
       const [k, v0] = eff.split(':'); const v = +v0; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)}`, give: `你付每位玩家 ${fmt(v)}`, house: `每一級建築付 ${fmt(-v)}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
+        each: `每位玩家付你 ${fmt(v)}`, give: `你付每位玩家 ${fmt(v)}`, house: `每一級建築付 ${fmt(-v)}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
     },
     hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; if (this.el) this.el.querySelector('.go-btn').disabled = true; },
     showPrompt() {
       const v = this.v; if (!this.el || this.playing) return;
+      if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled);
       if (m.querySelector('.pad')) return;
@@ -360,6 +369,8 @@
           <div class="act-row"><button class="btn ghost" data-y="0">不要</button><button class="btn" data-y="1">${v.phase === 'buy' ? '買！' : '蓋！'}</button></div>
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: v.phase, yes: b.dataset.y === '1' }); m.hidden = true; });
+      } else if (v.phase === 'gate' && v.turn === v.seat) {
+        m.hidden = true; this.gateBar(true); return;
       } else if (v.phase === 'buyout' && v.turn === v.seat) {
         const pd = v.pending, t = R().BOARD[pd.tile]; const name = R().tileName(v.theme, t.i);
         m.hidden = false; m.onclick = null;
@@ -370,6 +381,70 @@
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: 'buyout', yes: b.dataset.y === '1' }); m.hidden = true; });
       } else if (!m.querySelector('.tinfo')) m.hidden = true;
+    },
+    // 星門：選目的地（點地圖上的格子，或用下拉選單）
+    gateBar(on) {
+      const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.gate-bar');
+      if (!on) { if (bar) bar.remove(); return; }
+      if (bar) return; const v = this.v;
+      bar = document.createElement('div'); bar.className = 'gate-bar';
+      bar.innerHTML = `<b>🌀 星門啟動：點地圖上任一格，或從選單挑</b><div class="gate-row"><select>${R().BOARD.map(t => `<option value="${t.i}">${U.esc(R().tileName(v.theme, t.i))}${t.type === 'prop' ? (v.owners[t.i] === v.seat ? '（我的 Lv' + v.levels[t.i] + '）' : v.owners[t.i] >= 0 ? '（' + U.esc(v.names[v.owners[t.i]]) + '）' : '（空地 ' + fmt(t.price) + '）') : ''}</option>`).join('')}</select><button class="btn sm">傳送</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
+      st.appendChild(bar);
+      bar.querySelector('button').onclick = () => this.pickGate(+bar.querySelector('select').value);
+    },
+    pickGate(i) {
+      const bar = this.el.querySelector('.gate-bar'); const sel = bar && bar.querySelector('select');
+      if (sel && String(sel.value) !== String(i)) { sel.value = i; if (this.board) this.board.focusTile && this.board.focusTile(i); this.ui.toast('再按一次「傳送」確認'); return; }
+      this.ui.send({ type: 'gate', to: i }); this.gateBar(false);
+    },
+    // 全螢幕 3 秒星門穿越動畫（光帶隧道＋行星被拉長）
+    stargate() {
+      return new Promise(res => {
+        SFX.warp(); if (this.board) this.board.paused = true; // 動畫期間暫停 3D，手機比較順
+        const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
+        const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
+        const cx = W / 2, cy = H / 2, R0 = Math.min(W, H) * 0.32, D = Math.hypot(W, H) / 2;
+        const PAL = ['#ff4fa3', '#39e8ff', '#ffb347', '#a66bff', '#7dffb0', '#ffffff'];
+        const P = Array.from({ length: 520 }, () => ({ a: Math.random() * 6.283, z: Math.random(), c: PAL[Math.floor(Math.random() * PAL.length)], w: 1 + Math.random() * 2.5 }));
+        const planets = Array.from({ length: 5 }, (_, k) => ({ a: Math.random() * 6.283, z: 1 + k * 0.25, c: PAL[k % 5], r: 0.08 + Math.random() * 0.08 }));
+        const t0 = performance.now(), T = 3000;
+        const frame = () => {
+          const ms = performance.now() - t0, k = ms / T;
+          g.globalCompositeOperation = 'source-over';
+          if (k < 0.17) { // 石環啟動，符文依序亮起
+            const f = k / 0.17; g.fillStyle = `rgba(4,2,14,${0.5 + f * 0.5})`; g.fillRect(0, 0, W, H);
+            const ig = g.createRadialGradient(cx, cy, 0, cx, cy, R0); ig.addColorStop(0, `rgba(120,220,255,${f * 0.9})`); ig.addColorStop(0.7, `rgba(60,90,255,${f * 0.6})`); ig.addColorStop(1, 'rgba(20,10,60,0)');
+            g.fillStyle = ig; g.beginPath(); g.arc(cx, cy, R0, 0, 6.283); g.fill();
+            g.lineWidth = R0 * 0.16; g.strokeStyle = '#6d6a78'; g.beginPath(); g.arc(cx, cy, R0 * 1.08, 0, 6.283); g.stroke();
+            g.lineWidth = R0 * 0.03; g.strokeStyle = '#3d3a48'; g.beginPath(); g.arc(cx, cy, R0 * 1.0, 0, 6.283); g.stroke();
+            for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283 - 1.571 + f * 0.6, lit = f * 9 > i; g.save(); g.translate(cx + Math.cos(a) * R0 * 1.08, cy + Math.sin(a) * R0 * 1.08); g.rotate(a + 1.571); g.fillStyle = lit ? '#ffb347' : '#2a2834'; if (lit) { g.shadowColor = '#ff8a00'; g.shadowBlur = 30 * dpr; } g.beginPath(); g.moveTo(-R0 * 0.07, -R0 * 0.07); g.lineTo(R0 * 0.07, -R0 * 0.07); g.lineTo(0, R0 * 0.07); g.closePath(); g.fill(); g.restore(); }
+          } else if (k < 0.83) { // 光帶隧道
+            const f = (k - 0.17) / 0.66, sp = 0.004 + f * f * 0.05;
+            g.fillStyle = 'rgba(6,2,20,0.28)'; g.fillRect(0, 0, W, H);
+            const rot = f * f * 2.4;
+            g.globalCompositeOperation = 'lighter';
+            for (const p of P) {
+              const z0 = p.z; p.z -= sp * (0.6 + p.w * 0.25); if (p.z <= 0.02) { p.z += 1; continue; }
+              const r0 = D * 0.06 / z0, r1 = D * 0.06 / p.z, a = p.a + rot;
+              g.strokeStyle = p.c; g.lineWidth = p.w * dpr * (0.5 + 1 / p.z * 0.08); g.globalAlpha = Math.min(1, 0.25 + (1 - p.z));
+              g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke();
+            }
+            for (const pl of planets) { // 行星被拉長成彩色線
+              pl.z -= sp * 0.9; if (pl.z <= 0.05) pl.z += 1.3;
+              const r1 = D * 0.08 / pl.z, r0 = r1 * (1 - Math.min(0.85, sp * 18)), a = pl.a + rot;
+              g.globalAlpha = 0.8; g.strokeStyle = pl.c; g.lineCap = 'round'; g.lineWidth = Math.max(2, pl.r * r1);
+              g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke();
+            }
+            g.globalAlpha = 1; const core = g.createRadialGradient(cx, cy, 0, cx, cy, D * 0.12 * (1 + f)); core.addColorStop(0, 'rgba(255,255,255,0.9)'); core.addColorStop(1, 'rgba(160,120,255,0)');
+            g.fillStyle = core; g.beginPath(); g.arc(cx, cy, D * 0.12 * (1 + f), 0, 6.283); g.fill();
+          } else { // 白光一閃後淡出
+            const f = (k - 0.83) / 0.17; g.globalAlpha = 1; g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H); cv.style.opacity = String(Math.max(0, 1 - f * 1.2));
+          }
+          g.globalAlpha = 1;
+          if (ms < T) requestAnimationFrame(frame); else { cv.remove(); if (this.board) this.board.paused = false; res(); }
+        };
+        requestAnimationFrame(frame);
+      });
     },
     tileInfo(i) {
       const v = this.v; if (!v || this.playing) return; const t = R().BOARD[i]; const th = TH()[v.theme];
