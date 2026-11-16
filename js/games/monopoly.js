@@ -175,6 +175,7 @@
             <div class="mono-vfx"></div>
             <div class="mono-feed"></div>
             <div class="mono-cardlayer"></div>
+            <div class="mono-quiz" hidden></div>
           </div>
           <div class="mono-info"></div>
           <div class="mono-modal" hidden></div>
@@ -209,7 +210,7 @@
       hud.innerHTML = v.players.map((p, s) => `
         <div class="mp ${s === v.turn && v.phase !== 'over' ? 'turn' : ''} ${p.alive ? '' : 'dead'}" data-s="${s}">
           ${this.faceHTML(v, s, 34)}
-          <div><b>${U.esc(v.names[s])}${s === v.seat ? '（你）' : ''}</b><span class="cash" data-s="${s}">${p.alive ? '💵' + fmt(p.cash) : '破產'}</span>${p.alive && v.assets ? `<span class="worth">總資產 ${fmt(v.assets[s].total)}</span>` : ''}
+          <div><b>${U.esc(v.names[s])}${s === v.seat ? '（你）' : ''}</b><span class="cash" data-s="${s}">${p.alive ? (TH()[v.theme].coin || '💰') + fmt(p.cash) : '破產'}</span>${p.alive && v.assets ? `<span class="worth">總資產 ${fmt(v.assets[s].total)} ${unit}</span>` : ''}
           <small>${p.skip ? `⏸${p.skip} ` : ''}${p.immune ? `🛡${p.immune} ` : ''}${p.jailfree ? `🎫${p.jailfree}` : ''}</small></div>
         </div>`).join('');
       hud.querySelectorAll('.mp').forEach(d => d.onclick = () => this.assetInfo(+d.dataset.s));
@@ -288,7 +289,7 @@
     async play(evs) {
       this._played = evs.some(e => ['buy', 'up', 'buyout', 'jail', 'pay', 'card', 'sell', 'down', 'skip', 'skipset', 'cash', 'immune'].includes(e.t));
       this.playing = true; this.hidePrompt();
-      const v = this.v, b = this.board, unit = TH()[v.theme].unit; const watch = (s) => !this._camFree || b.following === s;
+      const v = this.v, b = this.board, unit = TH()[v.theme].unit, $ = (n) => fmt(n) + ' ' + unit, why = (w) => w ? (w === '卡片' ? '（卡片）' : ' ' + w) : ''; const watch = (s) => !this._camFree || b.following === s;
       try {
         for (const e of evs) {
           if (!this.board) break;
@@ -296,19 +297,25 @@
             case 'dice': this.closeCard(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
             case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
             case 'tp': if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
-            case 'cash': SFX.coin(); this.fx(`+${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${fmt(e.amt)}</b>`, 'good'); await sleep(450); break;
+            case 'cash': SFX.coin(); this.fx(`+${$(e.amt)}${why(e.why)}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${$(e.amt)}</b>`, 'good'); await sleep(450); break;
             case 'pay':
-              SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${fmt(e.amt)}${e.why ? ' ' + e.why : ''}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
-              if (e.to >= 0) setTimeout(() => this.fx(`+${fmt(e.amt)}`, 'gain', e.to), 300);
-              if (e.to >= 0) this.feed(`${this.who(e.from)} 付給 ${this.who(e.to)} <b class="r">${fmt(e.amt)}</b> ${U.esc(e.why || '')}${e.tile != null ? `<small>（${U.esc(R().tileName(v.theme, e.tile))}）</small>` : ''}`, 'pay');
-              else if (e.why !== '卡片' || e.amt >= 3000) this.feed(`${this.who(e.from)} 付出 <b class="r">${fmt(e.amt)}</b> ${U.esc(e.why || '')}`, 'pay');
+              SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${$(e.amt)}${why(e.why)}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
+              if (e.to >= 0) setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.to), 300);
+              if (e.to >= 0) this.feed(`${this.who(e.from)} 付給 ${this.who(e.to)} <b class="r">${$(e.amt)}</b>${U.esc(why(e.why))}${e.tile != null ? `<small>（${U.esc(R().tileName(v.theme, e.tile))}）</small>` : ''}`, 'pay');
+              else if (e.why !== '卡片' || e.amt >= 3000) this.feed(`${this.who(e.from)} 付出 <b class="r">${$(e.amt)}</b>${U.esc(why(e.why))}`, 'pay');
               await sleep(650); break;
             case 'buy': SFX.build(); b.mood(e.seat, 'joy', 900); this.fx(`買下！`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 買下 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'good'); this.syncBoard(false, true); await sleep(500); break;
-            case 'buyout': SFX.build(); SFX.lose(); b.mood(e.seat, 'joy', 1200); b.mood(e.from, 'sad', 1200); this.fx('強制收購！', 'gain big', null, e.tile); this.feed(`${this.who(e.seat)} 花 <b>${fmt(e.amt)}</b> 收購了 ${this.who(e.from)} 的 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'big'); this.syncBoard(false, true); await sleep(900); break;
+            case 'buyout': SFX.build(); SFX.lose(); b.mood(e.seat, 'joy', 1200); b.mood(e.from, 'sad', 1200); this.fx('強制收購！', 'gain big', null, e.tile); this.feed(`${this.who(e.seat)} 花 <b>${$(e.amt)}</b> 收購了 ${this.who(e.from)} 的 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'big'); this.syncBoard(false, true); await sleep(900); break;
             case 'up': SFX.build(); this.fx(e.free ? '免費升級！' : `升級 Lv${e.level}`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 把 <b>${U.esc(R().tileName(v.theme, e.tile))}</b> 蓋到 Lv${e.level}`, 'good'); this.syncBoard(false, true); await sleep(600); break;
             case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(false, true); await sleep(600); break;
             case 'sell': this.fx(e.what === 'land' ? '被迫賣地' : '被迫賣房', 'loss', null, e.tile); this.feed(`${this.who(e.seat)} 錢不夠，被迫${e.what === 'land' ? '賣掉' : '拆掉'} <b>${U.esc(R().tileName(v.theme, e.tile))}</b>${e.what === 'land' ? '' : ' 的建築'}`, 'pay'); this.syncBoard(false, true); await sleep(400); break;
             case 'card': await this.showCard(e); break;
+            case 'quiz': {
+              this.closeCard(); SFX.doom(); this.vfx('doom'); b.mood(e.debtor, 'scared', 2500); b.mood(e.cred, 'joy', 1500);
+              this.feed(`⚔️ ${this.who(e.debtor)} 付不出 ${$(e.amt)}，跟 ${this.who(e.cred)} 進入翻盤問答！`, 'big');
+              if (!this._camFree) b.focusSeat(e.debtor, true); await sleep(1400); break;
+            }
+            case 'quizres': await this.quizReveal(e); break;
             case 'immune': this.fx('🛡 抵擋了厄運！', 'gain', e.seat); SFX.glory(); this.vfx('glory'); b.mood(e.seat, 'joy', 1200); await sleep(900); break;
             case 'jailfree': this.fx('🎫 使用免罪卡！', 'gain', e.seat); await sleep(900); break;
             case 'jail': this.feed(`${this.who(e.seat)} 被送進 ${U.esc(TH()[v.theme].corners.jail)}`, 'pay'); SFX.doom(); this.vfx('doom'); this.fx(`⛓ ${TH()[v.theme].corners.jail}`, 'loss', e.seat); await b.teleport(e.seat, R().JAIL, watch(e.seat)); b.mood(e.seat, 'sad', 2000); break;
@@ -332,7 +339,6 @@
           }
         }
       } finally { this.playing = false; }
-      void unit;
     },
     async rollDice(d) {
       const faces = this.el.querySelectorAll('.d6'); SFX.dice();
@@ -374,7 +380,7 @@
       const rows = a.tiles.map(i => { const t = R().BOARD[i]; return `<li><i style="background:${t.color}"></i>${U.esc(R().tileName(v.theme, i))}<span>${v.levels[i] ? '🏠 Lv' + v.levels[i] : '空地'}</span></li>`; }).join('');
       m.hidden = false;
       m.innerHTML = `<div class="mm-card tinfo assets"><div class="mcard-who">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b></div>
-        ${v.players[s].alive ? `<table class="atab"><tr><td>現金</td><td>${fmt(a.cash)}</td></tr><tr><td>地價（${a.tiles.length} 塊）</td><td>${fmt(a.land)}</td></tr><tr><td>建築</td><td>${fmt(a.bld)}</td></tr><tr class="sum"><td>總資產</td><td>${fmt(a.total)} ${th.unit}</td></tr></table>
+        ${v.players[s].alive ? `<table class="atab"><tr><td>現金</td><td>${fmt(a.cash)} ${th.unit}</td></tr><tr><td>地價（${a.tiles.length} 塊）</td><td>${fmt(a.land)} ${th.unit}</td></tr><tr><td>建築</td><td>${fmt(a.bld)} ${th.unit}</td></tr><tr class="sum"><td>總資產</td><td>${fmt(a.total)} ${th.unit}</td></tr></table>
         ${rows ? `<ul class="alist">${rows}</ul>` : '<p class="hint">還沒有地</p>'}` : '<p>已破產</p>'}
         <div class="act-row"><button class="btn sm ghost" data-where>看他在哪</button><button class="btn sm" data-x>關閉</button></div></div>`;
       m.onclick = (e) => {
@@ -386,11 +392,12 @@
       const [k, v0] = eff.split(':'); const v = +v0; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)}`, give: `你付每位玩家 ${fmt(v)}`, house: `每一級建築付 ${fmt(-v)}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
+        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
     },
     hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; if (this.el) this.el.querySelector('.go-btn').disabled = true; },
     showPrompt() {
       const v = this.v; if (!this.el || this.playing) return;
+      if (v.phase === 'quiz' && v.pending && v.pending.quiz) this.quizUI(v.pending, null); else if (!this._revealing) { const qz = this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true; }
       if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled);
@@ -399,7 +406,7 @@
       if (v.phase === 'over') {
         m.hidden = false;
         m.innerHTML = `<div class="mm-card over"><h2>🏆 ${U.esc(v.names[v.winner])} 獲勝！</h2>
-          <p class="hint">排名看「總資產」＝ 現金 ＋ 地價 ＋ 建築</p>
+          <p class="hint">排名看「總資產」＝ 現金 ＋ 地價 ＋ 建築（單位：${th.unit}）</p>
           <table class="atab rank"><tr><th></th><th>玩家</th><th>現金</th><th>地＋建築</th><th>總資產</th></tr>${(v.ranks || []).map((r, k) => `<tr class="${k === 0 ? 'win' : ''}"><td>${k + 1}</td><td>${this.faceHTML(v, r.s, 24)} ${U.esc(v.names[r.s])}</td>${r.w >= 0 ? `<td>${fmt(r.cash)}</td><td>${fmt(r.land + r.bld)}</td><td><b>${fmt(r.w)}</b></td>` : '<td colspan="3">破產</td>'}</tr>`).join('')}</table></div>`;
         m.onclick = null; return;
       }
@@ -490,6 +497,34 @@
         };
         requestAnimationFrame(frame);
       });
+    },
+    // ===== 翻盤問答：破產者 vs 收錢者搶答，大家都看得到 =====
+    quizUI(pd, res) {
+      const v = this.v, box = this.el.querySelector('.mono-quiz'); if (!box) return;
+      const me = v.seat, mine = (me === pd.debtor || me === pd.cred) && !res, ans = (res ? res.ans : pd.ans) || {}, th = TH()[v.theme];
+      const answered = (s) => ans[s] != null, key = res ? res.key : -1;
+      const sig = JSON.stringify([pd.q, ans, key]); if (!box.hidden && box.dataset.sig === sig) return; box.dataset.sig = sig;
+      box.hidden = false;
+      const who = (s, tag) => `<div class="qz-p ${answered(s) ? 'done' : ''}">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b><small>${tag}${answered(s) ? ' ✓ 已作答' : ''}</small></div>`;
+      box.innerHTML = `<div class="qz-card">
+        <div class="qz-top"><span>⚔️ 翻盤問答</span><span class="timer" data-deadline="${res ? '' : v.deadline}"></span></div>
+        <div class="qz-vs">${who(pd.debtor, '破產危機')}<em>VS</em>${who(pd.cred, '收錢的人')}</div>
+        <div class="qz-bar"><i style="animation-duration:${res ? 0 : Math.max(0.5, (v.deadline - this.now()) / 1000)}s"></i></div>
+        <p class="qz-q">${U.esc(pd.q)}</p>
+        <div class="qz-opts">${pd.opts.map((o, i) => { const st = res ? (i === key ? 'ok' : 'ng') : (ans[me] && ans[me].c === i ? 'pick' : '');
+          const heads = Object.entries(ans).filter(([, a]) => a.c === i).map(([s]) => this.faceHTML(v, +s, 26)).join('');
+          return `<button class="qz-o ${st}" data-c="${i}" ${mine && !answered(me) ? '' : 'disabled'}><span>${'ABCD'[i]}</span>${U.esc(o)}<i>${heads}</i></button>`; }).join('')}</div>
+        <p class="qz-tip">${res ? (res.win ? `🎉 ${U.esc(v.names[pd.debtor])} 翻盤成功！不用付 ${fmt(pd.amt)} ${th.unit}` : `💀 ${U.esc(v.names[pd.debtor])} 翻盤失敗……`) : mine ? (answered(me) ? '已送出，等對方……' : '搶答！比對方先答對就贏') : `賭注：${fmt(pd.amt)} ${th.unit} 過路費・破產者答對而且比收錢者快，就免付、不出局`}</p></div>`;
+      box.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (b.disabled) return; this.ui.send({ type: 'answer', c: +b.dataset.c }); box.querySelectorAll('[data-c]').forEach(x => x.disabled = true); b.classList.add('pick'); SFX.step(); });
+    },
+    now() { try { return root.Room && root.Room.serverNow ? root.Room.serverNow() : Date.now(); } catch (e) { return Date.now(); } },
+    async quizReveal(e) {
+      this._revealing = true;
+      this.quizUI({ debtor: e.debtor, cred: e.cred, q: e.q, opts: e.opts, amt: e.amt }, e);
+      if (e.win) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.debtor, 'joy', 2000); this.board && this.board.mood(e.cred, 'sad', 2000); }
+      else { SFX.doom(); this.board && this.board.mood(e.debtor, 'scared', 2500); }
+      await sleep(3200);
+      this._revealing = false; const qz = this.el && this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true;
     },
     // 全螢幕畫布動畫的共用外框
     overlay(T, draw, sound) {

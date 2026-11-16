@@ -7,7 +7,7 @@
 
   // ======================= 諸神黃昏 =======================
   T.ragnarok = {
-    id: 'ragnarok', name: '諸神黃昏', icon: '⚡', unit: '金',
+    id: 'ragnarok', name: '諸神黃昏', icon: '⚡', unit: '金幣', coin: '🪙',
     desc: '神話世界，西洋雕像與神殿。厄運會把你送進冥界。',
     corners: { start: '奧林帕斯山門', jail: '冥界', free: '英靈殿休息室', gotojail: '下冥界！' },
     tax: '神殿香油錢', teleport: '彩虹橋', luckName: '神諭', badName: '天譴',
@@ -107,7 +107,7 @@
 
   // ======================= 夜城 =======================
   T.cyber = {
-    id: 'cyber', name: '夜城', icon: '🌃', unit: '$',
+    id: 'cyber', name: '夜城', icon: '🌃', unit: '信用點', coin: '💳',
     desc: '霓虹雨夜的賽博龐克城市，地產全是酒吧夜店。神機錯亂超危險。',
     corners: { start: '中央車站', jail: '企業拘留所', free: '後巷義體診所', gotojail: '被企業保全逮捕' },
     tax: '黑幫保護費', teleport: '磁浮快線', luckName: '好康委託', badName: '系統崩潰',
@@ -206,7 +206,7 @@
 
   // ======================= 動物星球 =======================
   T.animal = {
-    id: 'animal', name: '動物星球', icon: '🦁', unit: '果',
+    id: 'animal', name: '動物星球', icon: '🦁', unit: '果', coin: '🍎',
     desc: '野外生態。每種動物買地後蓋自己的家：兔子挖洞、河馬造湖、河狸築壩。被抓就關進動物園（超地獄）。',
     corners: { start: '大草原入口', jail: '動物園', free: '綠洲水塘', gotojail: '被抓去動物園！' },
     tax: '雨季過路費', teleport: '龍捲風', luckName: '大豐收', badName: '叢林危機',
@@ -306,7 +306,7 @@
 
   // ======================= 深空異種 =======================
   T.alien = {
-    id: 'alien', name: '深空異種', icon: '🌌', unit: '星幣',
+    id: 'alien', name: '深空異種', icon: '🌌', unit: '星幣', coin: '💠',
     desc: '色彩斑斕的未知星球上，生物機械異種爭奪地盤。地圖中央有一座古老星門，偶爾會突然啟動。',
     corners: { start: '星門基地', jail: '異種牢籠', free: '中繼太空站', gotojail: '遭到星際通緝！' },
     tax: '星際關稅', teleport: '黑洞跳躍', luckName: '星際寶藏', badName: '太空災難',

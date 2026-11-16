@@ -85,11 +85,37 @@
     }
     for (const t of mine) { if (p.cash >= 0) break; st.owners[t.i] = -1; p.cash += Math.round(t.price / 2); ev(st, { t: 'sell', seat: s, tile: t.i, what: 'land' }); }
   }
+  function canPay(st, s, amt) {
+    let v = st.players[s].cash; BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s) v += Math.round(t.price / 2) + st.levels[t.i] * Math.round(t.up / 2); });
+    return v >= amt;
+  }
+  const QUIZ_MS = 10000;
+  function startQuiz(st, s, o, amt, tile) {
+    const bank = (root.MONO_QUIZ || {})[st.theme] || [];
+    if (!bank.length) { pay(st, s, o, amt, '過路費', tile); return; }
+    st.qused = st.qused || []; let pool = U.range(bank.length).filter(i => !st.qused.includes(i)); if (!pool.length) { st.qused = []; pool = U.range(bank.length); }
+    const qi = pool[Math.floor(Math.random() * pool.length)]; st.qused.push(qi);
+    const q = bank[qi]; const order = U.shuffle([0, 1, 2, 3]);
+    st.quizKey = order.indexOf(0); // 正確答案的位置（揭曉前不給畫面）
+    st.phase = 'quiz'; st.pending = { quiz: true, debtor: s, cred: o, amt, tile, q: q[0], opts: order.map(k => q[1 + k]), ans: {}, start: 0 };
+    ev(st, { t: 'quiz', debtor: s, cred: o, amt, tile }); st.anim += 1500;
+  }
+  function endQuiz(st, now) {
+    const pd = st.pending, key = st.quizKey, a = pd.ans;
+    const ok = (s) => a[s] && a[s].c === key;
+    const dOK = ok(pd.debtor), cOK = ok(pd.cred);
+    const win = dOK && (!cOK || a[pd.debtor].t < a[pd.cred].t);
+    st.ev = []; st.anim = 0; st.evId++;
+    ev(st, { t: 'quizres', debtor: pd.debtor, cred: pd.cred, q: pd.q, opts: pd.opts, ans: a, key, win, amt: pd.amt, tile: pd.tile }); st.anim += 3500;
+    st.phase = 'roll'; const { debtor, cred, amt, tile } = pd; st.pending = null; st.quizKey = null;
+    if (!win) pay(st, debtor, cred, amt, '過路費', tile);
+    endTurn(st, now);
+  }
   function bankrupt(st, s, by) {
     const p = st.players[s]; p.alive = false;
     BOARD.forEach(t => { if (st.owners[t.i] === s) { st.owners[t.i] = -1; st.levels[t.i] = 0; } });
     ev(st, { t: 'bankrupt', seat: s, by: by >= 0 && st.players[by].alive ? by : -1 });
-    if (st.theme === 'alien' || st.theme === 'animal') st.anim += 12000; // 吞食／分食動畫
+    st.anim += 12000; // 破產動畫
   }
   function sendJail(st, s) {
     const p = st.players[s];
@@ -157,7 +183,10 @@
       if (o === -1) { if (p.cash >= t.price) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } ev(st, { t: 'note', seat: s, text: '錢不夠買這塊地' }); return false; }
       if (o === s) { if (st.levels[t.i] < 4 && p.cash >= t.up) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } return false; }
       if (!st.players[o].alive) return false;
-      pay(st, s, o, rentOf(st, t.i), '過路費', t.i);
+      const rent = rentOf(st, t.i);
+      // 翻盤問答：付不起（賣光也不夠）就跟收錢者搶答，答贏免付、不出局
+      if (!canPay(st, s, rent)) { startQuiz(st, s, o, rent, t.i); return true; }
+      pay(st, s, o, rent, '過路費', t.i);
       // 翻盤機制：付完過路費後，可以用 1.4 倍價格強制收購（地標 Lv4 不能收購）
       if (p.alive && st.levels[t.i] < 4 && !(st.boLock[t.i] > st.round) && p.cash >= buyoutOf(st, t.i)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i) }; return true; }
       return false;
@@ -189,7 +218,10 @@
     const ranks = U.range(st.n).map(s => { const a = assets(st, s); return { s, w: st.players[s].alive ? a.total : -1, cash: a.cash, land: a.land, bld: a.bld }; }).sort((a, b) => b.w - a.w);
     st.winner = ranks[0].s; st.ranks = ranks;
   }
-  function setDeadline(st, now, ms) { st.deadline = now + st.anim + ms; }
+  function setDeadline(st, now, ms) {
+    st.deadline = now + st.anim + ms;
+    if (st.phase === 'quiz' && st.pending && !st.pending.start) { st.pending.start = now + st.anim; st.deadline = st.pending.start + QUIZ_MS; }
+  }
 
   const R = {
     BOARD, N, LAYOUT, GROUP_COLOR, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, buyoutOf,
@@ -224,6 +256,16 @@
         return;
       }
       if (a.type === 'start' ) { if (st.phase === 'pick') R.begin(st, now); return; }
+      if (a.type === 'answer') { // 搶答：只有破產者和收錢者可以作答，各答一次
+        const pd = st.pending; if (st.phase !== 'quiz' || !pd) return 'silent';
+        if (s !== pd.debtor && s !== pd.cred) return '只有對決的兩個人可以作答';
+        if (pd.ans[s]) return 'silent'; if (now < pd.start - 300) return '題目還沒出現';
+        const c = a.c | 0; if (c < 0 || c > 3) return 'silent';
+        pd.ans[s] = { c, t: Math.max(0, now - pd.start) };
+        if (pd.ans[pd.debtor] && pd.ans[pd.cred]) endQuiz(st, now);
+        return;
+      }
+      if (a.type === 'quizend') { if (st.phase === 'quiz' && now >= st.deadline) endQuiz(st, now); return; }
       if (st.phase === 'over' || st.phase === 'pick') return 'silent';
       if (s !== st.turn) return '還沒輪到你';
       const p = st.players[s];
@@ -274,6 +316,7 @@
         const buy = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === -1 && p.cash >= t.price).sort((a, b) => b.price - a.price)[0];
         return { seat: st.turn, a: { type: 'gate', to: (up || buy || BOARD[14]).i } };
       }
+      if (st.phase === 'quiz') return { seat: -1, a: { type: 'quizend' } };
       if (st.phase === 'buyout') return { seat: st.turn, a: { type: 'buyout', yes: st.players[st.turn].cash - st.pending.cost >= 25000 } };
       if (st.phase === 'buy' || st.phase === 'upgrade') {
         const t = BOARD[st.pending.tile]; const cost = st.phase === 'buy' ? t.price : t.up;
