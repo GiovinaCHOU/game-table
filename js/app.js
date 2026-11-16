@@ -239,7 +239,7 @@
   };
 
   // ---------------- 選單 ----------------
-  $('#menuBtn').onclick = (e) => { e.stopPropagation(); $('#menu').hidden = !$('#menu').hidden; };
+  $('#menuBtn').onclick = (e) => { e.stopPropagation(); $('#menu').hidden = !$('#menu').hidden; try { qLabel(); sfxLabel(); } catch (x) {} };
   document.addEventListener('click', (e) => { if (!e.target.closest('#menu')) $('#menu').hidden = true; });
   $('#leaveBtn').onclick = () => { const h = R.room && R.room.members.find(m => m.cid === R.room.heir);
     if (confirm(R.isHost ? (h ? `你是房主，離開後會由「${h.name}」接手當房主，遊戲繼續。確定離開？` : '你是房主，目前沒有其他人，離開後房間會關閉。確定？') : '確定離開房間？')) R.leave(); };
@@ -250,6 +250,9 @@
     const me = R.room.members.find(m => m.cid === R.cid); R.send({ t: 'role', role: me.role === 'spec' ? 'player' : 'spec' });
   };
   const sfxLabel = () => { $('#sfxBtn').textContent = `🔊 音效：${GFX.on ? '開' : '關'}`; $('#bgmBtn').textContent = `🎵 背景音樂：${GFX.music ? '開' : '關'}`; };
+  const qNow = () => { try { return localStorage.getItem('mono-q') || ((navigator.hardwareConcurrency || 4) <= 4 ? 'low' : 'high'); } catch (e) { return 'high'; } };
+  const qLabel = () => { $('#qBtn').textContent = `🖥️ 大富翁畫質：${qNow() === 'high' ? '高（清楚、較耗電）' : '省電'}`; };
+  qLabel(); $('#qBtn').onclick = () => { const nq = qNow() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (e) {} const M = window.GAMES.monopoly; if (M && M.board && M.board.setQuality) M.board.setQuality(nq === 'high'); const qb = document.querySelector('.mono-tools [data-t="q"]'); if (qb) qb.textContent = nq === 'high' ? '高' : '低'; qLabel(); };
   if (window.GFX) { sfxLabel(); $('#sfxBtn').onclick = () => { GFX.toggleSfx(); sfxLabel(); }; $('#bgmBtn').onclick = () => { GFX.toggleBgm(); sfxLabel(); }; }
   $('#rulesBtn').onclick = () => {
     $('#menu').hidden = true;
