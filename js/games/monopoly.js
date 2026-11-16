@@ -534,7 +534,7 @@
       box.hidden = false;
       const who = (s, tag) => `<div class="qz-p ${answered(s) ? 'done' : ''}">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b><small>${tag}${answered(s) ? ' ✓ 已作答' : ''}</small></div>`;
       box.innerHTML = `<div class="qz-card">
-        <div class="qz-top"><span>⚔️ 翻盤問答</span><span class="timer" data-deadline="${res ? '' : v.deadline}"></span></div>
+        <div class="qz-top"><span>⚔️ 翻盤問答${pd.lv ? `<em class="qz-lv ${pd.lv}">${{ e: '簡單', m: '中等', h: '困難' }[pd.lv]}</em>` : ''}</span><span class="timer" data-deadline="${res ? '' : v.deadline}"></span></div>
         <div class="qz-vs">${who(pd.debtor, '破產危機')}<em>VS</em>${who(pd.cred, '收錢的人')}</div>
         <div class="qz-bar"><i style="animation-duration:${res ? 0 : Math.max(0.5, (v.deadline - this.now()) / 1000)}s"></i></div>
         <p class="qz-q">${U.esc(pd.q)}</p>
@@ -548,7 +548,7 @@
     now() { try { return root.Room && root.Room.serverNow ? root.Room.serverNow() : Date.now(); } catch (e) { return Date.now(); } },
     async quizReveal(e) {
       this._revealing = true;
-      this.quizUI({ debtor: e.debtor, cred: e.cred, q: e.q, opts: e.opts, amt: e.amt }, e);
+      this.quizUI({ debtor: e.debtor, cred: e.cred, q: e.q, opts: e.opts, amt: e.amt, lv: e.lv }, e);
       if (e.win) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.debtor, 'joy', 2000); this.board && this.board.mood(e.cred, 'sad', 2000); }
       else { SFX.doom(); this.board && this.board.mood(e.debtor, 'scared', 2500); }
       // 小知識讓大家看完（約 6.5 秒），點一下可以先收起來
@@ -582,9 +582,9 @@
       // 戰士骨架：p＝出拳伸展程度，crouch＝蹲低
       const skel = (p, crouch, big) => { const s = big ? 1.18 : 1;
         const hip = [0, -95 * s + crouch * 12], chest = [6 * p, -160 * s + crouch * 14], neck = [10 * p, -182 * s + crouch * 14], head = [14 * p, -205 * s + crouch * 14];
-        const shF = [chest[0] + 16, chest[1] - 12], shB = [chest[0] - 22, chest[1] - 10];
+        const shF = [chest[0] + 6, chest[1] - 12], shB = [chest[0] - 4, chest[1] - 16]; // 側面：近側肩在前、遠側肩被身體擋住一半
         const elF = [lerp(shF[0] + 30, shF[0] + 62, p), lerp(shF[1] + 34, shF[1] - 4, p)], haF = [lerp(shF[0] + 52, shF[0] + 118, p), lerp(shF[1] + 6, shF[1] - 6, p)];
-        const elB = [shB[0] - 26, shB[1] + 38], haB = [lerp(shB[0] - 2, shB[0] - 30, p), lerp(shB[1] + 66, shB[1] + 40, p)];
+        const elB = [lerp(shB[0] + 22, shB[0] - 22, p), shB[1] + 40], haB = [lerp(shB[0] + 40, shB[0] + 6, p), lerp(shB[1] + 16, shB[1] + 54, p)]; // 遠側手：護在臉前，出拳時收回腰側
         const knF = [hip[0] + 34 + p * 10, hip[1] + 48 - crouch * 6], ftF = [hip[0] + 48 + p * 16, 0], knB = [hip[0] - 30, hip[1] + 46 - crouch * 6], ftB = [hip[0] - 54 - p * 10, 0];
         return { hip, chest, neck, head, shF, shB, elF, haF, elB, haB, knF, ftF, knB, ftB, s };
       };
@@ -593,16 +593,20 @@
         const skin = g.createLinearGradient(-60, -230, 80, 0); skin.addColorStop(0, '#e2a77a'); skin.addColorStop(0.55, '#b0714a'); skin.addColorStop(1, '#5e3420');
         const ink = '#2a1208'; g.lineWidth = 2.2; g.lineJoin = 'round'; g.strokeStyle = ink;
         const S = flash ? '#111' : skin, pants = flash ? '#111' : '#262230';
-        g.fillStyle = pants; limb(g, k.hip[0] - 8, k.hip[1], k.knB[0], k.knB[1], 17, 13); limb(g, k.knB[0], k.knB[1], k.ftB[0], k.ftB[1] - 6, 13, 9, 1.1);
-        g.fillStyle = S; limb(g, k.shB[0], k.shB[1], k.elB[0], k.elB[1], 15, 12, 1.4); limb(g, k.elB[0], k.elB[1], k.haB[0], k.haB[1], 12, 10, 1.2);
-        g.fillStyle = flash ? '#111' : '#f1e6d2'; g.beginPath(); g.arc(k.haB[0], k.haB[1], 12, 0, 7); g.fill(); g.stroke();
-        // 軀幹：倒三角＋胸肌腹肌
-        g.fillStyle = S; g.beginPath(); g.moveTo(k.shB[0] - 10, k.shB[1] - 4); g.quadraticCurveTo(k.chest[0], k.chest[1] - 28, k.shF[0] + 12, k.shF[1] - 4);
-        g.quadraticCurveTo(k.shF[0] + 18, k.chest[1] + 30, k.hip[0] + 20, k.hip[1] - 6); g.lineTo(k.hip[0] - 20, k.hip[1] - 6); g.quadraticCurveTo(k.shB[0] - 16, k.chest[1] + 30, k.shB[0] - 10, k.shB[1] - 4); g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = flash ? '#111' : '#17141e'; limb(g, k.hip[0] - 8, k.hip[1], k.knB[0], k.knB[1], 17, 13); limb(g, k.knB[0], k.knB[1], k.ftB[0], k.ftB[1] - 6, 13, 9, 1.1);
+        g.fillStyle = flash ? '#111' : '#7a4a30'; limb(g, k.shB[0], k.shB[1], k.elB[0], k.elB[1], 15, 12, 1.4); limb(g, k.elB[0], k.elB[1], k.haB[0], k.haB[1], 12, 10, 1.2); // 遠側手臂（比較暗）
+        g.fillStyle = flash ? '#111' : '#bdb2a0'; g.beginPath(); g.arc(k.haB[0], k.haB[1], 12, 0, 7); g.fill(); g.stroke();
+        // 軀幹（側面）：厚實的背、往前鼓的胸肌、收窄的腰
+        const torso = () => { g.beginPath(); g.moveTo(k.neck[0] - 10, k.neck[1] + 4); g.quadraticCurveTo(k.chest[0] - 34, k.chest[1] - 4, k.chest[0] - 26, k.chest[1] + 30); g.quadraticCurveTo(k.hip[0] - 24, k.hip[1] - 30, k.hip[0] - 18, k.hip[1] - 4);
+          g.lineTo(k.hip[0] + 16, k.hip[1] - 4); g.quadraticCurveTo(k.hip[0] + 22, k.hip[1] - 34, k.chest[0] + 22, k.chest[1] + 18); g.quadraticCurveTo(k.chest[0] + 36, k.chest[1] + 6, k.chest[0] + 26, k.chest[1] - 8); g.quadraticCurveTo(k.chest[0] + 14, k.neck[1] + 4, k.neck[0] + 8, k.neck[1] + 6); g.closePath(); };
+        g.fillStyle = S; torso(); g.fill(); g.stroke();
         if (!flash) { g.strokeStyle = 'rgba(60,24,10,0.55)'; g.lineWidth = 1.8;
-          g.beginPath(); g.moveTo(k.chest[0] - 18, k.chest[1] + 6); g.quadraticCurveTo(k.chest[0] - 4, k.chest[1] + 16, k.chest[0] + 2, k.chest[1] + 2); g.quadraticCurveTo(k.chest[0] + 10, k.chest[1] + 16, k.chest[0] + 24, k.chest[1] + 4); g.stroke();
-          for (let r = 0; r < 3; r++) { const y = k.chest[1] + 28 + r * 13; g.beginPath(); g.moveTo(k.chest[0] - 9, y); g.quadraticCurveTo(k.chest[0] - 3, y + 4, k.chest[0] + 2, y); g.quadraticCurveTo(k.chest[0] + 7, y + 4, k.chest[0] + 13, y); g.stroke(); }
-          g.beginPath(); g.moveTo(k.chest[0] + 2, k.chest[1] + 4); g.lineTo(k.chest[0] + 3, k.hip[1] - 10); g.stroke(); g.strokeStyle = ink; g.lineWidth = 2.2; }
+          g.beginPath(); g.moveTo(k.chest[0] - 4, k.chest[1] + 4); g.quadraticCurveTo(k.chest[0] + 14, k.chest[1] + 22, k.chest[0] + 30, k.chest[1] + 8); g.stroke(); // 胸肌下緣
+          for (let r = 0; r < 3; r++) { const y = k.chest[1] + 30 + r * 12; g.beginPath(); g.moveTo(k.chest[0] + 8, y); g.quadraticCurveTo(k.chest[0] + 14, y + 4, k.chest[0] + 20, y - 1); g.stroke(); } // 側面看到的腹肌
+          for (let r = 0; r < 3; r++) { const y = k.chest[1] + 16 + r * 9; g.beginPath(); g.moveTo(k.chest[0] - 6, y); g.lineTo(k.chest[0] + 4, y + 5); g.stroke(); } // 前鋸肌
+          g.beginPath(); g.moveTo(k.chest[0] - 2, k.chest[1] + 40); g.quadraticCurveTo(k.hip[0] + 4, k.hip[1] - 22, k.hip[0] + 14, k.hip[1] - 6); g.stroke(); // 腹斜肌
+          g.beginPath(); g.moveTo(k.chest[0] - 22, k.chest[1] + 4); g.quadraticCurveTo(k.chest[0] - 12, k.chest[1] + 30, k.chest[0] - 18, k.chest[1] + 48); g.stroke(); // 背闊肌
+          g.strokeStyle = ink; g.lineWidth = 2.2; }
         g.fillStyle = flash ? '#111' : '#3a1d10'; g.fillRect(k.hip[0] - 21, k.hip[1] - 10, 42, 9); // 腰帶
         g.fillStyle = pants; limb(g, k.hip[0] + 8, k.hip[1], k.knF[0], k.knF[1], 18, 14); limb(g, k.knF[0], k.knF[1], k.ftF[0], k.ftF[1] - 6, 14, 9, 1.1);
         g.fillStyle = flash ? '#111' : '#1a1418'; [k.ftB, k.ftF].forEach(f => { g.beginPath(); g.ellipse(f[0] + 6, f[1] - 4, 16, 7, 0, 0, 7); g.fill(); });
@@ -612,7 +616,7 @@
         if (!flash) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(k.head[0] + 10, k.head[1] - 2, 4, 2, -0.2, 0, 7); g.fill(); g.strokeStyle = ink; g.beginPath(); g.moveTo(k.head[0] + 4, k.head[1] - 9); g.lineTo(k.head[0] + 16, k.head[1] - 6); g.stroke(); }
         g.fillStyle = S; limb(g, k.shF[0], k.shF[1], k.elF[0], k.elF[1], 17, 13, 1.5); limb(g, k.elF[0], k.elF[1], k.haF[0], k.haF[1], 13, 11, 1.25);
         g.fillStyle = flash ? '#111' : '#f1e6d2'; g.beginPath(); g.arc(k.haF[0], k.haF[1], 14, 0, 7); g.fill(); g.stroke();
-        if (!flash) { g.strokeStyle = 'rgba(255,170,110,0.9)'; g.lineWidth = 3; g.beginPath(); g.moveTo(k.shF[0] + 10, k.shF[1] - 8); g.quadraticCurveTo(k.shF[0] + 20, k.chest[1] + 20, k.hip[0] + 20, k.hip[1] - 8); g.stroke(); } // 邊緣光
+        if (!flash) { g.strokeStyle = 'rgba(255,170,110,0.9)'; g.lineWidth = 3; g.beginPath(); g.moveTo(k.chest[0] + 27, k.chest[1] - 4); g.quadraticCurveTo(k.chest[0] + 34, k.chest[1] + 8, k.chest[0] + 22, k.chest[1] + 20); g.quadraticCurveTo(k.hip[0] + 22, k.hip[1] - 34, k.hip[0] + 16, k.hip[1] - 6); g.stroke(); } // 胸腹前緣的邊緣光
       };
       const god = (g, p, crouch, flash, t) => { // 神：金色光環、飄動長髮鬍鬚、披肩長袍、手臂纏繞雷電
         const k = skel(p, crouch, true); const ink = '#5a4320'; g.lineWidth = 2; g.lineJoin = 'round'; g.strokeStyle = ink;
@@ -622,10 +626,12 @@
         // 長袍下擺（隨風飄）
         g.fillStyle = cloth; g.beginPath(); g.moveTo(k.hip[0] - 26, k.hip[1] - 14); g.quadraticCurveTo(k.hip[0] - 60 - Math.sin(t * 6) * 10, k.hip[1] + 50, k.ftB[0] - 20, 0); g.lineTo(k.ftF[0] + 26, 0); g.quadraticCurveTo(k.hip[0] + 50, k.hip[1] + 40, k.hip[0] + 26, k.hip[1] - 14); g.closePath(); g.fill(); g.stroke();
         if (!flash) { g.strokeStyle = 'rgba(120,100,70,0.35)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(k.hip[0] - 18 + i * 9, k.hip[1]); g.quadraticCurveTo(k.hip[0] - 26 + i * 14, k.hip[1] + 50, k.hip[0] - 34 + i * 20, -4); g.stroke(); } g.strokeStyle = ink; }
-        g.fillStyle = skin; limb(g, k.shB[0], k.shB[1], k.elB[0], k.elB[1], 16, 13, 1.35); limb(g, k.elB[0], k.elB[1], k.haB[0], k.haB[1], 13, 10, 1.2);
-        g.fillStyle = skin; g.beginPath(); g.moveTo(k.shB[0] - 12, k.shB[1] - 4); g.quadraticCurveTo(k.chest[0], k.chest[1] - 30, k.shF[0] + 14, k.shF[1] - 4); g.quadraticCurveTo(k.shF[0] + 20, k.chest[1] + 34, k.hip[0] + 24, k.hip[1] - 10); g.lineTo(k.hip[0] - 24, k.hip[1] - 10); g.quadraticCurveTo(k.shB[0] - 18, k.chest[1] + 34, k.shB[0] - 12, k.shB[1] - 4); g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = flash ? '#111' : '#a8844e'; limb(g, k.shB[0], k.shB[1], k.elB[0], k.elB[1], 16, 13, 1.35); limb(g, k.elB[0], k.elB[1], k.haB[0], k.haB[1], 13, 10, 1.2); // 遠側手臂（比較暗）
+        g.fillStyle = skin; g.beginPath(); g.moveTo(k.neck[0] - 12, k.neck[1] + 4); g.quadraticCurveTo(k.chest[0] - 38, k.chest[1] - 4, k.chest[0] - 28, k.chest[1] + 34); g.quadraticCurveTo(k.hip[0] - 26, k.hip[1] - 30, k.hip[0] - 22, k.hip[1] - 8);
+        g.lineTo(k.hip[0] + 20, k.hip[1] - 8); g.quadraticCurveTo(k.hip[0] + 26, k.hip[1] - 36, k.chest[0] + 24, k.chest[1] + 20); g.quadraticCurveTo(k.chest[0] + 40, k.chest[1] + 6, k.chest[0] + 28, k.chest[1] - 10); g.quadraticCurveTo(k.chest[0] + 14, k.neck[1] + 4, k.neck[0] + 8, k.neck[1] + 6); g.closePath(); g.fill(); g.stroke();
+        if (!flash) { g.strokeStyle = 'rgba(120,90,40,0.45)'; g.lineWidth = 1.8; g.beginPath(); g.moveTo(k.chest[0] - 4, k.chest[1] + 6); g.quadraticCurveTo(k.chest[0] + 16, k.chest[1] + 24, k.chest[0] + 32, k.chest[1] + 8); g.stroke(); g.strokeStyle = ink; g.lineWidth = 2; }
         // 斜披一邊肩膀的布
-        g.fillStyle = cloth; g.beginPath(); g.moveTo(k.shB[0] - 14, k.shB[1] - 6); g.quadraticCurveTo(k.chest[0] + 10, k.chest[1] + 10, k.hip[0] + 26, k.hip[1] - 10); g.lineTo(k.hip[0] - 4, k.hip[1] - 4); g.quadraticCurveTo(k.chest[0] - 18, k.chest[1] + 20, k.shB[0] - 6, k.shB[1] + 14); g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = cloth; g.beginPath(); g.moveTo(k.neck[0] - 12, k.neck[1] + 2); g.quadraticCurveTo(k.chest[0] + 8, k.chest[1] + 4, k.hip[0] + 22, k.hip[1] - 10); g.lineTo(k.hip[0] - 6, k.hip[1] - 6); g.quadraticCurveTo(k.chest[0] - 30, k.chest[1] + 20, k.neck[0] - 18, k.neck[1] + 14); g.closePath(); g.fill(); g.stroke(); // 從背後斜披到腰的布
         g.fillStyle = flash ? '#111' : '#d9b85a'; g.fillRect(k.hip[0] - 26, k.hip[1] - 16, 52, 8);
         // 頭、飄動長髮與鬍鬚、金色桂冠、發光的眼睛
         g.fillStyle = flash ? '#111' : '#f4f1ea';

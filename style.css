@@ -473,3 +473,4 @@ body.in-room { position: fixed; inset: 0; overflow: hidden; }
 .qz-tip { margin: 10px 0 0; text-align: center; font-size: 13px; opacity: .85; }
 .qz-note { margin: 10px 2px 0; padding: 9px 11px; border-radius: 12px; background: rgba(255,255,255,.1); font-size: 13px; line-height: 1.6; text-align: left; }
 .qz-card { max-height: 100%; overflow-y: auto; }
+.qz-lv { font-style: normal; font-size: 11px; margin-left: 6px; padding: 1px 7px; border-radius: 8px; vertical-align: 2px; } .qz-lv.e { background: #2f9e5a; color: #fff; } .qz-lv.m { background: #d9a43a; color: #241a00; } .qz-lv.h { background: #d9483a; color: #fff; }
