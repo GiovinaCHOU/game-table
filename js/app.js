@@ -12,7 +12,20 @@
     clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms || 2400);
   }
   function show(id) { document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== id); }
-  function inviteLink() { return location.origin + location.pathname + '?pin=' + R.pin + (window.Net.LOCAL ? '&local=1' : ''); }
+  // LINE 點開邀請連結時直接跳到外部瀏覽器（openExternalBrowser 是 LINE 官方支援的參數）
+  function inviteLink() { return location.origin + location.pathname + '?pin=' + R.pin + (window.Net.LOCAL ? '&local=1' : '') + '&openExternalBrowser=1'; }
+  // App 內建瀏覽器（IG、FB、LINE、Google App…）切出去就容易被系統關掉，語音也常常不能用
+  (function inAppWarn() {
+    const ua = navigator.userAgent || '';
+    const app = /Instagram/i.test(ua) ? 'Instagram' : /FBAN|FBAV|FB_IAB/i.test(ua) ? 'Facebook' : /\bLine\//i.test(ua) ? 'LINE' : /GSA\//i.test(ua) ? 'Google App' : /; wv\)/.test(ua) ? 'App' : '';
+    if (!app) return;
+    const ios = /iPhone|iPad|iPod/i.test(ua);
+    const d = document.createElement('div'); d.className = 'inapp-warn';
+    d.innerHTML = `<b>⚠️ 你正在用 ${app} 內建的瀏覽器</b><span>切出去很容易斷線回不來、語音也可能沒聲音。請點右上角「⋯」或分享按鈕，選「${ios ? '用 Safari 開啟' : '用 Chrome 開啟'}」。</span><button class="btn sm" data-copy>複製網址</button><button class="x" data-x>✕</button>`;
+    document.body.appendChild(d);
+    d.querySelector('[data-x]').onclick = () => d.remove();
+    d.querySelector('[data-copy]').onclick = async () => { try { await navigator.clipboard.writeText(location.href); toast('已複製，貼到 Safari／Chrome 打開'); } catch (e) { prompt('複製這個網址，貼到 Safari／Chrome：', location.href); } };
+  })();
   async function keepAwake() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
   // 從 LINE 等其他 App 切回來：馬上重連；房間不見了就用暫存救回
   const wake = () => { if (!R.pin) return; keepAwake(); R.wake().catch(() => {}); };

@@ -76,6 +76,8 @@
   }
 
   // ---------- 語音（全網狀：每個人直接連每個人） ----------
+  // 語音省流量：Opus 限制在 24kbps、單聲道、沒說話時幾乎不傳（DTX），走中繼伺服器時比較不會把免費額度用完
+  const sdpTransform = (sdp) => sdp.replace(/a=fmtp:(\d+) (.*useinbandfec=1.*)/g, (m, pt, rest) => /maxaveragebitrate/.test(rest) ? m : `a=fmtp:${pt} ${rest};maxaveragebitrate=24000;stereo=0;usedtx=1`);
   const Voice = {
     peer: null, stream: null, mode: 'off', calls: {}, audios: {}, meters: {}, ctx: null, muted: false,
     onLevel: null,
@@ -85,7 +87,7 @@
         if (this.mode === 'off') { call.close(); return; }
         const ex = this.calls[call.peer];
         if (ex) { if (call.peer < peer.id) { ex.close(); } else { call.close(); return; } }
-        call.answer(this.stream);
+        call.answer(this.stream, { sdpTransform });
         this._wire(call);
       });
     },
@@ -113,7 +115,7 @@
     setMuted(m) { this.muted = m; if (this.stream) this.stream.getAudioTracks().forEach(t => t.enabled = !m); },
     callTo(peerId) {
       if (this.mode === 'off' || !this.peer || this.calls[peerId] || peerId === this.peer.id) return;
-      const call = this.peer.call(peerId, this.stream);
+      const call = this.peer.call(peerId, this.stream, { sdpTransform });
       if (call) this._wire(call);
     },
     _wire(call) {

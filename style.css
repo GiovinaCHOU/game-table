@@ -732,3 +732,7 @@ body.res-open.res-peek .res-pill { display: block; }
 .chat-log .glog b.r { color: #ff8a7d; } .chat-log .glog b.g { color: #7fe08d; }
 .chat-log .glog .mface { width: 15px !important; height: 15px !important; vertical-align: -2px; }
 .chat-log .glog .mface i { font-size: 9px !important; }
+
+.inapp-warn { position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top, 0px) + 8px); z-index: 95; background: #ffe8a3; color: #3a2a00; border-radius: 14px; padding: 10px 34px 10px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 4px; }
+.inapp-warn b { font-size: 14px; } .inapp-warn .btn { align-self: flex-start; margin-top: 4px; }
+.inapp-warn .x { position: absolute; right: 6px; top: 6px; background: none; border: 0; font-size: 18px; color: #3a2a00; }

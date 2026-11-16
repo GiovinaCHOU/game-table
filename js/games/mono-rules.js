@@ -234,7 +234,10 @@
       if (!canPay(st, s, rent)) { startQuiz(st, s, o, rent, t.i); return true; }
       pay(st, s, o, rent, '過路費', t.i);
       // 翻盤機制：付完過路費後，可以用 1.4 倍價格強制收購（地標 Lv4 不能收購）
-      if (p.alive && st.levels[t.i] < 4 && !(st.boLock[t.i] > st.round) && p.cash >= buyoutOf(st, t.i)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i) }; return true; }
+      if (p.alive && st.levels[t.i] < 4 && !(st.boLock[t.i] > st.round)) {
+        if (p.cash >= buyoutOf(st, t.i)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i) }; return true; }
+        ev(st, { t: 'note', seat: s, feed: true, text: `可以強制收購這塊地（要 ${buyoutOf(st, t.i).toLocaleString()}），但錢不夠` });
+      }
       return false;
     }
     if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
@@ -317,6 +320,10 @@
       }
       if (a.type === 'quizend') { if (st.phase === 'quiz' && now >= st.deadline) endQuiz(st, now); return; }
       if (st.phase === 'over' || st.phase === 'pick') return 'silent';
+      // 換成自己畫的角色：遊戲中任何時候都可以（選角色時來不及畫的人可以補）
+      if (a.type === 'custom') { const p0 = st.players[s]; if (!p0 || !p0.alive) return 'silent'; p0.char = { kind: 'custom', i: p0.char ? p0.char.i : s }; return; }
+      // 提示框真的出現在玩家畫面上了：從這一刻起再給完整的 15 秒（網路慢、動畫還沒播完時不會被系統先決定）
+      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + 15000); return; } return 'silent'; }
       if (s !== st.turn) return '還沒輪到你';
       const p = st.players[s];
       st.ev = []; st.anim = 0; st.evId++; st.animAt = now;

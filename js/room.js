@@ -37,10 +37,22 @@
     },
     act(a) { this.send({ t: 'act', a }); },
     // 房主→本機
+    _hello() { try { this.conn && this.conn.open && this.conn.send({ t: 'hello', cid: this.cid, name: this.name, spec: this.spec, peerId: this.peer.id, voice: Voice.mode === 'off' ? null : Voice.mode }); } catch (e) {} this._helloAt = Date.now(); },
+    // 連上了卻一直沒收到房間／遊戲畫面（手機網路常見）：先重送打招呼，再不行就整個重連
+    _resync() {
+      if (this.isHost || !this.conn || this._connecting) return;
+      const now = Date.now(), since = now - (this._helloAt || now);
+      const noRoom = !this._roomAt || this._roomAt < this._helloAt;
+      const noView = this.room && this.room.game && (!this._viewAt || this._viewAt < this._helloAt);
+      if (!(noRoom || noView) || since < 4000) return;
+      this._resyncN = (this._resyncN || 0) + 1;
+      if (this._resyncN <= 2) { this.cb.status('正在同步房間畫面…', true); this._hello(); }
+      else { this._resyncN = 0; this.cb.status('畫面同步失敗，重新連線中…', true); const c = this.conn; this.conn = null; try { c.close(); } catch (e) {} this._connecting = false; this._connect().catch(() => {}); }
+    },
     _deliver(msg) {
       switch (msg.t) {
-        case 'room': this.room = msg.room; this.cb.room(msg.room); this._syncVoice(); break;
-        case 'view': this.clockOffset = msg.now - Date.now(); this.view = msg.v; this.cb.view(msg.v); break;
+        case 'room': this._roomAt = Date.now(); this.room = msg.room; this.cb.room(msg.room); this._syncVoice(); break;
+        case 'view': this._viewAt = Date.now(); this.clockOffset = msg.now - Date.now(); this.view = msg.v; this.cb.view(msg.v); break;
         case 'ev': this.cb.ev(msg.ev, msg.from); break;
         case 'chat': this.cb.chat(msg); break;
         case 'quick': this.cb.quick(msg); break;
@@ -201,6 +213,7 @@
       this._watch = setInterval(() => {
         if (this._leaving) return;
         if (this.isHost) return;
+        this._resync();
         if (Date.now() - (this._lastHost || 0) > 13000) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._connect().catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
       }, 4000);
     },
@@ -216,7 +229,7 @@
           clearTimeout(to); this._connecting = false;
           if (this.isHost) { try { conn.close(); } catch (e) {} return res(); }
           this.conn = conn; this._lastHost = Date.now();
-          conn.send({ t: 'hello', cid: this.cid, name: this.name, spec: this.spec, peerId: this.peer.id, voice: Voice.mode === 'off' ? null : Voice.mode });
+          this._hello(); this._roomAt = 0; this._viewAt = 0; this._resyncN = 0;
           this.cb.status('');
           res();
         });
@@ -422,6 +435,8 @@
     }
   };
 
+  // 每 10 秒檢查一次語音：斷掉的自動重撥
+  setInterval(() => { try { if (Room.room && !Room._leaving) Room._syncVoice(); } catch (e) {} }, 10000);
   window.Room = Room;
   window.Host = Host;
 })();

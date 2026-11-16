@@ -267,11 +267,11 @@
       cv.onpointerup = cv.onpointercancel = () => drawing = false;
       m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { col = b.dataset.c; });
       m.querySelector('[data-a="clr"]').onclick = () => { g.fillStyle = '#fff'; g.fillRect(0, 0, 240, 240); };
-      m.querySelector('[data-a="cancel"]').onclick = () => { m.hidden = true; };
+      m.querySelector('[data-a="cancel"]').onclick = () => { m.hidden = true; m.innerHTML = ''; this.showPrompt(); };
       m.querySelector('[data-a="ok"]').onclick = () => {
         const small = document.createElement('canvas'); small.width = small.height = 128; small.getContext('2d').drawImage(cv, 0, 0, 128, 128);
         const img = small.toDataURL('image/jpeg', 0.8);
-        root.Room.send({ t: 'avatar', img }); m.hidden = true; if (after) setTimeout(after, 300);
+        root.Room.send({ t: 'avatar', img }); m.hidden = true; m.innerHTML = ''; if (after) setTimeout(after, 300); setTimeout(() => this.showPrompt(), 400);
       };
     },
 
@@ -382,7 +382,7 @@
                 break;
               }
               this.feed(`💥 ${this.who(e.seat)} 破產了！`, 'big'); SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
-            case 'note': this.fx(e.text, '', e.seat); await sleep(600); break;
+            case 'note': this.fx(e.text, '', e.seat); if (e.feed && e.seat === v.seat) this.feed(`💡 ${U.esc(e.text)}`, ''); await sleep(e.feed ? 1200 : 600); break;
           }
         }
       } finally { this.playing = false; if (this._cine) this.cine(false); }
@@ -446,8 +446,9 @@
       m.innerHTML = `<div class="mm-card tinfo assets"><div class="mcard-who">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b></div>
         ${v.players[s].alive ? `<table class="atab"><tr><td>現金</td><td>${fmt(a.cash)} ${th.unit}</td></tr><tr><td>地價（${a.tiles.length} 塊）</td><td>${fmt(a.land)} ${th.unit}</td></tr><tr><td>建築</td><td>${fmt(a.bld)} ${th.unit}</td></tr><tr class="sum"><td>總資產</td><td>${fmt(a.total)} ${th.unit}</td></tr></table>
         ${rows ? `<ul class="alist">${rows}</ul>` : '<p class="hint">還沒有地</p>'}` : '<p>已破產</p>'}
-        <div class="act-row"><button class="btn sm ghost" data-where>看他在哪</button><button class="btn sm" data-x>關閉</button></div></div>`;
+        <div class="act-row"><button class="btn sm ghost" data-where>看他在哪</button>${s === v.seat && v.players[s].alive && v.phase !== 'over' ? '<button class="btn sm ghost" data-mydraw>✏️ 換成我畫的角色</button>' : ''}<button class="btn sm" data-x>關閉</button></div></div>`;
       m.onclick = (e) => {
+        if (e.target.closest('[data-mydraw]')) { m.onclick = null; this.drawPad(() => this.ui.send({ type: 'custom' })); return; }
         if (e.target.closest('[data-where]')) { m.hidden = true; if (this.board) { this._camFree = true; this.board.focusSeat(s, true); } this.showPrompt(); }
         else if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); }
       };
@@ -493,7 +494,9 @@
       if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
-      if (m.querySelector('.pad')) return;
+      if (!m.hidden && m.querySelector('.pad')) return;
+      // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）
+      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); }
       const th = TH()[v.theme];
       if (v.phase === 'over') {
         m.hidden = false;
