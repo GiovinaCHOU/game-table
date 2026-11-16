@@ -199,12 +199,17 @@
   };
   const ITEM_DESC = { trap: '選一位玩家，讓他下回合停一輪', steal: '從一位玩家身上拿走他現金的 10%（最多 5,000）', invest: '現在付 3,000，3 回合後拿回 6,000（期間破產就拿不回來）', bomb: '選別人一塊有建築的地，建築降一級', shield: '拿在手上就生效：自動擋下下一次別人對你用的道具' };
   root.MONO_ITEMS = { KEYS: ITEM_KEYS, MAX: ITEM_MAX, NAMES: ITEMS, DESC: ITEM_DESC };
-  function giveItem(st, s) {
+  // 價格：依道具強度分級 × 自己第幾次購買（越買越貴），每 25 回合歸零；錢最少的人 5 折；後期跟著通膨（最多 3 倍）
+  const ITEM_BASE = { invest: 1000, shield: 1500, trap: 2000, bomb: 2500, steal: 3000 }, ITEM_MULT = [1, 2, 3.5, 5], ITEM_RESET = 25;
+  root.MONO_ITEMS.BASE = ITEM_BASE; root.MONO_ITEMS.MULT = ITEM_MULT; root.MONO_ITEMS.RESET = ITEM_RESET;
+  function itemBought(st, s) { const p = st.players[s], era = Math.floor((st.round - 1) / ITEM_RESET); if (p.buyEra !== era) { p.buyEra = era; p.bought = 0; } return p.bought || 0; }
+  function itemPrice(st, s, k) { const n = itemBought(st, s); return Math.round(ITEM_BASE[k] * ITEM_MULT[Math.min(n, ITEM_MULT.length - 1)] * Math.min(3, inflation(st)) * (isLast(st, s) ? 0.5 : 1) / 100) * 100; }
+  function openShop(st, s, free) {
     const p = st.players[s]; p.items = p.items || [];
-    if (p.items.length >= ITEM_MAX) { ev(st, { t: 'note', seat: s, text: `道具已滿（最多 ${ITEM_MAX} 張）` }); return; }
-    const w = isLast(st, s) ? { trap: 15, steal: 15, invest: 30, bomb: 10, shield: 30 } : { trap: 22, steal: 22, invest: 18, bomb: 18, shield: 20 };
-    let r = Math.random() * 100, k = 'shield'; for (const key of ITEM_KEYS) { r -= w[key]; if (r < 0) { k = key; break; } }
-    p.items.push(k); st.anim += 1600; ev(st, { t: 'getitem', seat: s, k });
+    if (p.items.length >= ITEM_MAX) { ev(st, { t: 'note', seat: s, text: `道具已滿（最多 ${ITEM_MAX} 張）` }); return false; }
+    const offers = ITEM_KEYS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+    st.phase = 'shop'; st.pending = { offers, free, prices: offers.map(k => free ? 0 : itemPrice(st, s, k)), nth: itemBought(st, s) + 1 };
+    return true;
   }
   // 停在某格之後要做的事；若需要玩家決定，設定 phase 並回傳 true
   function land(st, s, depth) {
@@ -224,7 +229,7 @@
       return false;
     }
     if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
-    if (t.type === 'item' || t.type === 'free') { giveItem(st, s); return false; }
+    if (t.type === 'item' || t.type === 'free') return openShop(st, s, t.type === 'free');
     if (t.type === 'tax') { pay(st, s, -1, taxOf(st, s), '稅金'); return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
@@ -323,6 +328,16 @@
         }
         endTurn(st, now); return;
       }
+      if (a.type === 'shop') {
+        if (st.phase !== 'shop' || !st.pending) return 'silent';
+        const pd = st.pending, j = pd.offers.indexOf(a.k);
+        if (a.k != null && j >= 0) {
+          const price = pd.prices[j]; if (p.cash < price) return '錢不夠';
+          p.cash -= price; (p.items = p.items || []).push(a.k); if (!pd.free) { itemBought(st, s); p.bought = (p.bought || 0) + 1; }
+          st.anim += 1600; ev(st, { t: 'getitem', seat: s, k: a.k, amt: price });
+        }
+        endTurn(st, now); return;
+      }
       if (a.type === 'item') {
         if (st.phase !== 'roll') return '擲骰子前才能用道具';
         if (p.usedItem) return '每回合只能用一張道具';
@@ -372,6 +387,12 @@
         return { seat: st.turn, a: { type: 'gate', to: (up || buy || BOARD[14]).i } };
       }
       if (st.phase === 'quiz') return { seat: -1, a: { type: 'quizend' } };
+      if (st.phase === 'shop') { // 代打：免費就拿第一張；要錢的話，買完還剩 2 萬以上才買最便宜的
+        const pd = st.pending, cash = st.players[st.turn].cash;
+        if (pd.free) return { seat: st.turn, a: { type: 'shop', k: pd.offers[0] } };
+        let best = -1; pd.prices.forEach((c, j) => { if (cash - c >= 20000 && (best < 0 || c < pd.prices[best])) best = j; });
+        return { seat: st.turn, a: { type: 'shop', k: best >= 0 ? pd.offers[best] : null } };
+      }
       if (st.phase === 'buyout') return { seat: st.turn, a: { type: 'buyout', yes: st.players[st.turn].cash - st.pending.cost >= 25000 } };
       if (st.phase === 'buy' || st.phase === 'upgrade') {
         const t = BOARD[st.pending.tile]; const cost = st.phase === 'buy' ? t.price : t.up;

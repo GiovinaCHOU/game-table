@@ -692,3 +692,12 @@ body[data-skin="nebula"] .chat-fab { box-shadow: 0 0 18px rgba(255,79,216,.5); }
 .testbox { border: 1px dashed rgba(62,240,255,.6); border-radius: 12px; padding: 8px 10px; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
 .testbox span { font-size: 12px; color: var(--muted); }
 .testbox .act-row { justify-content: flex-start; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.shop-card { max-width: min(460px, calc(100vw - 24px)); }
+.shop-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.shop-it { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px; border-radius: 14px; border: 2px solid #e2d4bb; background: #fffaf0; color: #2b2116; cursor: pointer; font: inherit; }
+.shop-it i { font-style: normal; font-size: 30px; line-height: 1.1; }
+.shop-it b { font-size: 13px; }
+.shop-it small { font-size: 10.5px; color: #7a6a55; line-height: 1.35; }
+.shop-it em { font-style: normal; font-weight: 800; color: #b5651d; margin-top: auto; font-size: 13px; }
+.shop-it:not(:disabled):hover { border-color: #ffb347; box-shadow: 0 0 12px rgba(255,179,71,.5); }
+.shop-it:disabled { opacity: .45; cursor: default; }

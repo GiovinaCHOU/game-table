@@ -331,7 +331,7 @@
               if (!this._camFree) b.focusSeat(e.debtor, true); await sleep(1400); break;
             }
             case 'quizres': await this.quizReveal(e); break;
-            case 'getitem': { const nm = this.itemName(e.k); SFX.coin(); b.jumpJoy(e.seat); this.fx(`🎒 ${nm}`, 'gain', e.seat); this.feed(`${this.who(e.seat)} 拿到道具 <b>${U.esc(e.seat === v.seat ? nm : '？？？')}</b>`, 'good'); await sleep(900); break; }
+            case 'getitem': { const nm = this.itemName(e.k); SFX.coin(); b.jumpJoy(e.seat); this.fx(`🎒 ${nm}`, 'gain', e.seat); this.feed(`${this.who(e.seat)} ${e.amt ? `花 ${$(e.amt)} 買了` : '拿到'}道具 <b>${U.esc(e.seat === v.seat ? nm : '？？？')}</b>`, 'good'); await sleep(900); break; }
             case 'item': {
               const nm = this.itemName(e.k), tg = e.target != null && e.target >= 0 ? this.who(e.target) : '';
               this._played = true; if (!this._camFree) { if (e.tile != null) b.focusTile(e.tile); else b.focusSeat(e.target >= 0 ? e.target : e.seat, true); }
@@ -497,6 +497,15 @@
           <div class="act-row"><button class="btn ghost" data-y="0">不要</button><button class="btn" data-y="1">${v.phase === 'buy' ? '買！' : '蓋！'}</button></div>
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: v.phase, yes: b.dataset.y === '1' }); m.hidden = true; });
+      } else if (v.phase === 'shop' && v.turn === v.seat) {
+        const pd = v.pending, MI = root.MONO_ITEMS, I = MI.NAMES[v.theme], me = v.players[v.seat];
+        m.hidden = false; m.onclick = null;
+        m.innerHTML = `<div class="mm-card shop-card"><h3>${pd.free ? '🎁 休息站：免費挑一張道具' : `${U.esc(I.tile)}：要買道具嗎？`}</h3>
+          ${pd.free ? '<p class="hint">免費的，不算購買次數</p>' : `<p class="hint">這是你的第 ${pd.nth} 次購買，越買越貴（每 ${MI.RESET} 回合歸零）</p>`}
+          <div class="shop-row">${pd.offers.map((k, j) => `<button class="shop-it" data-k="${k}" ${me.cash < pd.prices[j] ? 'disabled' : ''}><i>${I[k][1]}</i><b>${I[k][0]}</b><small>${MI.DESC[k]}</small><em>${pd.prices[j] ? `${fmt(pd.prices[j])}<u>${th.unit}</u>` : '免費'}</em></button>`).join('')}</div>
+          <div class="act-row"><button class="btn ghost" data-k="">${pd.free ? '都不要' : '不買'}</button></div>
+          <span class="timer" data-deadline="${v.deadline}"></span></div>`;
+        m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { this.ui.send({ type: 'shop', k: b.dataset.k || null }); m.hidden = true; });
       } else if (v.phase === 'gate' && v.turn === v.seat) {
         m.hidden = true; this.gateBar(true); return;
       } else if (v.phase === 'buyout' && v.turn === v.seat) {
@@ -886,7 +895,7 @@
         const o = v.owners[i]; const lv = v.levels[i];
         body = `<p>${o >= 0 ? `地主：${this.faceHTML(v, o, 22)} ${U.esc(v.names[o])}　建築 Lv${lv}` : `空地，售價 ${fmt(t.price)} ${th.unit}`}</p>
           <p class="hint">過路費：${[0, 1, 2, 3, 4].map(k => `Lv${k} ${fmt(Math.round(t.price * R().RENT_MUL[k] * (v.infl || 1)))}`).join('、')}${v.infl > 1 ? `（已含漲價 ×${v.infl.toFixed(1)}）` : ''}<br>升級一次 ${fmt(t.up)} ${th.unit}${o >= 0 && lv < 4 ? `<br>收購價 ${fmt(R().buyoutOf({ levels: v.levels }, i))}` : ''}</p>`;
-      } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，順便抽一張道具', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '繳總資產的 6%（最少 2,000）', teleport: '隨機傳送到任一塊地', item: '抽一張道具（最多拿 3 張），擲骰子前可以使用' }[t.type]}</p>`;
+      } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，從 3 張道具中免費挑一張', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '繳總資產的 6%（最少 2,000）', teleport: '隨機傳送到任一塊地', item: '從 3 張道具中挑一張買（越買越貴、錢最少的人 5 折），擲骰子前可以使用' }[t.type]}</p>`;
       m.hidden = false;
       m.innerHTML = `<div class="mm-card tinfo">${t.type === 'prop' ? `<div class="tile-chip" style="background:${t.color}"></div>` : ''}<h3>${U.esc(R().tileName(v.theme, i))}</h3>${body}<button class="btn sm" data-x>關閉</button></div>`;
       m.onclick = (e) => { if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); } };
