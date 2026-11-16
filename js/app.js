@@ -153,6 +153,7 @@
     const mod = window.GAMES[sel];
     const players = room.members.filter(m => m.online && m.role === 'player');
     const opts = Object.assign({}, ...(mod.options || []).map(o => ({ [o.key]: o.def })), lobby.opts || {});
+    (mod.options || []).forEach(o => { if (o.choices && !o.choices.some(([v]) => String(v) === String(opts[o.key]))) opts[o.key] = o.def; });
     const me = room.members.find(m => m.cid === R.cid);
     const countOk = players.length >= mod.min && players.length <= mod.max;
     $('#lobby').innerHTML = `

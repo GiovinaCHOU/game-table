@@ -401,6 +401,8 @@
       // 隨機座位
       const seats = players.map(p => p.cid).sort(() => Math.random() - 0.5);
       const opts = Object.assign({}, ...(mod.options || []).map(o => ({ [o.key]: o.def })), this.lobby.opts || {});
+      // 舊的設定值如果已經不在選項裡（例如改版後），一律改回預設，避免畫面顯示和實際不一致
+      (mod.options || []).forEach(o => { if (o.choices && !o.choices.some(([v]) => String(v) === String(opts[o.key]))) opts[o.key] = o.def; });
       this.game = { id, seats, opts, state: null };
       this.game.state = mod.init(seats.length, opts, this.names(), Date.now());
       this.pushRoom(); this.pushViews();

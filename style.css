@@ -171,6 +171,13 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .rt.sel { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--gold); }
 .rm-rack { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; background: rgba(0,0,0,.25); border-radius: 12px; padding: 10px 6px; margin-top: 6px; }
 .rm-rack .rt { width: 34px; height: 46px; font-size: 20px; }
+/* 桌面牌多時自動縮小，桌面區自己捲動，手牌永遠看得到 */
+.rm-table { max-height: calc(var(--vh, 100vh) - 330px); overflow-y: auto; overscroll-behavior: contain; }
+.rm-table.d1 { gap: 5px; padding: 6px; } .rm-table.d1 .rm-set { padding: 3px; gap: 1px; }
+.rm-table.d1 .rt { width: 24px; height: 32px; font-size: 15px; border-radius: 4px; }
+.rm-table.d2 { gap: 4px; padding: 5px; } .rm-table.d2 .rm-set { padding: 2px; gap: 1px; border-width: 1.5px; }
+.rm-table.d2 .rt { width: 19px; height: 26px; font-size: 12px; border-radius: 3px; }
+.rm-table.d2 .rt.joker { font-size: 14px; }
 
 /* 你畫我猜 */
 .dr-top { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; gap: 8px; }
@@ -474,3 +481,70 @@ body.in-room { position: fixed; inset: 0; overflow: hidden; }
 .qz-note { margin: 10px 2px 0; padding: 9px 11px; border-radius: 12px; background: rgba(255,255,255,.1); font-size: 13px; line-height: 1.6; text-align: left; }
 .qz-card { max-height: 100%; overflow-y: auto; }
 .qz-lv { font-style: normal; font-size: 11px; margin-left: 6px; padding: 1px 7px; border-radius: 8px; vertical-align: 2px; } .qz-lv.e { background: #2f9e5a; color: #fff; } .qz-lv.m { background: #d9a43a; color: #241a00; } .qz-lv.h { background: #d9483a; color: #fff; }
+
+/* 結算畫面不超出手機視窗 */
+.mm-card.over { width: auto; max-width: calc(100vw - 24px); max-height: calc(var(--vh, 100vh) - 140px); overflow: auto; padding: 14px 12px; }
+.mm-card.over h2 { font-size: 20px; word-break: break-all; }
+.atab.rank { font-size: 12.5px; } .atab.rank td, .atab.rank th { padding: 5px 4px; white-space: nowrap; }
+.atab.rank td:nth-child(2) { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===== 麻將：實體牌面＋牌桌座位（四人口字、三人ㄩ字） ===== */
+[data-g="mahjong"] .mt { --w: 30px; position: relative; width: var(--w); height: calc(var(--w) * 1.34); padding: 0; background: linear-gradient(#fffef8, #f0e8d0); border-radius: calc(var(--w) * .12); box-shadow: 0 calc(var(--w) * .07) 0 #2f8a5a, 0 calc(var(--w) * .09) 0 #1f6e44, 0 3px 4px rgba(0,0,0,.35); display: inline-block; flex: none; }
+[data-g="mahjong"] .mt svg { position: absolute; inset: 6% 7% 5%; width: 86%; height: 89%; }
+[data-g="mahjong"] .mt.back { background: linear-gradient(#3fb07a, #237a50); box-shadow: 0 2px 0 #f0e8d0, 0 3px 3px rgba(0,0,0,.3); }
+[data-g="mahjong"] .mt.rv { --w: 19px; box-shadow: 0 1.5px 0 #2f8a5a, 0 2px 2px rgba(0,0,0,.3); cursor: default; }
+[data-g="mahjong"] .mt.xs { --w: 18px; cursor: default; box-shadow: 0 1.5px 0 #2f8a5a; }
+[data-g="mahjong"] .mt.xxs { --w: 9px; box-shadow: 0 1px 0 #f0e8d0; border-radius: 2px; }
+[data-g="mahjong"] .mt.sm { --w: 25px; cursor: default; }
+[data-g="mahjong"] .mt.big { --w: 40px; cursor: default; }
+[data-g="mahjong"] .mt.last { outline: 2px solid #ff6b5b; outline-offset: 1px; }
+.mjt { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "top top top" "left table right"; gap: 4px; }
+.mjt.k3, .mjt.k2 { grid-template-areas: "left table right" "left table right"; grid-template-rows: 0 auto; }
+.mjt.k2 { grid-template-areas: "top top top" "left table right"; grid-template-rows: auto auto; }
+.mjs { background: rgba(0,0,0,.18); border-radius: 12px; padding: 4px; display: flex; gap: 4px; align-items: center; }
+.mjs.empty { background: none; padding: 0; }
+.mjs-top { grid-area: top; flex-wrap: wrap; justify-content: center; }
+.mjs-left { grid-area: left; flex-direction: column; } .mjs-right { grid-area: right; flex-direction: column; }
+.mjs-left .mjs-melds, .mjs-right .mjs-melds { flex-direction: column; }
+.mjs-melds { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; align-items: center; }
+.mjs-melds .meld { display: inline-flex; gap: 0; }
+.mjs-left .meld, .mjs-right .meld { flex-direction: column; }
+.mjs-backs { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; max-width: 100%; }
+.mjs-left .mjs-backs, .mjs-right .mjs-backs { width: 22px; }
+.mjs-tag { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 11px; line-height: 1.2; text-align: center; padding: 3px 2px; border-radius: 9px; border: 1.5px solid transparent; }
+.mjs-top .mjs-tag { flex-direction: row; gap: 5px; font-size: 12px; }
+.mjs-tag b { max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.mjs-top .mjs-tag b { max-width: 120px; }
+.mjs-tag small { color: var(--muted); font-size: 10px; }
+.mjs-tag .wind { background: var(--cream); color: var(--ink); border-radius: 5px; padding: 0 4px; font-weight: 800; font-size: 11px; }
+.mjs-tag.turn { border-color: var(--gold); box-shadow: 0 0 10px rgba(233,185,73,.5); }
+.mj-table { grid-area: table; position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto minmax(84px, 1fr) auto; grid-template-areas: "t t t" "l c r" "b b b"; gap: 4px; background: radial-gradient(circle at 50% 50%, #2f7a52, #1d5638); border: 3px solid #6b4a2a; border-radius: 14px; padding: 6px; min-height: 220px; box-shadow: inset 0 0 18px rgba(0,0,0,.35); }
+.mjr { display: flex; flex-wrap: wrap; gap: 1px; align-content: flex-start; }
+.mjr-top { grid-area: t; justify-content: center; } .mjr-bottom { grid-area: b; justify-content: center; align-content: flex-end; }
+.mjr-left { grid-area: l; flex-direction: column; flex-wrap: wrap; max-height: 230px; width: auto; max-width: 64px; }
+.mjr-right { grid-area: r; flex-direction: column; flex-wrap: wrap-reverse; max-height: 230px; max-width: 64px; }
+.mjr-top, .mjr-bottom { max-width: 100%; }
+.mj-core { grid-area: c; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; background: rgba(0,0,0,.22); border-radius: 12px; padding: 6px; min-height: 84px; }
+.mjc-wind { font-size: 26px; font-weight: 900; color: var(--gold); line-height: 1; } .mjc-wind small { font-size: 11px; color: var(--muted); margin-left: 2px; }
+.mjc-info { font-size: 11px; color: var(--muted); line-height: 1.4; } .mjc-info b { color: var(--cream); }
+.mjc-turn { font-size: 13px; } .mjc-turn b { color: var(--gold); }
+.mjc-claim { font-size: 13px; line-height: 1.5; }
+.mjc-log { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+[data-g="mahjong"] .mj-me { margin-top: 6px; }
+[data-g="mahjong"] .mj-hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; padding-top: 10px; }
+[data-g="mahjong"] .mj-hand .mt { --w: min(calc((100vw - 76px) / 9), 42px); cursor: pointer; }
+[data-g="mahjong"] .mj-hand .gap { width: 6px; }
+@media (orientation: landscape) and (min-width: 700px) {
+  [data-g="mahjong"] .mj-hand { flex-wrap: nowrap; }
+  [data-g="mahjong"] .mj-hand .mt { --w: min(calc((100vw - 60px) / 18), 46px); }
+  .mjt { grid-template-columns: 90px minmax(0, 1fr) 90px; }
+  [data-g="mahjong"] .mt.rv { --w: 22px; }
+}
+/* 橫向小螢幕：自己的手牌固定在下方，牌桌在上面捲動 */
+@media (orientation: landscape) and (max-height: 520px) {
+  [data-g="mahjong"] .mj-me { position: sticky; bottom: 0; z-index: 3; background: var(--felt, #123826); box-shadow: 0 -6px 14px rgba(0,0,0,.35); margin-top: 4px; padding-bottom: 4px; }
+  [data-g="mahjong"] .mj-hand { padding-top: 4px; }
+  [data-g="mahjong"] .mj-hand .mt { --w: min(calc((100vw - 60px) / 18), 40px); }
+  [data-g="mahjong"] .mt.rv { --w: 17px; }
+  .mj-table { min-height: 0; }
+}

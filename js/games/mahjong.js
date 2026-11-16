@@ -408,34 +408,74 @@
     },
 
     // ================= 畫面 =================
+    // 牌面用 SVG 畫成實體麻將：筒是圓點、條是竹子（一條是鳥）、萬是數字＋紅色萬字
+    face(t) {
+      const C = this._faces || (this._faces = {}); if (C[t]) return C[t];
+      const SERIF = "'Songti TC','STSong','Noto Serif TC','PMingLiU',serif";
+      const svg = (body) => `<svg viewBox="0 0 60 80" aria-hidden="true">${body}</svg>`;
+      const dot = (x, y, r, c) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x}" cy="${y}" r="${r * 0.72}" fill="#fffef6"/><circle cx="${x}" cy="${y}" r="${r * 0.5}" fill="${c}"/><circle cx="${x}" cy="${y}" r="${r * 0.22}" fill="#fffef6"/>`;
+      const B = '#1f5fa8', G = '#1f8a4c', R = '#c8262c';
+      const stick = (x, y, h, c, rot) => `<g transform="translate(${x} ${y})${rot ? ` rotate(${rot})` : ''}"><rect x="-3.6" y="${-h / 2}" width="7.2" height="${h}" rx="3.2" fill="${c}"/><rect x="-1.2" y="${-h / 2 + 2}" width="2.4" height="${h - 4}" rx="1.2" fill="#fffef6" opacity=".55"/><rect x="-4.4" y="-1.3" width="8.8" height="2.6" rx="1.2" fill="${c}"/><rect x="-4.4" y="${-h / 2 + 1}" width="8.8" height="2.2" rx="1" fill="${c}"/><rect x="-4.4" y="${h / 2 - 3.2}" width="8.8" height="2.2" rx="1" fill="${c}"/></g>`;
+      let body = '';
+      if (t < 9) { // 萬：上面數字、下面紅色「萬」
+        body = `<text x="30" y="34" text-anchor="middle" font-family="${SERIF}" font-weight="900" font-size="30" fill="#1b2a5e">${CN[t]}</text><text x="30" y="70" text-anchor="middle" font-family="${SERIF}" font-weight="900" font-size="32" fill="${R}">萬</text>`;
+      } else if (t < 18) { // 筒
+        const n = t - 8;
+        const L = { 1: [[30, 40, 22, B]], 2: [[30, 22, 12, G], [30, 58, 12, B]], 3: [[15, 16, 10, B], [30, 40, 10, R], [45, 64, 10, G]],
+          4: [[17, 22, 11, B], [43, 22, 11, G], [17, 58, 11, G], [43, 58, 11, B]], 5: [[16, 18, 10, B], [44, 18, 10, G], [30, 40, 10, R], [16, 62, 10, G], [44, 62, 10, B]],
+          6: [[17, 15, 9, G], [43, 15, 9, G], [17, 43, 9, R], [43, 43, 9, R], [17, 65, 9, R], [43, 65, 9, R]],
+          7: [[13, 11, 7.5, G], [30, 19, 7.5, G], [47, 27, 7.5, G], [17, 46, 8, R], [43, 46, 8, R], [17, 66, 8, R], [43, 66, 8, R]],
+          8: [[17, 11, 8, B], [43, 11, 8, B], [17, 30, 8, B], [43, 30, 8, B], [17, 50, 8, B], [43, 50, 8, B], [17, 69, 8, B], [43, 69, 8, B]],
+          9: [[13, 15, 8, B], [30, 15, 8, B], [47, 15, 8, B], [13, 40, 8, R], [30, 40, 8, R], [47, 40, 8, R], [13, 65, 8, G], [30, 65, 8, G], [47, 65, 8, G]] }[n];
+        body = n === 1 ? `<circle cx="30" cy="40" r="24" fill="${G}"/><circle cx="30" cy="40" r="19" fill="#fffef6"/>${Array.from({ length: 12 }, (_, i) => { const a = i / 12 * 6.283; return `<circle cx="${30 + Math.cos(a) * 15}" cy="${40 + Math.sin(a) * 15}" r="2.6" fill="${B}"/>`; }).join('')}<circle cx="30" cy="40" r="9" fill="${R}"/><circle cx="30" cy="40" r="4.5" fill="#fffef6"/><circle cx="30" cy="40" r="2" fill="${R}"/>`
+          : L.map(([x, y, r, c]) => dot(x, y, r, c)).join('');
+      } else if (t < 27) { // 條
+        const n = t - 17;
+        if (n === 1) body = `<g transform="translate(30 42)"><path d="M-14 6 Q-26 -6 -16 -20 Q-6 -26 2 -18 Q8 -10 4 2 Z" fill="${G}"/><circle cx="-6" cy="-20" r="7" fill="${G}"/><circle cx="-8" cy="-21" r="2" fill="#fffef6"/><circle cx="-8" cy="-21" r="1" fill="#111"/><path d="M-13 -21 L-20 -18 L-13 -17 Z" fill="#e0a020"/><path d="M-4 -27 Q0 -34 -6 -30 Q-2 -36 -9 -31" stroke="${R}" stroke-width="2" fill="none"/><path d="M2 0 Q14 -4 22 6 Q12 4 8 12 Q16 14 18 26 Q8 18 2 22 Q4 14 -2 8 Z" fill="${R}"/><path d="M-6 6 L-8 20 M-2 6 L0 20" stroke="#8a5a20" stroke-width="2"/></g>`;
+        else {
+          const g = G, r = R, b = B;
+          const L = { 2: [[30, 22, 28, g], [30, 58, 28, b]], 3: [[30, 22, 28, g], [18, 58, 28, b], [42, 58, 28, b]], 4: [[18, 22, 28, b], [42, 22, 28, g], [18, 58, 28, g], [42, 58, 28, b]],
+            5: [[14, 22, 28, g], [46, 22, 28, b], [30, 40, 28, r], [14, 58, 28, b], [46, 58, 28, g]], 6: [[14, 22, 28, g], [30, 22, 28, g], [46, 22, 28, g], [14, 58, 28, b], [30, 58, 28, b], [46, 58, 28, b]],
+            7: [[30, 13, 20, r], [14, 40, 22, g], [30, 40, 22, g], [46, 40, 22, g], [14, 66, 22, b], [30, 66, 22, b], [46, 66, 22, b]],
+            8: [[12, 22, 28, g, -22], [24, 22, 28, g, 22], [36, 22, 28, g, -22], [48, 22, 28, g, 22], [12, 58, 28, b, 22], [24, 58, 28, b, -22], [36, 58, 28, b, 22], [48, 58, 28, b, -22]],
+            9: [[14, 15, 22, b], [30, 15, 22, r], [46, 15, 22, g], [14, 40, 22, b], [30, 40, 22, r], [46, 40, 22, g], [14, 65, 22, b], [30, 65, 22, r], [46, 65, 22, g]] }[n];
+          body = L.map(([x, y, h, c, rot]) => stick(x, y, h, c, rot)).join('');
+        }
+      } else if (t < 34) { // 字牌
+        const k = t - 27;
+        if (k === 6) body = `<rect x="11" y="12" width="38" height="56" rx="4" fill="none" stroke="${B}" stroke-width="3.5"/><rect x="17" y="18" width="26" height="44" rx="2" fill="none" stroke="${B}" stroke-width="1.5"/>`;
+        else body = `<text x="30" y="56" text-anchor="middle" font-family="${SERIF}" font-weight="900" font-size="42" fill="${k === 4 ? R : k === 5 ? G : '#1b2a5e'}">${HON[k]}</text>`;
+      } else { // 花牌：季節與梅蘭竹菊
+        const k = t - 34, col = ['#2f9e44', '#e8590c', '#c2255c', '#1c7ed6', '#c92a2a', '#7048e8', '#2b8a3e', '#d9a400'][k];
+        body = `<text x="8" y="17" font-family="${SERIF}" font-weight="900" font-size="13" fill="${col}">${k % 4 + 1}</text><text x="30" y="58" text-anchor="middle" font-family="${SERIF}" font-weight="900" font-size="38" fill="${col}">${FLW[k]}</text>`;
+      }
+      return (C[t] = svg(body));
+    },
     tile(id, cls) {
       if (id == null) return '';
       if (id < 0) return `<span class="mt back ${cls || ''}"></span>`;
-      const t = tt(id); let inner, c = '';
-      if (t < 9) { inner = `<b>${CN[t]}</b><i>萬</i>`; c = 'man'; }
-      else if (t < 18) { inner = `<b>${t - 8}</b><i>筒</i>`; c = 'pin'; }
-      else if (t < 27) { inner = `<b>${t - 17}</b><i>條</i>`; c = 'sou'; }
-      else if (t < 34) { inner = `<b class="h">${HON[t - 27]}</b>`; c = ['wind', 'wind', 'wind', 'wind', 'chun', 'fa', 'bai'][t - 27]; }
-      else { inner = `<b class="h">${FLW[t - 34]}</b><i>${(t - 34) % 4 + 1}</i>`; c = 'flw'; }
-      return `<span class="mt ${c} ${cls || ''}" data-id="${id}">${inner}</span>`;
+      const t = tt(id);
+      return `<span class="mt ${cls || ''}" data-id="${id}" title="${tname(t)}">${this.face(t)}</span>`;
     },
     _sel: null,
     render(el, v, ui) {
       el.dataset.g = 'mahjong';
       const me = v.me; const T = (id, c) => this.tile(id, c);
-      const myP = me ? me.p : -1;
-      // 以自己為下方，其他人依序
-      const order = U.range(v.k).map(i => ((myP >= 0 ? myP : 0) + i) % v.k);
-      const meldHTML = (pl, small) => pl.melds.map(m => `<span class="meld">${m.tiles.map(id => T(id, small ? 'sm' : '')).join('')}</span>`).join('');
-      const opp = order.slice(myP >= 0 ? 1 : 0).map(q => {
-        const pl = v.players[q];
-        return `<div class="mj-opp ${v.turn === q && (v.phase === 'discard') ? 'turn' : ''}">
-          <div class="mj-name"><span class="wind">${pl.wind}${pl.dealer ? '莊' : ''}</span>${U.esc(v.names[pl.seat])} <small>${pl.count} 張 · ${v.total[pl.seat] >= 0 ? '+' : ''}${v.total[pl.seat]}</small></div>
-          <div class="mj-melds">${pl.flowers.map(id => T(id, 'sm')).join('')}${meldHTML(pl, true)}</div>
-          ${pl.hand ? `<div class="mj-reveal">${pl.hand.slice().sort((a, b) => tt(a) - tt(b)).map(id => T(id, 'sm')).join('')}</div>` : ''}
-          <div class="mj-river">${pl.river.map((id, i) => T(id, 'xs' + (v.lastDiscard === id && i === pl.river.length - 1 ? ' last' : ''))).join('')}</div>
-        </div>`;
-      }).join('');
+      const myP = me ? me.p : -1, base = myP >= 0 ? myP : 0;
+      // 座位：自己在下方，下家在右邊、對家在上方、上家在左邊（三人局是ㄩ字：左、右、下）
+      const order = U.range(v.k).map(i => (base + i) % v.k);
+      const side = {}; side[order[0]] = 'bottom';
+      if (v.k === 4) { side[order[1]] = 'right'; side[order[2]] = 'top'; side[order[3]] = 'left'; }
+      else if (v.k === 3) { side[order[1]] = 'right'; side[order[2]] = 'left'; }
+      else if (v.k === 2) side[order[1]] = 'top';
+      const at = (pos) => Object.keys(side).map(Number).find(q => side[q] === pos);
+      const meldHTML = (pl, cls) => pl.flowers.map(id => T(id, cls)).join('') + pl.melds.map(m => `<span class="meld">${m.tiles.map(id => T(id, cls)).join('')}</span>`).join('');
+      const tag = (q) => { const pl = v.players[q]; return `<div class="mjs-tag ${v.turn === q && v.phase === 'discard' ? 'turn' : ''}"><span class="wind">${pl.wind}${pl.dealer ? '莊' : ''}</span><b>${U.esc(v.names[pl.seat])}</b><small>${pl.count}張 ${v.total[pl.seat] >= 0 ? '+' : ''}${v.total[pl.seat]}</small></div>`; };
+      const backs = (n, cls) => `<span class="mjs-backs">${Array.from({ length: n }, () => `<span class="mt back ${cls}"></span>`).join('')}</span>`;
+      const seat = (pos) => { const q = at(pos); if (q == null || pos === 'bottom') return `<div class="mjs mjs-${pos} empty"></div>`; const pl = v.players[q];
+        return `<div class="mjs mjs-${pos}">${tag(q)}<div class="mjs-melds">${meldHTML(pl, 'xs')}</div>${pl.hand ? `<div class="mjs-melds">${pl.hand.slice().sort((a, b) => tt(a) - tt(b)).map(id => T(id, 'xs')).join('')}</div>` : backs(Math.max(0, pl.count), 'xxs')}</div>`; };
+      const river = (pos) => { const q = at(pos); if (q == null) return `<div class="mjr mjr-${pos}"></div>`; const pl = v.players[q];
+        return `<div class="mjr mjr-${pos}">${pl.river.map((id, i) => T(id, 'rv' + (v.lastDiscard === id && i === pl.river.length - 1 ? ' last' : ''))).join('')}</div>`; };
       const mine = myP >= 0 ? v.players[myP] : null;
       let hand = me ? me.hand.slice() : [];
       const drawn = me && me.drawn != null ? me.drawn : null;
@@ -444,19 +484,26 @@
       if (this._sel != null && !(me && me.hand.includes(this._sel))) this._sel = null;
       const tips = (me && me.tips) || {};
       const res = v.result;
-      const center = v.phase === 'claim' ? `<div class="mj-center">${U.esc(v.names[v.players[v.claim.from].seat])} ${v.claim.rob ? '加槓' : '打出'} ${T(v.claim.tile, 'big')} <span class="timer" data-deadline="${v.deadline}"></span></div>`
-        : v.phase === 'discard' ? `<div class="mj-center">輪到 <b>${U.esc(v.names[v.players[v.turn].seat])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span></div>` : '';
+      const arrow = { bottom: '▼', top: '▲', left: '◀', right: '▶' }[side[v.turn]] || '';
+      const core = v.phase === 'claim'
+        ? `<div class="mjc-claim">${U.esc(v.names[v.players[v.claim.from].seat])} ${v.claim.rob ? '加槓' : '打出'}<br>${T(v.claim.tile, 'big')}<span class="timer" data-deadline="${v.deadline}"></span></div>`
+        : `<div class="mjc-wind">${v.roundWind}<small>風圈</small></div><div class="mjc-info">第${v.handNo + (v.phase === 'over' || v.phase === 'end' ? 0 : 1)}局${v.lian ? `・連${v.lian}` : ''}<br>剩 <b>${v.wall}</b> 張</div>${v.phase === 'discard' ? `<div class="mjc-turn">${arrow} <b>${U.esc(v.names[v.players[v.turn].seat])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span></div>` : ''}`;
       el.innerHTML = `
-        <div class="mj-info">${v.roundWind}風圈 第${v.handNo + (v.phase === 'over' || v.phase === 'end' ? 0 : 1)}局${v.lian ? ` · 連${v.lian}` : ''} · 剩 ${v.wall} 張${v.sitter >= 0 ? ` · ${U.esc(v.names[v.sitter])} 這局休息` : ''}</div>
-        <div class="mj-opps">${opp}</div>
-        ${center}
+        <div class="mjt k${v.k}">
+          ${seat('top')}${seat('left')}
+          <div class="mj-table">
+            ${river('top')}${river('left')}
+            <div class="mj-core">${core}<div class="mjc-log">${v.log.slice(-2).map(U.esc).join('<br>')}</div></div>
+            ${river('right')}${river('bottom')}
+          </div>
+          ${seat('right')}
+        </div>
         ${(v.phase === 'over' || v.phase === 'end') ? this._resultHTML(v, res) : ''}
-        <div class="mj-log">${v.log.slice(-3).map(U.esc).join('<br>')}</div>
         ${mine ? `<div class="mj-me ${myTurn ? 'turn' : ''}">
           <div class="mj-name"><span class="wind">${mine.wind}${mine.dealer ? '莊' : ''}</span>你 <small>${v.total[mine.seat] >= 0 ? '+' : ''}${v.total[mine.seat]}</small>
+            ${v.sitter >= 0 ? `<small>・${U.esc(v.names[v.sitter])} 這局休息</small>` : ''}
             ${me.waits && me.waits.length ? `<span class="waits">聽：${me.waits.map(t => tname(t)).join('、')}</span>` : ''}</div>
-          <div class="mj-melds">${mine.flowers.map(id => T(id, 'sm')).join('')}${meldHTML(mine, false)}</div>
-          <div class="mj-river mine">${mine.river.map(id => T(id, 'xs')).join('')}</div>
+          ${mine.flowers.length || mine.melds.length ? `<div class="mj-melds">${meldHTML(mine, 'sm')}</div>` : ''}
           <div class="mj-hand">${hand.map(id => T(id, (this._sel === id ? 'sel ' : '') + (tips[tt(id)] ? 'ting' : ''))).join('')}${drawn != null ? `<span class="gap"></span>${T(drawn, 'drawn ' + (this._sel === drawn ? 'sel ' : '') + (tips[tt(drawn)] ? 'ting' : ''))}` : ''}</div>
           ${this._sel != null && tips[tt(this._sel)] ? `<div class="hint">打 ${tname(tt(this._sel))} 可聽：${tips[tt(this._sel)].map(tname).join('、')}</div>` : ''}
           <div class="act-row mj-acts">${this._actions(v, me, myTurn)}</div>
