@@ -203,13 +203,13 @@
       el.querySelector('.go-btn').onclick = () => { if (this.canAct('roll')) { this.ui.send({ type: 'roll' }); el.querySelector('.go-btn').disabled = true; SFX.dice(); } };
       el.querySelector('[data-t="me"]').onclick = () => { if (this.board && this.v.seat >= 0) this.board.focusSeat(this.v.seat, true); };
       el.querySelector('[data-t="all"]').onclick = () => { if (this.board) this.board.overview(); };
-      el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; this.ui.toast('畫質已切換，重新整理頁面後生效'); };
+      el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; if (this.board && this.board.setQuality) this.board.setQuality(nq === 'high'); this.ui.toast(nq === 'high' ? '高畫質：更清晰、有陰影（比較耗電）' : '省電畫質：解析度低一點、沒有陰影'); };
       el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (!this.board) return; const c = b.dataset.c; if (c === 'tu') this.board.nudge('tilt', -0.25); if (c === 'td') this.board.nudge('tilt', 0.25); if (c === 'zi') this.board.nudge('zoom', 0.8); if (c === 'zo') this.board.nudge('zoom', 1.25); });
       el.querySelector('[data-t="sfx"]').onclick = (e) => { SFX.on = !SFX.on; e.target.textContent = SFX.on ? '🔊' : '🔇'; try { localStorage.setItem('mono-sfx', SFX.on ? '1' : '0'); } catch (x) {} };
       const stage = el.querySelector('.mono-stage');
       const b = new root.MonoBoard3D();
       b.init(stage, v.theme, R()).then(() => {
-        b.ready = true; this.board = b; stage.querySelector('.mono-loading').remove();
+        b.ready = true; this.board = b; try { const an = Math.min(8, b.renderer.capabilities.getMaxAnisotropy()); b.scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (m.map) { m.map.anisotropy = an; m.map.needsUpdate = true; } }); }); } catch (e) {} /* 斜看的格子文字比較不糊 */ stage.querySelector('.mono-loading').remove();
         b.onPan = () => { this._camFree = true; };
         b.onTap = (h) => { if (h.tile != null && this.canAct('gate')) this.pickGate(h.tile); else if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
         try { if (!localStorage.getItem('mono-hint')) { const hn = el.querySelector('.mono-hint'); hn.hidden = false; setTimeout(() => hn.hidden = true, 6000); localStorage.setItem('mono-hint', '1'); } } catch (x) {}
@@ -311,6 +311,7 @@
       const v = this.v, b = this.board, unit = TH()[v.theme].unit, $ = (n) => fmt(n) + ' ' + unit, why = (w) => w ? (w === '卡片' ? '（卡片）' : ' ' + w) : ''; const watch = (s) => !this._camFree || b.following === s;
       try {
         for (const e of evs) {
+          if (e.t === 'bankrupt') this.cine(true);
           if (!this.board) break;
           switch (e.t) {
             case 'dice': this.closeCard(); this.ungrey(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
@@ -384,7 +385,7 @@
             case 'note': this.fx(e.text, '', e.seat); await sleep(600); break;
           }
         }
-      } finally { this.playing = false; }
+      } finally { this.playing = false; if (this._cine) this.cine(false); }
     },
     async rollDice(d) {
       const faces = this.el.querySelectorAll('.d6'); SFX.dice();
@@ -419,11 +420,18 @@
     ungrey() { if (!this._grey) return; this._grey = false; const st = this.el && this.el.querySelector('.mono-stage'); if (st) { st.style.transition = 'filter 1.2s'; st.style.filter = ''; } },
     closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
+    // 破產等大動畫播放時，通知先收起來，播完再顯示，不擋畫面
+    cine(on) {
+      this._cine = on; if (!this.el) return; this.el.classList.toggle('cine', on);
+      if (on) { const box = this.el.querySelector('.mono-feed'); if (box) box.innerHTML = ''; }
+      else { const held = this._held || []; this._held = []; held.slice(-2).forEach(([h, c]) => this.feed(h, c)); }
+    },
     feed(html, cls) {
+      if (this._cine) { (this._held = this._held || []).push([html, cls]); return; }
       const box = this.el && this.el.querySelector('.mono-feed'); if (!box) return;
       const d = document.createElement('div'); d.className = 'mfeed ' + (cls || ''); d.innerHTML = html; box.prepend(d);
-      while (box.children.length > 3) box.lastChild.remove();
-      setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, 6000);
+      while (box.children.length > 2) box.lastChild.remove();
+      setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, 4500);
       d.onclick = () => d.remove();
     },
     assetInfo(s) {

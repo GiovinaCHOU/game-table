@@ -24,8 +24,9 @@
       const T = await loadThree(); const A = root.MONO_ART, S = A.STYLE[theme];
       this.el = el; this.theme = theme; this.R = R; this.q = { high: quality() === 'high' };
       const w = el.clientWidth || 360, h = el.clientHeight || 400;
-      const r = this.renderer = new T.WebGLRenderer({ antialias: this.q.high, powerPreference: 'high-performance' });
-      r.setPixelRatio(Math.min(this.q.high ? 1.5 : 1, window.devicePixelRatio || 1)); r.setSize(w, h);
+      // 兩種畫質都開反鋸齒；低畫質只是解析度低一點、沒有陰影
+      const r = this.renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      r.setPixelRatio(Math.min(this.q.high ? 2 : 1.35, window.devicePixelRatio || 1)); r.setSize(w, h);
       r.shadowMap.enabled = this.q.high; r.shadowMap.type = T.PCFSoftShadowMap;
       r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.0 : 1.0;
       el.appendChild(r.domElement); r.domElement.style.touchAction = 'none';
@@ -385,6 +386,12 @@
       else if (k === 'trap') { this.ring(at, '#b14cff', 1.0, 1000); this.burst(at, { n: 26, colors: ['#b14cff', '#e0b0ff'], speed: 1.2, up: 1.2, size: 0.04, life: 0.8, add: true }); }
       else if (k === 'steal') { this.burst(at, { n: 30, colors: ['#ffd400', '#ffef8a'], speed: 1.8, up: 2, size: 0.05, life: 0.8, box: true }); }
       else { this.ring(at, '#3cff9e', 1.2, 900); this.burst(at, { n: 24, colors: ['#3cff9e', '#d8ffe9'], speed: 1.4, up: 1.8, size: 0.04, life: 0.8, add: true }); }
+    }
+    setQuality(high) {
+      this.q.high = high; const r = this.renderer; if (!r) return;
+      r.setPixelRatio(Math.min(high ? 2 : 1.35, window.devicePixelRatio || 1));
+      r.setSize(this.el.clientWidth || 360, this.el.clientHeight || 400);
+      r.shadowMap.enabled = high; this.scene.traverse(o => { if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); } });
     }
     recolor(r, mat) { r.g.traverse(o => { if (o.isMesh && !o.userData.tag) { if (!o.userData.mat0) o.userData.mat0 = o.material; o.material = mat; } }); }
     // 粒子：顏色、數量、速度、重力、壽命、大小
