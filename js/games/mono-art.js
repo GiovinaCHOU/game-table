@@ -30,7 +30,7 @@
       if (!prop) { g.font = `86px ${EMOJI}`; g.shadowBlur = 0; g.fillText(icon, 128, 92); g.shadowBlur = 14; }
       g.font = `bold ${prop ? 40 : 34}px ${SANS}`;
       const ls = wrap(g, name, 220); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 104 : 178) + k * 42 - (ls.length - 1) * (prop ? 20 : 0)));
-      if (prop) { g.font = `bold 28px ${SANS}`; g.fillStyle = '#c9c3ff'; g.shadowBlur = 0; g.fillText('$' + b.price.toLocaleString(), 128, 214); }
+      if (prop) { g.font = `bold 24px ${SANS}`; g.fillStyle = '#c9c3ff'; g.shadowBlur = 0; g.fillText(b.price.toLocaleString() + ' 信用點', 128, 214); }
     } else if (theme === 'alien') {
       // 骨白板＋黑色生物機械紋路＋主題色發光條
       const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#f1e9d6'); gr.addColorStop(1, '#d9ceb4');
@@ -59,7 +59,7 @@
       if (!prop) { g.font = `80px ${EMOJI}`; g.fillText(icon, 128, 98); }
       g.font = `bold ${prop ? 40 : 34}px ${SERIF}`;
       const ls = wrap(g, name, 210); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 112 : 182) + k * 42 - (ls.length - 1) * (prop ? 20 : 0)));
-      if (prop) { g.font = `bold 26px ${SERIF}`; g.fillStyle = '#8a6a1f'; g.fillText(b.price.toLocaleString() + ' 金', 128, 214); }
+      if (prop) { g.font = `bold 26px ${SERIF}`; g.fillStyle = '#8a6a1f'; g.fillText(b.price.toLocaleString() + ' 金幣', 128, 214); }
     } else {
       // 動物：土地木牌
       g.fillStyle = '#b89b6e'; g.fillRect(0, 0, 256, 256);
