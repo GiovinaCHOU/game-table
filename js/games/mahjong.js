@@ -398,8 +398,15 @@
         }
         if (st.phase === 'claim' && st.claim.opts[p] && !st.claim.resp[p]) me.claim = st.claim.opts[p];
       }
+      // 有沒有人聽牌（只給背景音樂變緊張用，不透露是誰）
+      let tense = false;
+      if (st.phase === 'discard' || st.phase === 'claim') {
+        const key = st.log.length + ':' + wallLeft(st) + ':' + st.turn;
+        if (this._tenseKey === key) tense = this._tense;
+        else { for (let q = 0; q < k && !tense; q++) { const t = handTypes(st, q); if (t.length % 3 === 1 && waits(t, meldCount(st, q), inPlayTypes(st)).length) tense = true; } this._tenseKey = key; this._tense = tense; }
+      }
       return {
-        phase: st.phase, k, act: st.act, sitter: st.sitter, turn: st.turn, players, me, wall: Math.max(0, wallLeft(st)),
+        phase: st.phase, k, act: st.act, sitter: st.sitter, turn: st.turn, players, me, wall: Math.max(0, wallLeft(st)), tense,
         claim: st.claim ? { from: st.claim.from, tile: st.claim.tile, rob: !!st.claim.rob, waiting: Object.keys(st.claim.opts).length > 0 } : null,
         lastDiscard: st.phase === 'claim' ? st.claim.tile : null,
         deadline: st.deadline, log: st.log.slice(-6), result: st.result, total: st.total, roundWind: WIND[st.windRound % 4], handNo: st.handNo, lian: st.lian,

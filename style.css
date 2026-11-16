@@ -704,3 +704,25 @@ body[data-skin="nebula"] .chat-fab { box-shadow: 0 0 18px rgba(255,79,216,.5); }
 
 .mono.cine .mono-feed, .cine .mono-feed { opacity: 0; }
 .mfeed .mface { width: 16px !important; height: 16px !important; }
+
+/* 結算：蓋在牌桌上 */
+body.res-open .mj-result, body.res-open .b2-over { position: fixed; left: 12px; right: 12px; top: 50%; transform: translateY(-50%); z-index: 45; max-height: calc(var(--vh, 100vh) - 120px); overflow: auto; margin: 0; padding: 16px; background: rgba(14,6,34,.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 0 0 100vmax rgba(0,0,0,.45), 0 0 30px rgba(255,79,216,.4); animation: resIn .35s ease-out; }
+@keyframes resIn { from { opacity: 0; transform: translateY(-46%) scale(.95); } }
+.res-peek-btn { display: block; margin: 10px auto 0; }
+body.res-peek .mj-result, body.res-peek .b2-over { display: none; }
+.res-pill { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 90px; z-index: 46; box-shadow: 0 0 20px rgba(255,79,216,.5); }
+body.res-open.res-peek .res-pill { display: block; }
+/* 彩炮／砸雞蛋 */
+.gfx-ov { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; cursor: pointer; transition: opacity .4s; }
+.gfx-ov.lose { background: radial-gradient(circle, rgba(60,0,10,.45), rgba(0,0,0,.7)); }
+.gfx-ov.win { background: radial-gradient(circle, rgba(120,60,0,.45), rgba(0,0,0,.65)); }
+.gfx-ov.out { opacity: 0; }
+.gfx-ov.shake { animation: gfxShake .25s; }
+@keyframes gfxShake { 25% { transform: translate(6px, -4px); } 50% { transform: translate(-5px, 5px); } 75% { transform: translate(4px, 2px); } }
+.gfx-ov canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.gfx-msg { position: relative; text-align: center; display: flex; flex-direction: column; gap: 6px; animation: gfxPop .5s cubic-bezier(.2,1.6,.4,1); padding: 0 20px; }
+.gfx-msg b { font-size: 36px; font-weight: 900; color: #fff; text-shadow: 0 0 18px rgba(255,79,216,.9), 0 3px 0 rgba(0,0,0,.4); }
+.gfx-ov.lose .gfx-msg b { color: #ffe680; text-shadow: 0 3px 0 #7a2a00, 0 0 20px rgba(255,80,0,.6); transform: rotate(-4deg); }
+.gfx-msg small { font-size: 16px; color: #fff; opacity: .9; }
+.gfx-msg em { font-style: normal; font-size: 12px; color: rgba(255,255,255,.6); margin-top: 10px; }
+@keyframes gfxPop { from { transform: scale(.3); opacity: 0; } }

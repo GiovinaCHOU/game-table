@@ -105,16 +105,30 @@
     renderMembers(room);
     const host = R.isHost;
     $('#endBtn').hidden = !(host && room.game);
+    if (!room.game && window.GFX) { GFX.want('off'); document.body.classList.remove('res-open', 'res-peek'); }
     if (!room.game) { document.body.classList.remove('in-mono'); if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = null; $('#game').innerHTML = ''; $('#game').dataset.g = ''; $('#lobby').hidden = false; renderLobby(room); }
     else { $('#lobby').hidden = true; }
   };
+  let prevView = null;
+  // 結算畫面：蓋在牌桌上面，不用往下滑；可以按「看牌桌」暫時收起
+  function resultLayer(el) {
+    const r = el.querySelector('.mj-result, .b2-over');
+    document.body.classList.toggle('res-open', !!r);
+    if (!r) { document.body.classList.remove('res-peek'); return; }
+    if (!r.querySelector('.res-peek-btn')) { const b = document.createElement('button'); b.className = 'btn ghost sm res-peek-btn'; b.textContent = '看牌桌'; b.onclick = (e) => { e.stopPropagation(); document.body.classList.add('res-peek'); }; r.appendChild(b); }
+    let pill = document.getElementById('resPill');
+    if (!pill) { pill = document.createElement('button'); pill.id = 'resPill'; pill.className = 'btn res-pill'; pill.textContent = '📋 看結算'; pill.onclick = () => document.body.classList.remove('res-peek'); document.body.appendChild(pill); }
+  }
   R.cb.view = (v) => {
     const room = R.room; if (!room || !room.game) return;
     const mod = window.GAMES[room.game.id];
     const el = $('#game');
-    if (curGame !== room.game.id) { if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = room.game.id; el.innerHTML = ''; el.dataset.g = ''; }
+    if (curGame !== room.game.id) { if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = room.game.id; el.innerHTML = ''; el.dataset.g = ''; prevView = null; }
     document.body.classList.toggle('in-mono', room.game.id === 'monopoly');
+    try { window.GFX && GFX.onView(room.game.id, prevView, v); } catch (e) { console.error(e); }
+    prevView = v;
     try { mod.render(el, v, gameUI(v)); } catch (e) { console.error(e); }
+    resultLayer(el);
     tickTimers();
   };
   R.cb.ev = (ev) => { const room = R.room; if (!room || !room.game) return; const mod = window.GAMES[room.game.id]; if (mod.onEvent) mod.onEvent(ev); };
@@ -235,6 +249,8 @@
     if (R.room && R.room.game) { toast('遊戲進行中不能切換，回大廳後再換'); return; }
     const me = R.room.members.find(m => m.cid === R.cid); R.send({ t: 'role', role: me.role === 'spec' ? 'player' : 'spec' });
   };
+  const sfxLabel = () => { $('#sfxBtn').textContent = `🔊 音效：${GFX.on ? '開' : '關'}`; $('#bgmBtn').textContent = `🎵 背景音樂：${GFX.music ? '開' : '關'}`; };
+  if (window.GFX) { sfxLabel(); $('#sfxBtn').onclick = () => { GFX.toggleSfx(); sfxLabel(); }; $('#bgmBtn').onclick = () => { GFX.toggleBgm(); sfxLabel(); }; }
   $('#rulesBtn').onclick = () => {
     $('#menu').hidden = true;
     const id = (R.room.game && R.room.game.id) || R.room.lobby.gameId; const g = window.GAMES[id];
