@@ -495,8 +495,8 @@
         m.hidden = false;
         m.innerHTML = `<div class="mm-card over"><h2>🏆 ${U.esc(v.names[v.winner])} 獲勝！</h2>
           <p class="hint">排名看「總資產」＝ 現金 ＋ 地價 ＋ 建築（單位：${th.unit}）</p>
-          <table class="atab rank"><tr><th></th><th>玩家</th><th>現金</th><th>地＋建築</th><th>總資產</th></tr>${(v.ranks || []).map((r, k) => `<tr class="${k === 0 ? 'win' : ''}"><td>${k + 1}</td><td>${this.faceHTML(v, r.s, 24)} ${U.esc(v.names[r.s])}</td>${r.w >= 0 ? `<td>${fmt(r.cash)}</td><td>${fmt(r.land + r.bld)}</td><td><b>${fmt(r.w)}</b></td>` : '<td colspan="3">破產</td>'}</tr>`).join('')}</table></div>`;
-        m.onclick = null; return;
+          <table class="atab rank"><tr><th></th><th>玩家</th><th>現金</th><th>地＋建築</th><th>總資產</th></tr>${(v.ranks || []).map((r, k) => `<tr class="${k === 0 ? 'win' : ''}"><td>${k + 1}</td><td>${this.faceHTML(v, r.s, 24)} ${U.esc(v.names[r.s])}</td>${r.w >= 0 ? `<td>${fmt(r.cash)}</td><td>${fmt(r.land + r.bld)}</td><td><b>${fmt(r.w)}</b></td>` : '<td colspan="3">破產</td>'}</tr>`).join('')}</table><div class="act-row"><button class="btn" data-lobby>回遊戲大廳</button></div></div>`;
+        m.onclick = null; const lb = m.querySelector('[data-lobby]'); if (lb) { if (v.seat < 0) lb.remove(); else lb.onclick = () => Room.send({ t: 'end' }); } return;
       }
       if ((v.phase === 'buy' || v.phase === 'upgrade') && v.turn === v.seat) {
         const t = R().BOARD[v.pending.tile]; const name = R().tileName(v.theme, t.i);

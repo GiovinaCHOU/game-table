@@ -383,7 +383,11 @@
           this.pushRoom(); } break;
         case 'clearbots': if (isHost && !this.game) { this.members = this.members.filter(x => !x.bot); this.pushRoom(); } break;
         case 'start': if (isHost) this.start(); break;
-        case 'end': if (isHost) { this.game = null; this.pushRoom(); this.sysChat('回到大廳'); } break;
+        case 'end': { // 房主隨時可以；遊戲已經結束時，任何玩家都可以帶大家回大廳
+          const done = this.game && this.game.state && ['over', 'end'].includes(this.game.state.phase);
+          if (this.game && (isHost || (done && m && m.role === 'player'))) { this.game = null; this.pushRoom(); this.sysChat(isHost ? '回到大廳' : `${m.name} 帶大家回到大廳`); }
+          break;
+        }
         case 'kick': if (isHost && d.cid !== this.R.cid) { this.to(d.cid, { t: 'kick' }); const i = this.members.findIndex(x => x.cid === d.cid); if (i >= 0) { const c = this.conns[d.cid]; this.members.splice(i, 1); setTimeout(() => { try { c && c.close(); } catch (e) {} }, 300); } this.pushRoom(); } break;
         case 'act': {
           if (!this.game || !m) return;

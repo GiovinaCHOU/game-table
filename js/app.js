@@ -104,12 +104,13 @@
       $('#pilotBtn').hidden = !seated; $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
     renderMembers(room);
     const host = R.isHost;
-    $('#endBtn').hidden = !(host && room.game);
+    $('#endBtn').hidden = !(host && room.game) && !(room.game && lastPhaseOver);
+    if (!room.game) lastPhaseOver = false;
     if (!room.game && window.GFX) { GFX.want('off'); document.body.classList.remove('res-open', 'res-peek'); }
     if (!room.game) { document.body.classList.remove('in-mono'); if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = null; $('#game').innerHTML = ''; $('#game').dataset.g = ''; $('#lobby').hidden = false; renderLobby(room); }
     else { $('#lobby').hidden = true; }
   };
-  let prevView = null;
+  let prevView = null, lastPhaseOver = false;
   // 結算畫面：蓋在牌桌上面，不用往下滑；可以按「看牌桌」暫時收起
   function resultLayer(el) {
     const r = el.querySelector('.mj-result, .b2-over');
@@ -126,7 +127,7 @@
     if (curGame !== room.game.id) { if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = room.game.id; el.innerHTML = ''; el.dataset.g = ''; prevView = null; }
     document.body.classList.toggle('in-mono', room.game.id === 'monopoly');
     try { window.GFX && GFX.onView(room.game.id, prevView, v); } catch (e) { console.error(e); }
-    prevView = v;
+    prevView = v; lastPhaseOver = ['over', 'end'].includes(v.phase); if (room.game) $('#endBtn').hidden = !(R.isHost || lastPhaseOver);
     try { mod.render(el, v, gameUI(v)); } catch (e) { console.error(e); }
     resultLayer(el);
     tickTimers();
@@ -243,7 +244,7 @@
   document.addEventListener('click', (e) => { if (!e.target.closest('#menu')) $('#menu').hidden = true; });
   $('#leaveBtn').onclick = () => { const h = R.room && R.room.members.find(m => m.cid === R.room.heir);
     if (confirm(R.isHost ? (h ? `你是房主，離開後會由「${h.name}」接手當房主，遊戲繼續。確定離開？` : '你是房主，目前沒有其他人，離開後房間會關閉。確定？') : '確定離開房間？')) R.leave(); };
-  $('#endBtn').onclick = () => { $('#menu').hidden = true; if (confirm('結束目前的遊戲，回到大廳？')) R.send({ t: 'end' }); };
+  $('#endBtn').onclick = () => { $('#menu').hidden = true; if (lastPhaseOver || confirm('結束目前的遊戲，回到大廳？')) R.send({ t: 'end' }); };
   $('#roleBtn').onclick = () => {
     $('#menu').hidden = true;
     if (R.room && R.room.game) { toast('遊戲進行中不能切換，回大廳後再換'); return; }
