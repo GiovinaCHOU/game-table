@@ -43,6 +43,11 @@
     const pin = $('#pinInput').value.replace(/\D/g, '');
     if (pin.length !== 6) { $('#homeMsg').textContent = 'PIN 是 6 位數字'; return; }
     busy(true); $('#homeMsg').textContent = '連線中…';
+    // 測試房 777777：先試著自己開；已經有人開著（房號被占用）才改成加入
+    if (pin === '777777' && !$('#specCheck').checked) {
+      try { await R.create(name, pin); enterRoom(); toast('🧪 已開啟測試房，可以在大廳加電腦玩家', 3500); busy(false); return; }
+      catch (e) { try { R.peer && R.peer.destroy(); } catch (_) {} R.peer = null; R.isHost = false; try { Host.stop(); } catch (_) {} }
+    }
     try { const r = await R.join(pin, name, $('#specCheck').checked); enterRoom(); if (r === 'revived') toast('房間已從這台裝置的暫存救回，請朋友用同一個 PIN 回來', 4000); }
     catch (e) {
       // 測試房 777777：房間不存在就直接由自己開

@@ -635,12 +635,12 @@ body[data-skin="nebula"] .home-card::before, body[data-skin="nebula"] .lobby-det
 body[data-skin="nebula"] .lobby-detail { position: relative; }
 
 /* 標題與文字 */
-body[data-skin="nebula"] .logo, body[data-skin="nebula"] .lobby-title {
+body[data-skin="nebula"] .logo span, body[data-skin="nebula"] .lobby-title {
   background: linear-gradient(90deg, #ffe08a, var(--neo1), var(--neo2), #b9a2ff, #ffe08a); background-size: 200% 100%;
   -webkit-background-clip: text; background-clip: text; color: transparent; animation: neb-flow 6s linear infinite;
   filter: drop-shadow(0 0 12px rgba(255,79,216,.45));
 }
-body[data-skin="nebula"] .logo span { -webkit-text-fill-color: initial; }
+body[data-skin="nebula"] .logo i { font-style: normal; filter: drop-shadow(0 0 10px rgba(255,79,216,.5)); }
 body[data-skin="nebula"] .pin b { color: var(--neo2); text-shadow: 0 0 10px rgba(62,240,255,.7); }
 body[data-skin="nebula"] .timer { color: var(--gold); text-shadow: 0 0 8px rgba(255,211,110,.6); }
 

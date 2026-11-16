@@ -22,11 +22,16 @@
       this._conns = {};
       this._bc = new BroadcastChannel('fakepeer');
       this._bc.onmessage = (ev) => this._rx(ev.data);
-      setTimeout(() => this.emit('open', this.id), 30);
+      // 模擬真正的 PeerJS：同一個房號只能有一個人占用
+      if (id) { this._q = Math.random().toString(36).slice(2); this._bc.postMessage({ k: 'q', id, q: this._q });
+        setTimeout(() => { if (this._taken) { this._dead = true; this.emit('error', { type: 'unavailable-id' }); } else this.emit('open', this.id); }, 150); }
+      else setTimeout(() => this.emit('open', this.id), 30);
       window.addEventListener('beforeunload', () => Object.values(this._conns).forEach(c => c.close()));
     }
     _rx(m) {
-      if (m.to !== this.id) return;
+      if (m.k === 'q') { if (m.id === this.id && !this._dead && !this._q2(m.q)) this._bc.postMessage({ k: 'qr', q: m.q }); return; }
+      if (m.k === 'qr') { if (m.q === this._q) this._taken = true; return; }
+      if (this._dead || m.to !== this.id) return;
       if (m.k === 'c') {
         const c = new FakeConn(this, m.from, m.cid); this._conns[m.cid] = c;
         this._bc.postMessage({ k: 'a', to: m.from, from: this.id, cid: m.cid });
@@ -35,6 +40,7 @@
       else if (m.k === 'd') { const c = this._conns[m.cid]; if (c) c.emit('data', m.d); }
       else if (m.k === 'x') { const c = this._conns[m.cid]; if (c) c._down(); }
     }
+    _q2(q) { return q === this._q; }
     connect(id) {
       const cid = Math.random().toString(36).slice(2);
       const c = new FakeConn(this, id, cid); this._conns[cid] = c;
