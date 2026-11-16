@@ -41,19 +41,20 @@
 
   const M = {
     id: 'rummi', name: '拉密', icon: '🔢', min: 2, max: 4,
-    desc: '106 張數字牌（4 色 × 1–13 各兩張，加 2 張鬼牌）。每人 14 張，輪流把牌組成「同數字不同色 3–4 張」或「同色連號 3 張以上」放到桌上，也可以拆改桌上的牌組。第一次下牌需要自己的牌總和 ≥30。不出牌就要抽一張。先出完的人贏。',
-    options: [{ key: 'limit', label: '每回合時間', choices: [[0, '不限'], [60, '60 秒'], [120, '120 秒']], def: 120 }],
+    desc: '4 色 × 1–13 各兩張數字牌，加上鬼牌（可以當任何數字和顏色，圖案是家裡的毛孩）。每人 14 張，輪流把牌組成「同數字不同色 3–4 張」或「同色連號 3 張以上」放到桌上，也可以拆改桌上的牌組。第一次下牌需要自己的牌總和 ≥30。不出牌就要抽一張。先出完的人贏。',
+    options: [{ key: 'limit', label: '每回合時間', choices: [[0, '不限'], [60, '60 秒'], [120, '120 秒']], def: 120 },
+      { key: 'jokers', label: '鬼牌數量', choices: [[2, '2 張（每局隨機兩隻）'], [4, '4 張（四隻都出場）']], def: 2 }],
     analyze,
     init(n, o, names, now) {
-      const pool = U.shuffle(U.range(106));
-      const st = { n, limit: +o.limit, pool, racks: U.range(n).map(() => pool.splice(0, 14)), table: [], melded: Array(n).fill(false), turn: 0, turnId: 1, phase: 'play', total: Array(n).fill(0), round: 1, starter: 0 };
+      const J = +o.jokers === 4 ? 4 : 2, pool = U.shuffle(U.range(104 + J));
+      const st = { n, limit: +o.limit, jokers: J, pets: U.shuffle([0, 1, 2, 3]).slice(0, J), pool, racks: U.range(n).map(() => pool.splice(0, 14)), table: [], melded: Array(n).fill(false), turn: 0, turnId: 1, phase: 'play', total: Array(n).fill(0), round: 1, starter: 0 };
       st.deadline = st.limit ? now + st.limit * 1000 : 0; return st;
     },
     action(st, seat, a, ctx) {
       const now = ctx.now;
       if (a.type === 'next') {
         if (st.phase !== 'over') return;
-        const n = st.n; const fresh = this.init(n, { limit: st.limit }, null, now);
+        const n = st.n; const fresh = this.init(n, { limit: st.limit, jokers: st.jokers }, null, now);
         fresh.total = st.total; fresh.round = st.round + 1; fresh.starter = (st.starter + 1) % n; fresh.turn = fresh.starter;
         Object.keys(st).forEach(k => delete st[k]); Object.assign(st, fresh); return;
       }
@@ -102,16 +103,17 @@
     view(st, seat) {
       return { phase: st.phase, turn: st.turn, turnId: st.turnId, table: st.table, rack: seat >= 0 ? st.racks[seat] : null,
         counts: st.racks.map(r => r.length), pool: st.pool.length, melded: st.melded, deadline: st.deadline, log: st.log,
-        winner: st.winner, lastPts: st.lastPts, total: st.total, reveal: st.phase === 'over' ? st.racks : null };
+        winner: st.winner, lastPts: st.lastPts, total: st.total, reveal: st.phase === 'over' ? st.racks : null, pets: st.pets || [3, 0] };
     },
 
     // ================= 畫面 =================
     _w: null, _sort: 'color',
     tileHTML(t, cls) {
-      if (JOKER(t)) return `<span class="rt joker ${cls || ''}" data-t="${t}" title="鬼牌"><img src="img/birdie.png" alt="鬼牌" draggable="false"></span>`;
+      if (JOKER(t)) return `<span class="rt joker ${cls || ''}" data-t="${t}" title="鬼牌"><img src="img/pet${((this._pets || [3, 0])[t - 104]) ?? 3}.png" alt="鬼牌" draggable="false"></span>`;
       return `<span class="rt c${color(t)} ${cls || ''}" data-t="${t}">${num(t)}</span>`;
     },
     render(el, v, ui) {
+      this._pets = v.pets;
       el.dataset.g = 'rummi'; const me = v.seat; const myTurn = v.phase === 'play' && v.turn === me;
       if (!this._w || this._w.turnId !== v.turnId || !myTurn || this._w.phase !== v.phase) {
         this._w = { turnId: v.turnId, phase: v.phase, table: v.table.map(s => s.slice()), rack: (v.rack || []).slice(), orig: new Set(v.rack || []), sel: new Set() };
