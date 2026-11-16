@@ -223,10 +223,11 @@
         if (!tk) {
           const r = root.MONO_CHARS.make(THREE, this.theme, p.idx, p.color, p.img ? this.avatarTexture(p.img) : null);
           r.g.traverse(m => { if (m.isMesh) m.castShadow = this.q.high; });
-          r.g.add(this.nameTag(p.name, p.color)); r.g.scale.setScalar(1.15); this.scene.add(r.g);
+          { const tg = this.nameTag(p.name, p.color); tg.traverse(o => o.userData.tag = true); r.g.add(tg); } r.g.scale.setScalar(1.15); this.scene.add(r.g);
           tk = this.tokens[p.seat] = { r, key, pos: -1 };
         }
         tk.color = p.color;
+        if (p.evolved && !tk.evolved) { tk.evolved = true; this.recolor(tk.r, new THREE.MeshStandardMaterial({ color: '#9aa0a8', metalness: 1, roughness: 0.22 })); }
         if (tk.eaten) tk.r.g.visible = false;
         else if (p.alive === false && tk.r.state !== 'fall') root.MONO_CHARS.set(tk.r, 'fall');
       });
@@ -333,6 +334,293 @@
       // 6. 跳回原本的位置
       this.follow(eater); this.goal.dist = 8;
       E.busy = false; await this.teleport(eater, home, true);
+    }
+    // ===== 破產處決（諸神黃昏、夜城）共用工具 =====
+    sleepS(ms) { return new Promise(r => setTimeout(r, ms * (root.__monoSlow || 1))); }
+    async approach(killer, victim, dist) {
+      const T = THREE, E = this.tokens[killer], V = this.tokens[victim], N = this.R.N;
+      E.busy = V.busy = true; const home = E.pos;
+      this.follow(killer); this.goal.dist = 6.5; this.goal.polar = 1.05; this.clampGoal();
+      const fw = (V.pos - E.pos + N) % N, bw = (E.pos - V.pos + N) % N, dir = fw <= bw ? 1 : -1, n = Math.min(fw, bw);
+      const path = []; for (let k = 1; k <= n; k++) path.push((E.pos + dir * k + N) % N);
+      if (path.length) await this.hop(killer, path, true, Math.max(90, Math.min(180, 1800 / path.length)));
+      const vp = V.r.g.position.clone(), ep0 = E.r.g.position.clone(); const d = vp.clone().sub(ep0); d.y = 0; if (d.length() < 0.05) d.set(0.3, 0, 0.3); d.normalize();
+      const stand = vp.clone().sub(d.clone().multiplyScalar(dist)); const yaw = Math.atan2(d.x, d.z);
+      root.MONO_CHARS.set(E.r, 'walk'); await this.tween(380, k => { E.r.g.position.lerpVectors(ep0, stand, k); E.r.g.rotation.y += (yaw - E.r.g.rotation.y) * 0.3; });
+      root.MONO_CHARS.set(E.r, 'idle'); E.r.g.rotation.y = yaw; V.r.g.rotation.y = yaw + Math.PI;
+      this.follow(null); const mid = stand.clone().lerp(vp, 0.5);
+      this.goal.target.set(mid.x, 0, mid.z); this.goal.dist = 3.2 + dist * 0.8; this.goal.polar = 1.15; this.goal.azim = yaw + Math.PI / 2 + 0.35; this.clampGoal();
+      root.MONO_CHARS.set(V.r, 'scared', 20000);
+      await this.sleepS(350);
+      return { home, d, yaw, vp };
+    }
+    async finishKill(killer, victim, home) {
+      const E = this.tokens[killer], V = this.tokens[victim];
+      if (V) { V.r.g.visible = false; V.eaten = true; }
+      if (E) { root.MONO_CHARS.set(E.r, 'joy', 1000); await this.sleepS(900); E.busy = false; await this.teleport(killer, home, false); }
+    }
+    recolor(r, mat) { r.g.traverse(o => { if (o.isMesh && !o.userData.tag) { if (!o.userData.mat0) o.userData.mat0 = o.material; o.material = mat; } }); }
+    // 粒子：顏色、數量、速度、重力、壽命、大小
+    burst(at, o) {
+      const T = THREE, ps = [], geo = o.box ? new T.BoxGeometry(1, 1, 1) : new T.SphereGeometry(1, 6, 5);
+      for (let k = 0; k < (o.n || 30); k++) {
+        const c = o.colors[k % o.colors.length];
+        const m = new T.Mesh(geo, new T.MeshBasicMaterial({ color: c, transparent: true, opacity: 1, blending: o.add ? T.AdditiveBlending : T.NormalBlending, depthWrite: !o.add }));
+        const sz = (o.size || 0.04) * (0.5 + Math.random()); m.scale.setScalar(sz);
+        m.position.set(at.x + (Math.random() - 0.5) * (o.spread || 0.3), at.y + (Math.random() - 0.5) * (o.spreadY || o.spread || 0.3), at.z + (Math.random() - 0.5) * (o.spread || 0.3));
+        const a = Math.random() * 6.28, sp = (o.speed || 1) * (0.3 + Math.random());
+        m.userData = { v: new T.Vector3(Math.cos(a) * sp * (o.flat == null ? 1 : o.flat), (o.up || 0) + Math.random() * (o.upRand || 1), Math.sin(a) * sp * (o.flat == null ? 1 : o.flat)), life: (o.life || 1) * (0.6 + Math.random() * 0.6), age: 0, s0: sz };
+        if (o.wind) m.userData.v.add(o.wind);
+        this.scene.add(m); ps.push(m);
+      }
+      const step = (t, dt) => { let alive = 0; ps.forEach(m => { const u = m.userData; if (u.age >= u.life) return; u.age += dt; alive++; u.v.y -= (o.g == null ? 6 : o.g) * dt; m.position.addScaledVector(u.v, dt); if (m.position.y < 0.02 && o.g !== 0) { m.position.y = 0.02; u.v.multiplyScalar(0.3); } const k = u.age / u.life; m.material.opacity = 1 - k; if (o.grow) m.scale.setScalar(u.s0 * (1 + k * o.grow)); if (o.box) m.rotation.x += dt * 4; });
+        if (!alive) { const i = this.upd.indexOf(step); if (i >= 0) this.upd.splice(i, 1); ps.forEach(m => { this.scene.remove(m); m.material.dispose(); }); } };
+      this.upd.push(step);
+    }
+    // 閃電：鋸齒狀的發光管
+    bolt(from, to, color, width) {
+      const T = THREE, pts = [], n = 10; for (let k = 0; k <= n; k++) { const p = from.clone().lerp(to, k / n); if (k && k < n) p.add(new T.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.5)); pts.push(p); }
+      const m = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts, false, 'catmullrom', 0), 30, width || 0.035, 5), new T.MeshBasicMaterial({ color: color || '#e8f4ff', transparent: true, blending: T.AdditiveBlending }));
+      const glow = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts, false, 'catmullrom', 0), 30, (width || 0.035) * 4, 5), new T.MeshBasicMaterial({ color: '#7fb6ff', transparent: true, opacity: 0.35, blending: T.AdditiveBlending, depthWrite: false }));
+      const L = new T.PointLight(color || '#cfe4ff', 25, 8, 1.5); L.position.copy(to).add(new T.Vector3(0, 0.6, 0));
+      this.scene.add(m, glow, L);
+      setTimeout(() => { this.scene.remove(m, glow, L); m.geometry.dispose(); glow.geometry.dispose(); }, 140 + Math.random() * 80);
+    }
+    ring(at, color, r1, ms) {
+      const T = THREE, m = new T.Mesh(new T.TorusGeometry(1, 0.05, 6, 40), new T.MeshBasicMaterial({ color, transparent: true, blending: T.AdditiveBlending })); m.rotation.x = Math.PI / 2; m.position.set(at.x, 0.06, at.z); this.scene.add(m);
+      return this.tween(ms || 600, k => { m.scale.setScalar(0.1 + k * r1); m.material.opacity = 1 - k; }).then(() => this.scene.remove(m));
+    }
+    pile(at, color, h) { const T = THREE, m = new T.Mesh(new T.ConeGeometry(0.28, 1, 12), new T.MeshStandardMaterial({ color, roughness: 1, flatShading: true })); m.position.set(at.x, 0, at.z); m.scale.set(1, 0.01, 1); this.scene.add(m); this.tween(800, k => { m.scale.y = (h || 0.25) * k; m.position.y = (h || 0.25) * k / 2; }); setTimeout(() => this.scene.remove(m), 12000); return m; }
+    puppet(r) { root.MONO_CHARS.set(r, 'puppet'); }
+    // ===== 諸神黃昏：收錢者用自己的神力處決破產者 =====
+    async godKill(killer, victim, kind, S) {
+      const T = THREE, E = this.tokens[killer], V = this.tokens[victim]; if (!E || !V) return;
+      if (kind === 'fenrir') { await this.feast([killer], victim, S); return; }
+      const dist = { zeus: 1.5, thor: 1.7, athena: 2.2, poseidon: 1.8, ra: 1.7, medusa: 1.5, hero: 0.75, crush: 0.6 }[kind] || 1.2;
+      const { home, d, vp } = await this.approach(killer, victim, dist);
+      const head = vp.clone().add(new T.Vector3(0, 0.55, 0)), Er = E.r, Vr = V.r;
+      const armsUp = (k) => Er.arms.forEach(a => { a.rotation.x = -2.8 * k; });
+      if (kind === 'zeus') { // 天降雷霆：烏雲聚集，連劈三道，燒成焦炭化成灰
+        this.puppet(Er); S('roar'); await this.tween(400, armsUp);
+        const cloud = new T.Group(); cloud.position.set(vp.x, 2.6, vp.z); this.scene.add(cloud);
+        for (let k = 0; k < 9; k++) { const c = new T.Mesh(new T.SphereGeometry(0.5 + Math.random() * 0.4, 10, 8), new T.MeshStandardMaterial({ color: '#3a3f4a', roughness: 1, transparent: true, opacity: 0.92 })); c.position.set((Math.random() - 0.5) * 1.8, Math.random() * 0.3, (Math.random() - 0.5) * 1.8); cloud.add(c); }
+        await this.tween(600, k => cloud.scale.setScalar(0.1 + k * 0.9));
+        for (let i = 0; i < 3; i++) { S('thunder'); this.bolt(new T.Vector3(vp.x + (Math.random() - 0.5), 2.5, vp.z + (Math.random() - 0.5)), head, '#ffffff', 0.05); this.burst(head, { n: 18, colors: ['#ffffff', '#9fd0ff'], speed: 2, up: 1, size: 0.03, life: 0.4, add: true }); this.ring(vp, '#bfe0ff', 1.6, 400); if (i === 1) this.recolor(Vr, new T.MeshStandardMaterial({ color: '#1b1612', roughness: 1 })); await this.sleepS(300); }
+        root.MONO_CHARS.set(Vr, 'fall'); this.burst(head, { n: 22, colors: ['#7a7a80', '#9a9aa0', '#5a5a60'], speed: 0.25, up: 0.7, upRand: 0.5, g: -0.3, size: 0.06, grow: 1.6, life: 1.8 });
+        await this.sleepS(700); this.pile(vp, '#2a2622'); await this.tween(600, k => Vr.g.scale.setScalar(1.15 * (1 - k)));
+        await this.tween(500, k => cloud.children.forEach(c => c.material.opacity = 0.92 * (1 - k))); this.scene.remove(cloud);
+      } else if (kind === 'thor') { // 雷神之鎚：高高躍起，巨鎚從天砸下，電弧四竄，壓成扁平
+        this.puppet(Er); const e0 = Er.g.position.clone();
+        await this.tween(400, k => { Er.g.position.y = Math.sin(k * Math.PI / 2) * 2.2; armsUp(k); });
+        const hm = new T.Group(); const metal = new T.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.95, roughness: 0.25 });
+        const hh = new T.Mesh(new T.BoxGeometry(0.9, 0.55, 0.55), metal); hh.position.y = 0.3; hm.add(hh);
+        const hd = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, 1.1, 8), new T.MeshStandardMaterial({ color: '#5a3d22' })); hd.position.y = 1.1; hm.add(hd);
+        for (let k = 0; k < 3; k++) { const rn = new T.Mesh(new T.BoxGeometry(0.08, 0.3, 0.01), new T.MeshBasicMaterial({ color: '#7fd0ff' })); rn.position.set(-0.25 + k * 0.25, 0.3, 0.28); hm.add(rn); }
+        hm.position.set(vp.x, 6, vp.z); this.scene.add(hm); S('growl');
+        await this.tween(450, k => { hm.position.y = 6 * (1 - k * k); hm.rotation.y = k * 3; });
+        S('thunder'); S('snap'); this.ring(vp, '#9fd0ff', 3, 700); this.ring(vp, '#ffffff', 2, 500);
+        Vr.g.scale.set(1.5, 0.08, 1.5); this.gore(vp.clone().add(new T.Vector3(0, 0.15, 0)), S, 50, 0.7);
+        for (let i = 0; i < 6; i++) { setTimeout(() => this.bolt(new T.Vector3(vp.x, 0.4, vp.z), new T.Vector3(vp.x + (Math.random() - 0.5) * 3, 0.05, vp.z + (Math.random() - 0.5) * 3), '#cfe8ff', 0.02), i * 90); }
+        const c0 = this.goal.target.clone(); await this.tween(450, k => { const a = (1 - k) * 0.18; this.goal.target.set(c0.x + (Math.random() - 0.5) * a, 0, c0.z + (Math.random() - 0.5) * a); }); this.goal.target.copy(c0);
+        await this.tween(400, k => { Er.g.position.y = 2.2 * (1 - k); }); Er.g.position.copy(e0);
+        await this.sleepS(500); await this.tween(500, k => { hm.position.y = k * 8; }); this.scene.remove(hm);
+      } else if (kind === 'athena') { // 長矛貫穿，再用盾牌把人撞飛
+        this.puppet(Er); await this.tween(300, k => { Er.arms[1].rotation.x = -2.6 * k; Er.body.rotation.y = -0.4 * k; });
+        const spear = new T.Group(); const sh = new T.Mesh(new T.CylinderGeometry(0.018, 0.018, 1.3, 6), new T.MeshStandardMaterial({ color: '#7a5a34' })); sh.rotation.x = Math.PI / 2; spear.add(sh);
+        const tip = new T.Mesh(new T.ConeGeometry(0.05, 0.22, 6), new T.MeshStandardMaterial({ color: '#d8dde2', metalness: 0.9, roughness: 0.2 })); tip.rotation.x = Math.PI / 2; tip.position.z = 0.75; spear.add(tip);
+        const from = Er.g.position.clone().add(new T.Vector3(0, 1.1, 0)); spear.position.copy(from); spear.lookAt(head); this.scene.add(spear); S('hiss');
+        await this.tween(260, k => { spear.position.lerpVectors(from, head.clone().sub(d.clone().multiplyScalar(0.3)), k); Er.body.rotation.y = -0.4 + k * 0.8; });
+        S('snap'); this.gore(head, S, 40, 0.6, true); Vr.g.attach(spear); await this.tween(250, k => { Vr.g.position.addScaledVector(d, 0.01); Vr.body.rotation.x = -0.3 * k; });
+        await this.sleepS(350);
+        const shield = new T.Mesh(new T.CylinderGeometry(0.42, 0.42, 0.06, 24), new T.MeshStandardMaterial({ color: '#c9a227', metalness: 0.9, roughness: 0.3 })); shield.rotation.x = Math.PI / 2;
+        const sp0 = Er.g.position.clone().add(new T.Vector3(0, 0.7, 0)); shield.position.copy(sp0); this.scene.add(shield); S('roar');
+        await this.tween(300, k => { shield.position.lerpVectors(sp0, head, k); shield.rotation.z += 0.6; });
+        S('snap'); this.burst(head, { n: 20, colors: ['#ffe9a0', '#ffffff'], speed: 2.5, size: 0.04, life: 0.4, add: true });
+        const v0 = d.clone().multiplyScalar(4.5); v0.y = 4.2; const p0 = Vr.g.position.clone(); const tt = 1.0;
+        await this.tween(tt * 1000, k => { const t = k * tt; Vr.g.position.set(p0.x + v0.x * t, Math.max(0, p0.y + v0.y * t - 4.9 * t * t), p0.z + v0.z * t); Vr.g.rotation.x += 0.35; shield.position.lerpVectors(head, sp0, k); });
+        this.gore(Vr.g.position.clone().add(new T.Vector3(0, 0.1, 0)), S, 40, 0.6); this.scene.remove(shield);
+      } else if (kind === 'poseidon') { // 舉起三叉戟，召喚水龍捲把人捲上天，再被巨浪拍碎
+        this.puppet(Er); S('growl'); await this.tween(400, armsUp);
+        const vortex = new T.Group(); vortex.position.set(vp.x, 0, vp.z); this.scene.add(vortex);
+        const wm = (o) => new T.MeshStandardMaterial({ color: '#3fa7d6', emissive: '#0a4a7a', emissiveIntensity: 0.4, transparent: true, opacity: o, roughness: 0.1, side: T.DoubleSide, depthWrite: false });
+        for (let k = 0; k < 4; k++) { const c = new T.Mesh(new T.CylinderGeometry(0.5 + k * 0.18, 0.12 + k * 0.08, 3.2, 20, 1, true), wm(0.32 - k * 0.05)); c.position.y = 1.6; vortex.add(c); }
+        vortex.scale.set(1, 0.01, 1);
+        await this.tween(500, k => vortex.scale.y = k);
+        S('hiss'); const sp = (t, dt) => { vortex.children.forEach((c, i) => c.rotation.y += dt * (6 + i * 2)); }; this.upd.push(sp);
+        this.burst(vp, { n: 40, colors: ['#bfe9ff', '#ffffff', '#3fa7d6'], speed: 1.6, up: 2, upRand: 2, size: 0.05, life: 1.4 });
+        const p0 = Vr.g.position.clone();
+        await this.tween(1300, k => { Vr.g.position.set(p0.x + Math.cos(k * 18) * 0.35 * k, k * 2.8, p0.z + Math.sin(k * 18) * 0.35 * k); Vr.g.rotation.y += 0.5; });
+        S('splat'); S('thunder'); this.burst(Vr.g.position.clone(), { n: 70, colors: ['#bfe9ff', '#ffffff', '#3fa7d6', '#8a0018'], speed: 3, up: 1, size: 0.07, life: 1.3 });
+        Vr.g.visible = false; this.ring(vp, '#bfe9ff', 3.2, 800);
+        await this.tween(500, k => vortex.scale.set(1 + k, 1 - k, 1 + k)); const i = this.upd.indexOf(sp); if (i >= 0) this.upd.splice(i, 1); this.scene.remove(vortex);
+      } else if (kind === 'ra') { // 太陽聚焦光柱：燒成通紅、化成灰隨風飄散
+        this.puppet(Er); await this.tween(400, armsUp); S('hiss');
+        const beam = new T.Mesh(new T.CylinderGeometry(0.35, 0.5, 8, 20, 1, true), new T.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.55, blending: T.AdditiveBlending, side: T.DoubleSide, depthWrite: false }));
+        beam.position.set(vp.x, 4, vp.z); this.scene.add(beam); const L = new T.PointLight('#ffb84a', 30, 6, 1.4); L.position.set(vp.x, 1.2, vp.z); this.scene.add(L);
+        const fireM = new T.MeshStandardMaterial({ color: '#ff7a1a', emissive: '#ff4a00', emissiveIntensity: 0, roughness: 0.6 });
+        this.recolor(Vr, fireM); let lastB = 0;
+        await this.tween(1600, k => { beam.scale.set(1 - k * 0.5, 1, 1 - k * 0.5); fireM.emissiveIntensity = k * 3; const now = performance.now(); if (now - lastB > 120) { lastB = now; this.burst(head, { n: 8, colors: ['#ffcc33', '#ff6a00', '#ff2a00'], speed: 0.4, up: 1.4, g: -1, size: 0.07, life: 0.8, add: true, grow: 0.5 }); } });
+        S('thunder'); fireM.color.set('#1a1410'); fireM.emissiveIntensity = 0.4; root.MONO_CHARS.set(Vr, 'fall');
+        await this.sleepS(400);
+        this.burst(head, { n: 70, colors: ['#3a3430', '#5a5048', '#1a1612'], speed: 0.3, up: 0.6, g: -0.2, size: 0.04, life: 2.2, wind: new T.Vector3(1.4, 0, 0.6) });
+        await this.tween(700, k => Vr.g.scale.setScalar(1.15 * (1 - k))); this.pile(vp, '#3a3430', 0.12);
+        await this.tween(400, k => beam.material.opacity = 0.55 * (1 - k)); this.scene.remove(beam, L);
+      } else if (kind === 'medusa') { // 蛇眼發光，凝視之下化為石像，再碎裂崩塌
+        this.puppet(Er); S('hiss');
+        const eyeP = Er.g.position.clone().add(new T.Vector3(0, 1.15, 0));
+        const gaze = []; for (const sd of [-1, 1]) { const off = new T.Vector3(-d.z, 0, d.x).multiplyScalar(sd * 0.05); const m = new T.Mesh(new T.CylinderGeometry(0.012, 0.03, 1, 6), new T.MeshBasicMaterial({ color: '#c8ff6a', transparent: true, opacity: 0.85, blending: T.AdditiveBlending })); this.scene.add(m); gaze.push([m, off]); }
+        const stone = new T.MeshStandardMaterial({ color: '#d8d0bf', roughness: 1, flatShading: true });
+        const orig = []; Vr.g.traverse(o => { if (o.isMesh) orig.push([o, o.material.color ? o.material.color.clone() : new T.Color('#888')]); });
+        Vr.g.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+        await this.tween(1500, k => {
+          gaze.forEach(([m, off]) => { const a = eyeP.clone().add(off), b = head; m.position.copy(a).lerp(b, 0.5); m.scale.y = a.distanceTo(b); m.lookAt(b); m.rotateX(Math.PI / 2); });
+          orig.forEach(([o, c]) => { if (o.material.color) o.material.color.copy(c).lerp(stone.color, k); if (o.material.emissive) o.material.emissiveIntensity = (1 - k) * (o.material.emissiveIntensity || 0); });
+          if (k > 0.5) this.puppet(Vr);
+        });
+        gaze.forEach(([m]) => this.scene.remove(m)); this.recolor(Vr, stone); S('crunch'); await this.sleepS(600);
+        S('thunder'); Vr.g.visible = false;
+        this.burst(head, { n: 40, colors: ['#d8d0bf', '#b8b0a0', '#9a9284'], speed: 1.4, up: 1.5, size: 0.09, life: 3, box: true });
+        this.burst(vp.clone().add(new T.Vector3(0, 0.2, 0)), { n: 20, colors: ['#e8e2d6'], speed: 0.4, up: 0.3, g: -0.2, size: 0.2, grow: 3, life: 1.6 });
+        this.pile(vp, '#c8c0b0', 0.18); await this.sleepS(500);
+      } else if (kind === 'hero') { // 人類勇者：連續斬擊，最後把人斬成肉塊
+        this.puppet(Er);
+        for (let i = 0; i < 7; i++) {
+          const sl = new T.Mesh(new T.TorusGeometry(0.55, 0.012, 4, 30, Math.PI * 0.9), new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, blending: T.AdditiveBlending }));
+          sl.position.copy(head); sl.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); this.scene.add(sl);
+          Er.arms[1].rotation.x = i % 2 ? -2.6 : -0.4; Er.body.rotation.y = i % 2 ? 0.5 : -0.5; Er.g.position.addScaledVector(d, i % 2 ? 0.05 : -0.05);
+          S('snap'); this.gore(head, null, 10, 0.45, true); Vr.body.position.x = (Math.random() - 0.5) * 0.06;
+          this.tween(180, k => { sl.material.opacity = 1 - k; sl.scale.setScalar(1 + k * 0.4); }).then(() => this.scene.remove(sl));
+          await this.sleepS(130);
+        }
+        await this.sleepS(300); S('crunch'); Vr.g.visible = false;
+        for (let k = 0; k < 6; k++) { const c = this.chunk(0.07 + Math.random() * 0.05); this.scene.add(c); c.position.copy(head).add(new T.Vector3(0, (k - 3) * 0.08, 0)); this.fling(c, new T.Vector3((Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2), null); }
+        this.gore(head, S, 80, 0.8); await this.sleepS(600);
+      } else { // 自畫角色：跳起來瘋狂重擊，越壓越扁，最後變成肉餅
+        const e0 = Er.g.position.clone(), top = vp.clone(); top.y = 0.0;
+        for (let i = 0; i < 6; i++) {
+          await this.tween(170, k => { Er.g.position.lerpVectors(e0, top, k); Er.g.position.y = Math.sin(k * Math.PI) * 1.6 + (k > 0.5 ? 0.3 : 0); });
+          S(i % 2 ? 'crunch' : 'snap'); this.gore(head.clone().setY(0.3), null, 22, 0.6, true);
+          Vr.g.scale.set(1.15 * (1 + i * 0.12), Math.max(0.04, 1.15 * Math.pow(0.62, i + 1)), 1.15 * (1 + i * 0.12));
+          const c0 = this.goal.target.clone(); this.tween(160, k => { const a = (1 - k) * 0.1; this.goal.target.set(c0.x + (Math.random() - 0.5) * a, 0, c0.z + (Math.random() - 0.5) * a); }).then(() => this.goal.target.copy(c0));
+          await this.tween(150, k => { Er.g.position.lerpVectors(top, e0, k); Er.g.position.y = Math.sin(k * Math.PI) * 0.6; });
+        }
+        Vr.g.visible = false; const pan = new T.Mesh(new T.CylinderGeometry(0.42, 0.45, 0.05, 24), new T.MeshPhysicalMaterial({ color: '#8a1420', roughness: 0.3, clearcoat: 1 })); pan.position.set(vp.x, 0.03, vp.z); this.scene.add(pan);
+        const cl = new T.Mesh(new T.CircleGeometry(0.12, 12), new T.MeshStandardMaterial({ color: V.color || '#888' })); cl.rotation.x = -Math.PI / 2; cl.position.set(vp.x + 0.15, 0.06, vp.z - 0.1); this.scene.add(cl);
+        this.gore(vp.clone().setY(0.2), S, 60, 0.7); setTimeout(() => this.scene.remove(pan, cl), 12000); await this.sleepS(600);
+      }
+      if (Er.state === 'puppet') { this.pose(Er, 0); Er.body.rotation.set(0, 0, 0); Er.arms.forEach(a => a.rotation.set(0, 0, 0)); }
+      await this.finishKill(killer, victim, home);
+    }
+    // ===== 諸神黃昏：沒有收錢者 → 路西法從地獄伸手，把破產者拖下去受刑 =====
+    async hell(victim, S) {
+      const T = THREE, V = this.tokens[victim]; if (!V) return; V.busy = true; const vp = V.r.g.position.clone(); vp.y = 0;
+      this.follow(null); this.goal.target.set(vp.x, 0, vp.z); this.goal.dist = 4.2; this.goal.polar = 1.05; this.clampGoal();
+      root.MONO_CHARS.set(V.r, 'scared', 20000); S('growl');
+      const pit = new T.Group(); pit.position.set(vp.x, 0.025, vp.z); this.scene.add(pit);
+      const hole = new T.Mesh(new T.CircleGeometry(0.75, 32), new T.MeshBasicMaterial({ color: '#0a0204' })); hole.rotation.x = -Math.PI / 2; pit.add(hole);
+      const lava = new T.Mesh(new T.RingGeometry(0.62, 0.8, 32), new T.MeshBasicMaterial({ color: '#ff5a10', transparent: true, blending: T.AdditiveBlending })); lava.rotation.x = -Math.PI / 2; pit.add(lava);
+      for (let k = 0; k < 12; k++) { const a = k / 12 * 6.28; const cr = new T.Mesh(new T.BoxGeometry(0.6 + Math.random() * 0.8, 0.01, 0.03), new T.MeshBasicMaterial({ color: '#ff7a20' })); cr.position.set(Math.cos(a) * 0.9, 0.005, Math.sin(a) * 0.9); cr.rotation.y = -a; pit.add(cr); }
+      const L = new T.PointLight('#ff3a10', 25, 6, 1.4); L.position.set(vp.x, 0.6, vp.z); this.scene.add(L);
+      pit.scale.setScalar(0.05); S('thunder'); await this.tween(600, k => pit.scale.setScalar(0.05 + k));
+      let lastF = 0; const fire = (t) => { const now = performance.now(); if (now - lastF > 90) { lastF = now; this.burst(vp.clone().setY(0.1), { n: 3, colors: ['#ff6a00', '#ff3a00', '#c81e00', '#ffaa33'], speed: 0.4, up: 1.3, g: -1.2, size: 0.06, life: 0.6, add: true, grow: 0.8, spread: 1.1, spreadY: 0.05 }); } L.intensity = 20 + Math.sin(t * 20) * 6; };
+      this.upd.push(fire);
+      // 巨大的惡魔之手從地底伸出
+      const red = new T.MeshPhysicalMaterial({ color: '#5a0a0c', roughness: 0.35, clearcoat: 0.6 }), claw = new T.MeshStandardMaterial({ color: '#1a1012', roughness: 0.3 });
+      const hand = new T.Group(); hand.position.set(vp.x, -2.2, vp.z); this.scene.add(hand);
+      const arm = new T.Mesh(new T.CylinderGeometry(0.28, 0.36, 2.2, 12), red); arm.position.y = -0.9; hand.add(arm);
+      const palm = new T.Mesh(new T.SphereGeometry(0.42, 14, 10), red); palm.scale.set(1, 0.7, 0.6); palm.position.y = 0.35; hand.add(palm);
+      const fingers = []; for (let k = 0; k < 5; k++) { const a = (k / 4 - 0.5) * 2.2; const f = new T.Group(); f.position.set(Math.sin(a) * 0.36, 0.55, Math.cos(a) * 0.18 - 0.05); f.rotation.y = a; hand.add(f);
+        const s1 = new T.Mesh(new T.CapsuleGeometry(0.07, 0.42, 4, 8), red); s1.position.y = 0.25; f.add(s1); const c = new T.Mesh(new T.ConeGeometry(0.05, 0.22, 6), claw); c.position.y = 0.6; f.add(c); f.rotation.x = -0.2; fingers.push(f); }
+      S('roar'); await this.tween(700, k => { hand.position.y = -2.2 + k * 2.2; });
+      // 握住，往下拖
+      S('snap'); await this.tween(260, k => fingers.forEach(f => f.rotation.x = -0.2 + k * 1.3));
+      hand.attach(V.r.g); S('growl');
+      // 後方浮現路西法的身影：巨角與燃燒的雙眼
+      const lu = new T.Group(); lu.position.set(vp.x, 0.5, vp.z - 2.4); this.scene.add(lu);
+      const sil = new T.Mesh(new T.SphereGeometry(1.2, 16, 12), new T.MeshBasicMaterial({ color: '#120204', transparent: true, opacity: 0 })); sil.scale.set(1, 1.3, 0.4); sil.position.y = 1.2; lu.add(sil);
+      const hornM = new T.MeshBasicMaterial({ color: '#1a0406', transparent: true, opacity: 0 }); [-1, 1].forEach(sd => { const h = new T.Mesh(new T.ConeGeometry(0.22, 1.2, 8), hornM); h.position.set(sd * 0.6, 2.6, 0); h.rotation.z = -sd * 0.5; lu.add(h); });
+      const eyeM = new T.MeshBasicMaterial({ color: '#ffdd33', transparent: true, opacity: 0 }); [-1, 1].forEach(sd => { const e = new T.Mesh(new T.SphereGeometry(0.1, 8, 6), eyeM); e.scale.set(1.6, 0.5, 0.5); e.position.set(sd * 0.3, 1.7, 0.45); lu.add(e); });
+      await this.tween(700, k => { sil.material.opacity = 0.85 * k; hornM.opacity = k; eyeM.opacity = k; hand.rotation.z = Math.sin(k * 20) * 0.05; });
+      S('thunder'); await this.tween(900, k => { hand.position.y = -k * k * 3.2; });
+      V.r.g.visible = false; V.eaten = true; this.scene.attach(V.r.g);
+      this.burst(vp.clone().setY(0.2), { n: 30, colors: ['#ff6a00', '#ff2200', '#ffaa33'], speed: 1.2, up: 2.2, g: -0.5, size: 0.08, life: 0.9, add: true, grow: 1.2 });
+      await this.tween(600, k => { sil.material.opacity = 0.85 * (1 - k); hornM.opacity = eyeM.opacity = 1 - k; pit.scale.setScalar(1 - k * 0.95); });
+      const i = this.upd.indexOf(fire); if (i >= 0) this.upd.splice(i, 1); this.scene.remove(pit, hand, lu, L);
+      const scar = new T.Mesh(new T.CircleGeometry(0.5, 20), new T.MeshBasicMaterial({ color: '#1a0a06', transparent: true, opacity: 0.8 })); scar.rotation.x = -Math.PI / 2; scar.position.set(vp.x, 0.02, vp.z); this.scene.add(scar); setTimeout(() => this.scene.remove(scar), 12000);
+      await this.sleepS(400);
+    }
+    // ===== 夜城：收錢者拿出光束槍，把破產者分解成光粒子 =====
+    async beamKill(killer, victim, S) {
+      const T = THREE, E = this.tokens[killer], V = this.tokens[victim]; if (!E || !V) return;
+      const { home, d, vp } = await this.approach(killer, victim, 1.9); const Er = E.r, Vr = V.r, head = vp.clone().add(new T.Vector3(0, 0.55, 0));
+      const col = new T.Color(E.color || '#00e5ff');
+      const gun = new T.Group(); const body = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.36), new T.MeshStandardMaterial({ color: '#1c1c26', metalness: 0.8, roughness: 0.25 })); gun.add(body);
+      const barrel = new T.Mesh(new T.CylinderGeometry(0.025, 0.03, 0.26, 10), new T.MeshStandardMaterial({ color: '#2c2c38', metalness: 0.9, roughness: 0.2 })); barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.28; gun.add(barrel);
+      for (let k = 0; k < 3; k++) { const c = new T.Mesh(new T.TorusGeometry(0.04, 0.008, 6, 14), new T.MeshBasicMaterial({ color: col })); c.position.z = 0.12 + k * 0.07; gun.add(c); }
+      const grip = new T.Mesh(new T.BoxGeometry(0.06, 0.14, 0.06), body.material); grip.position.set(0, -0.1, -0.08); grip.rotation.x = 0.3; gun.add(grip);
+      if (Er.handR && Er.kind === 'biped') { Er.handR.add(gun); gun.position.set(0, -0.04, 0.12); this.puppet(Er); Er.arms[1].rotation.x = -1.55; } else { Er.body.add(gun); gun.position.set(0, 0.75, 0.3); this.puppet(Er); }
+      S('growl'); await this.sleepS(300);
+      // 充能
+      const muz = new T.Mesh(new T.SphereGeometry(0.06, 10, 8), new T.MeshBasicMaterial({ color: col, transparent: true, blending: T.AdditiveBlending })); gun.add(muz); muz.position.z = 0.44;
+      S('charge'); await this.tween(900, k => { muz.scale.setScalar(0.3 + k * 2.2 + Math.sin(k * 60) * 0.2); });
+      const muzW = () => { const w = new T.Vector3(); muz.getWorldPosition(w); return w; };
+      for (let i = 0; i < 3; i++) {
+        S('laser'); const a = muzW(); const L = a.distanceTo(head);
+        const beam = new T.Mesh(new T.CylinderGeometry(0.035, 0.035, L, 8), new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, blending: T.AdditiveBlending }));
+        const glow = new T.Mesh(new T.CylinderGeometry(0.12, 0.12, L, 10), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.6, blending: T.AdditiveBlending, depthWrite: false }));
+        [beam, glow].forEach(b => { b.position.copy(a).lerp(head, 0.5); b.lookAt(head); b.rotateX(Math.PI / 2); this.scene.add(b); });
+        this.burst(head, { n: 22, colors: ['#ffffff', '#' + col.getHexString()], speed: 2.2, size: 0.03, life: 0.4, add: true });
+        Vr.body.position.addScaledVector(d, 0.04);
+        await this.tween(170, k => { beam.material.opacity = glow.material.opacity = 1 - k; beam.scale.x = beam.scale.z = 1 - k; }); this.scene.remove(beam, glow);
+        await this.sleepS(120);
+      }
+      // 分解：身體發光、閃爍，碎成方塊光粒往上飄散
+      const dis = new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 1, blending: T.AdditiveBlending });
+      this.recolor(Vr, dis); S('disint');
+      await this.tween(700, k => { dis.opacity = 0.5 + Math.random() * 0.5; Vr.g.position.x += (Math.random() - 0.5) * 0.02; });
+      Vr.g.visible = false;
+      this.burst(head, { n: 90, colors: ['#' + col.getHexString(), '#ffffff', '#ff3d7f'], speed: 0.6, up: 0.8, g: -1.2, size: 0.035, life: 1.8, box: true, add: true, spread: 0.5, spreadY: 1.1 });
+      await this.sleepS(800);
+      gun.parent && gun.parent.remove(gun); if (Er.state === 'puppet') { Er.arms.forEach(a => a.rotation.set(0, 0, 0)); }
+      await this.finishKill(killer, victim, home);
+    }
+    // ===== 夜城：沒有收錢者 → 義體失控發狂，鎮暴部隊空降擊斃 =====
+    async psychoKill(victim, S) {
+      const T = THREE, V = this.tokens[victim]; if (!V) return; V.busy = true; const vp = V.r.g.position.clone(); vp.y = 0; const head = vp.clone().add(new T.Vector3(0, 0.6, 0));
+      this.follow(null); this.goal.target.set(vp.x, 0, vp.z); this.goal.dist = 4.6; this.goal.polar = 1.08; this.clampGoal();
+      const Vr = V.r; root.MONO_CHARS.set(Vr, 'scared', 20000); S('glitch');
+      const red = new T.MeshBasicMaterial({ color: '#ff1a3a' }); let lastS = 0, lastG = 0;
+      const p0 = Vr.g.position.clone();
+      await this.tween(1800, k => { const now = performance.now();
+        if (now - lastG > 110) { lastG = now; if (Math.random() < 0.5) this.recolor(Vr, red); else Vr.g.traverse(o => { if (o.userData.mat0) o.material = o.userData.mat0; }); Vr.g.position.set(p0.x + (Math.random() - 0.5) * 0.25, 0, p0.z + (Math.random() - 0.5) * 0.25); Vr.g.rotation.y += (Math.random() - 0.5) * 2; }
+        if (now - lastS > 90) { lastS = now; this.burst(head, { n: 6, colors: ['#ffe066', '#ffffff', '#ff8a00'], speed: 2, up: 1.5, size: 0.02, life: 0.35, add: true }); } });
+      S('roar'); Vr.g.traverse(o => { if (o.userData.mat0) o.material = o.userData.mat0; });
+      // 三名鎮暴部隊從天而降
+      const squad = []; for (let k = 0; k < 3; k++) { const r = root.MONO_CHARS.make(THREE, 'cyber', 3, '#ff2030', null); r.g.scale.setScalar(1.25); const a = k / 3 * 6.28 + 0.6; r.g.position.set(vp.x + Math.cos(a) * 1.5, 7, vp.z + Math.sin(a) * 1.5); r.g.rotation.y = Math.atan2(vp.x - r.g.position.x, vp.z - r.g.position.z); this.scene.add(r.g);
+        const fl = new T.Mesh(new T.ConeGeometry(0.08, 0.5, 8), new T.MeshBasicMaterial({ color: '#7fd0ff', transparent: true, opacity: 0.8, blending: T.AdditiveBlending })); fl.rotation.x = Math.PI; fl.position.y = -0.2; r.g.add(fl); squad.push({ r, fl, a }); }
+      S('charge'); const sq = (t, dt) => squad.forEach(q => root.MONO_CHARS.update(q.r, t, dt)); this.upd.push(sq);
+      await this.tween(900, k => squad.forEach(q => { q.r.g.position.y = 7 * (1 - k) * (1 - k); q.fl.scale.y = 1 - k * 0.8; }));
+      S('snap'); this.ring(vp, '#7fd0ff', 2.5, 500); squad.forEach(q => { q.fl.visible = false; root.MONO_CHARS.set(q.r, 'puppet'); q.r.arms.forEach(a => a.rotation.x = -1.55); });
+      await this.sleepS(350);
+      for (let i = 0; i < 4; i++) { squad.forEach(q => { const a = q.r.g.position.clone().add(new T.Vector3(0, 0.85, 0)); const L = a.distanceTo(head); const b = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, L, 6), new T.MeshBasicMaterial({ color: '#ff3a3a', transparent: true, blending: T.AdditiveBlending })); b.position.copy(a).lerp(head, 0.5); b.lookAt(head); b.rotateX(Math.PI / 2); this.scene.add(b); setTimeout(() => this.scene.remove(b), 90); }); S('laser'); this.gore(head, null, 14, 0.5, true); this.burst(head, { n: 10, colors: ['#ffe066', '#ffffff'], speed: 2, size: 0.02, life: 0.3, add: true }); await this.sleepS(150); }
+      S('thunder'); root.MONO_CHARS.set(Vr, 'fall'); this.gore(head, S, 60, 0.7);
+      this.burst(head, { n: 40, colors: ['#ffe066', '#ff8a00', '#ffffff', '#5a5a66'], speed: 2.5, up: 2, size: 0.04, life: 0.9, add: true });
+      await this.sleepS(900); Vr.g.visible = false; V.eaten = true;
+      squad.forEach(q => { q.fl.visible = true; root.MONO_CHARS.set(q.r, 'idle'); }); S('charge');
+      await this.tween(900, k => squad.forEach(q => { q.r.g.position.y = k * k * 8; q.fl.scale.y = 1 + k; }));
+      const si = this.upd.indexOf(sq); if (si >= 0) this.upd.splice(si, 1); squad.forEach(q => this.scene.remove(q.r.g));
+      await this.sleepS(300);
+    }
+    // ===== 夜城：完美進化（只有抽到的人），身體變成灰色金屬 =====
+    async evolve(seat, S) {
+      const T = THREE, V = this.tokens[seat]; if (!V) return;
+      this.focusSeat(seat, true); this.goal.dist = 3.4; S('charge');
+      const chrome = new T.MeshStandardMaterial({ color: '#9aa0a8', metalness: 1, roughness: 0.22 });
+      const items = []; V.r.g.traverse(o => { if (o.isMesh && !o.userData.tag) { o.material = o.material.clone(); items.push([o, o.material.color ? o.material.color.clone() : null]); } });
+      let lastS = 0;
+      await this.tween(2200, k => { items.forEach(([o, c]) => { if (c) o.material.color.copy(c).lerp(chrome.color, k); if (o.material.metalness != null) { o.material.metalness = k; o.material.roughness = 0.6 - k * 0.38; } if (o.material.emissiveIntensity) o.material.emissiveIntensity *= 0.97; });
+        const now = performance.now(); if (now - lastS > 140) { lastS = now; this.burst(V.r.g.position.clone().add(new T.Vector3(0, 0.6, 0)), { n: 5, colors: ['#ffffff', '#cfd6dd'], speed: 1.2, size: 0.02, life: 0.3, add: true }); } });
+      this.recolor(V.r, chrome); V.evolved = true;
     }
     // ===== 分食：大家（或債主）圍上去，各自用不同方式吃 =====
     mouth(r) { if (r.head) { const rad = (r.skull && r.skull.geometry.parameters.radius) || 0.13; return [r.head, new THREE.Vector3(0, -0.05, rad * 1.1)]; } return [r.body, new THREE.Vector3(0, 0.6, 0.25)]; }

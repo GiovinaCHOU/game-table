@@ -78,6 +78,13 @@
     crunch() { for (let i = 0; i < 6; i++) this.noise(0.05, { f: 900 + Math.random() * 1500, type: 'bandpass', q: 4, vol: 0.12, delay: i * 0.035, attack: 0.002 }); this.noise(0.25, { f: 350, vol: 0.06, delay: 0.05 }); },
     splat() { this.noise(0.35, { f: 600, type: 'lowpass', vol: 0.1, attack: 0.005 }); this.tone(220, 0.3, { type: 'sine', vol: 0.04, glide: 70, wet: 0.2 }); },
     roar() { this.tone(110, 1.0, { type: 'sawtooth', vol: 0.06, lp: 900, glide: 70, attack: 0.05 }); this.tone(165, 1.0, { type: 'sawtooth', vol: 0.04, lp: 1200, glide: 100, attack: 0.05 }); this.noise(0.9, { f: 800, type: 'bandpass', q: 0.8, vol: 0.06, attack: 0.05 }); },
+    thunder() { this.noise(0.12, { f: 3000, type: 'highpass', vol: 0.25, attack: 0.002 }); this.noise(1.6, { f: 220, vol: 0.2, attack: 0.02, delay: 0.05 }); this.tone(50, 1.2, { type: 'sine', vol: 0.15, glide: 32, delay: 0.05 }); },
+    charge() { this.tone(200, 1.0, { type: 'sawtooth', vol: 0.04, lp: 2500, glide: 1400, attack: 0.1 }); this.tone(203, 1.0, { type: 'square', vol: 0.02, lp: 1800, glide: 1420, attack: 0.1 }); },
+    laser() { this.tone(1800, 0.22, { type: 'sawtooth', vol: 0.06, lp: 5000, glide: 220, attack: 0.002, wet: 0.3 }); this.noise(0.12, { f: 2400, type: 'bandpass', q: 1.5, vol: 0.06, attack: 0.002 }); },
+    disint() { for (let i = 0; i < 14; i++) this.tone(600 + Math.random() * 2400, 0.08, { type: 'square', vol: 0.025, delay: i * 0.05, lp: 4000 }); this.noise(1.0, { f: 5000, type: 'highpass', vol: 0.04, attack: 0.3 }); },
+    void_() { this.tone(110, 3.5, { type: 'sine', vol: 0.06, glide: 55, attack: 0.3 }); this.tone(165, 3.5, { type: 'sine', vol: 0.03, glide: 82, attack: 0.3 }); },
+    clash() { this.noise(0.25, { f: 1200, type: 'bandpass', q: 0.8, vol: 0.25, attack: 0.002 }); this.tone(70, 0.8, { type: 'sine', vol: 0.18, glide: 35 }); this.tone(1400, 0.4, { type: 'triangle', vol: 0.05, glide: 900, wet: 0.6 }); },
+    shimmer() { [0, 0.3, 0.6, 0.9, 1.2, 1.6, 2.0, 2.4].forEach((d, i) => this.tone([523, 659, 784, 988, 1175, 1319, 1568, 1760][i], 1.6, { type: 'sine', vol: 0.035, delay: d, attack: 0.2, wet: 0.8 })); this.tone(130, 4.5, { type: 'sine', vol: 0.05, attack: 1 }); },
     stampede() { // 大地震動的蹄聲
       this.noise(4.4, { f: 180, vol: 0.12, attack: 0.6 }); this.tone(45, 4.2, { type: 'sine', vol: 0.12, attack: 0.5 });
       for (let i = 0; i < 46; i++) this.noise(0.07, { f: 140 + Math.random() * 160, vol: 0.09 + Math.random() * 0.05, delay: 0.15 + i * 0.09 + Math.random() * 0.04, attack: 0.003 });
@@ -121,7 +128,7 @@
     view(st) {
       return {
         theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map(p => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char })),
+        players: st.players.map(p => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: st.ev, evId: st.evId, pending: st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks
       };
@@ -259,7 +266,7 @@
     syncBoard(first, mid) {
       // mid＝播放中途呼叫：只更新棋盤，不換鏡頭
       const b = this.board, v = this.v; if (!b || !v || v.phase === 'pick') return;
-      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s] }; }));
+      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s], evolved: p.evolved }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
       b.setTurn(v.phase === 'over' ? -1 : v.turn);
@@ -322,6 +329,20 @@
             case 'skip': this.fx('⏸ 暫停一回合', 'loss', e.seat); await sleep(700); break;
             case 'skipset': this.fx(`⏸ 停 ${e.n} 回合`, 'loss', e.seat); await sleep(500); break;
             case 'bankrupt':
+              if ((v.theme === 'ragnarok' || v.theme === 'cyber') && b.tokens[e.seat]) {
+                const snd = k => SFX[k] && SFX[k](); SFX.doom(); this.vfx('doom'); this._played = true;
+                const by = e.by >= 0 && b.tokens[e.by] ? e.by : -1;
+                if (v.theme === 'ragnarok') {
+                  if (by >= 0) {
+                    const ch = v.players[by].char || {}; const kind = ch.kind === 'custom' ? 'crush' : ['zeus', 'thor', 'athena', 'poseidon', 'fenrir', 'ra', 'medusa', 'hero'][ch.i] || 'hero';
+                    this.feed(`⚡ ${this.who(e.seat)} 破產了，被 ${this.who(by)} 用神力處決`, 'big'); await b.godKill(by, e.seat, kind, snd);
+                  } else { this.feed(`🔥 ${this.who(e.seat)} 破產了，被路西法拖進地獄受刑`, 'big'); await b.hell(e.seat, snd); }
+                } else {
+                  if (by >= 0) { this.feed(`🔫 ${this.who(e.seat)} 破產了，被 ${this.who(by)} 用光束槍分解`, 'big'); await b.beamKill(by, e.seat, snd); }
+                  else { this.feed(`⚠️ ${this.who(e.seat)} 破產了，義體失控發狂，鎮暴部隊出動`, 'big'); await b.psychoKill(e.seat, snd); }
+                }
+                break;
+              }
               if ((v.theme === 'alien' || v.theme === 'animal') && b.tokens[e.seat]) {
                 const snd = k => SFX[k] && SFX[k](); SFX.doom(); this.vfx('doom'); this._played = true;
                 if (e.by >= 0 && b.tokens[e.by]) { // 欠誰的錢，就被誰吃掉
@@ -364,6 +385,9 @@
       if (e.eff === 'gagain' || e.eff.startsWith('gm:')) { this.closeCard(); await this.stargate(); }
       else if (e.eff.startsWith('mig:')) { this.closeCard(); await this.migration(); }
       else if (e.eff.startsWith('cat:')) { this.closeCard(); await this.catSpin(); }
+      else if (e.eff.startsWith('war:')) { const ch = this.v.players[e.seat].char || {}; const human = ch.kind === 'custom' || ch.i === 7; this.closeCard(); await this.godWar(good ? human : !human); }
+      else if (e.eff.startsWith('link:')) { this.closeCard(); await this.mindLink(); }
+      else if (e.eff.startsWith('evo:')) { this.closeCard(); await this.evolution(e.seat); }
     },
     closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
@@ -392,7 +416,7 @@
       const [k, v0] = eff.split(':'); const v = +v0; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
+        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，-${fmt(-v)} ${u}`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
     },
     hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; if (this.el) this.el.querySelector('.go-btn').disabled = true; },
     showPrompt() {
@@ -537,6 +561,106 @@
           if (ms < T) requestAnimationFrame(frame); else { cv.remove(); if (this.board) this.board.paused = false; res(); } };
         requestAnimationFrame(frame);
       });
+    },
+    // ===== 諸神黃昏彩蛋：人類 vs 眾神（humanWins：人類贏） =====
+    godWar(humanWins) {
+      const rnd = (a, b) => a + Math.random() * (b - a);
+      const human = (g, s, pose, hit) => { // 肌肉人類戰士剪影：寬肩、粗手臂、握拳
+        g.save(); g.scale(s, s); g.fillStyle = hit ? '#ffffff' : '#2a1410'; g.strokeStyle = '#ff6a3a'; g.lineWidth = 3; g.shadowColor = '#ff5a20'; g.shadowBlur = 25;
+        g.beginPath(); g.moveTo(-34, -60); g.quadraticCurveTo(0, -78, 34, -60); g.lineTo(26, 0); g.lineTo(14, 8); g.lineTo(-14, 8); g.lineTo(-26, 0); g.closePath(); g.fill(); g.stroke();
+        g.beginPath(); g.arc(0, -88, 15, 0, 7); g.fill(); g.stroke();
+        [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * 32, -58, 14, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.ellipse(sd * 14, -46, 15, 10, 0, 0, 7); g.stroke(); }); // 三角肌、胸肌
+        for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(-9, -30 + k * 11); g.lineTo(9, -30 + k * 11); g.stroke(); } // 腹肌
+        g.lineCap = 'round'; g.lineWidth = 22; g.strokeStyle = g.fillStyle;
+        g.beginPath(); g.moveTo(-30, -56); g.lineTo(-48 + pose * 6, -24); g.lineTo(-36 + pose * 20, -6); g.stroke();
+        g.beginPath(); g.moveTo(30, -56); g.lineTo(58 + pose * 30, -60 - pose * 4); g.lineTo(84 + pose * 50, -62); g.stroke();
+        g.beginPath(); g.arc(88 + pose * 50, -62, 11, 0, 7); g.fill();
+        g.lineWidth = 19; g.beginPath(); g.moveTo(-12, 6); g.lineTo(-24, 50); g.lineTo(-30, 92); g.moveTo(12, 6); g.lineTo(28, 46); g.lineTo(40, 92); g.stroke();
+        g.restore();
+      };
+      const god = (g, s, pose, hit) => { // 巨大的神：發光光環、長袍、舉起權杖放出神力
+        g.save(); g.scale(s, s); g.shadowColor = '#ffe9a0'; g.shadowBlur = 40;
+        const au = g.createRadialGradient(0, -40, 10, 0, -40, 170); au.addColorStop(0, 'rgba(255,240,190,0.35)'); au.addColorStop(1, 'rgba(255,240,190,0)'); g.fillStyle = au; g.beginPath(); g.arc(0, -40, 170, 0, 7); g.fill(); // 神力光暈
+        g.strokeStyle = 'rgba(255,233,160,0.9)'; g.lineWidth = 5; g.beginPath(); g.arc(0, -112, 30, 0, 7); g.stroke();
+        g.fillStyle = hit ? '#ffffff' : '#f4ead2'; g.beginPath(); g.moveTo(-36, -70); g.quadraticCurveTo(0, -86, 36, -70); g.lineTo(52, 92); g.lineTo(-52, 92); g.closePath(); g.fill();
+        g.fillStyle = '#d9b85a'; g.fillRect(-38, -10, 76, 8);
+        g.fillStyle = hit ? '#ffffff' : '#f0d9b8'; g.beginPath(); g.arc(0, -96, 17, 0, 7); g.fill();
+        g.lineCap = 'round'; g.strokeStyle = g.fillStyle; g.lineWidth = 14;
+        g.beginPath(); g.moveTo(-32, -62); g.lineTo(-68 - pose * 30, -66 - pose * 10); g.stroke();
+        g.strokeStyle = '#d9b85a'; g.lineWidth = 6; g.beginPath(); g.moveTo(32, -62); g.lineTo(44, -130); g.stroke();
+        g.fillStyle = '#fff6c8'; g.beginPath(); g.arc(44, -136, 12, 0, 7); g.fill();
+        g.restore();
+      };
+      const sparks = Array.from({ length: 120 }, () => ({ a: rnd(0, 6.28), v: rnd(0.3, 1), l: rnd(0.2, 1) }));
+      return this.overlay(5600, (g, W, H, dpr, t) => {
+        const cx = W / 2, gy = H * 0.68, u = Math.min(W, H) / 330;
+        const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#1a1030'); sky.addColorStop(0.55, '#5a1e2a'); sky.addColorStop(1, '#120a10'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+        g.fillStyle = 'rgba(255,200,120,0.08)'; for (let k = 0; k < 9; k++) { g.beginPath(); g.arc(cx + (k - 4) * W * 0.14, gy + 40 * u, W * 0.2, Math.PI, 0); g.fill(); } // 競技場看台
+        g.fillStyle = '#2a1a16'; g.fillRect(0, gy, W, H - gy);
+        // 兩人位置：0～1.4 秒對峙衝刺，1.4 第一次碰撞，2.6 第二次，3.6 勝負
+        let hx, gx, pose = 0, hit = 0, hitH = 0, hitG = 0, shake = 0;
+        if (t < 1.4) { const k = Math.min(1, t / 1.4); hx = cx - W * (0.36 - k * k * 0.26); gx = cx + W * (0.36 - k * k * 0.26); pose = k; }
+        else if (t < 2.6) { const k = (t - 1.4) / 1.2; hx = cx - W * (0.1 + Math.sin(k * Math.PI) * 0.12); gx = cx + W * (0.1 + Math.sin(k * Math.PI) * 0.12); hit = Math.max(0, 1 - (t - 1.4) * 4); pose = 1 - k * 0.6; }
+        else if (t < 3.6) { const k = (t - 2.6) / 1.0; hx = cx - W * (0.22 - k * 0.14); gx = cx + W * (0.22 - k * 0.14); pose = 0.4 + k * 0.6; hit = Math.max(0, 1 - (t - 3.45) * 6) * (t > 3.45 ? 1 : 0); }
+        else { const k = Math.min(1, (t - 3.6) / 0.5); hx = cx - W * 0.08; gx = cx + W * 0.08; pose = 1; if (humanWins) { gx += W * 0.6 * k; hitG = 1 - k; } else { hx -= W * 0.6 * k; hitH = 1 - k; } }
+        if (hit > 0 || (t > 3.6 && t < 4)) shake = 12 * dpr * Math.max(hit, t > 3.6 && t < 4 ? (4 - t) * 2.5 : 0);
+        g.save(); g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        // 漫畫速度線
+        if (t > 1.2 && t < 4.2) { g.strokeStyle = 'rgba(255,240,220,0.18)'; g.lineWidth = 2 * dpr; for (let k = 0; k < 40; k++) { const a = k / 40 * 6.283; g.beginPath(); g.moveTo(cx + Math.cos(a) * W * 0.25, H * 0.45 + Math.sin(a) * W * 0.25); g.lineTo(cx + Math.cos(a) * W, H * 0.45 + Math.sin(a) * W); g.stroke(); } }
+        g.save(); g.translate(hx, gy - 92 * u * 1.1); human(g, u * 1.1, pose, hit > 0.5 || hitH > 0.5); g.restore();
+        g.save(); g.translate(gx, gy - 92 * u * 1.35); g.scale(-1, 1); god(g, u * 1.35, pose, hit > 0.5 || hitG > 0.5); g.restore();
+        if (hit > 0) { // 碰撞瞬間：白光、衝擊波、火花
+          const R0 = (1 - hit) * W * 0.6; g.strokeStyle = `rgba(255,255,255,${hit})`; g.lineWidth = 8 * dpr; g.beginPath(); g.arc(cx, H * 0.45, R0, 0, 6.283); g.stroke();
+          g.fillStyle = `rgba(255,250,230,${hit * 0.7})`; g.fillRect(0, 0, W, H);
+          sparks.forEach(sp => { const r1 = (1 - hit) * sp.v * W * 0.5; g.strokeStyle = `rgba(255,${180 + Math.random() * 70 | 0},80,${hit})`; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(cx + Math.cos(sp.a) * r1 * 0.6, H * 0.45 + Math.sin(sp.a) * r1 * 0.6); g.lineTo(cx + Math.cos(sp.a) * r1, H * 0.45 + Math.sin(sp.a) * r1); g.stroke(); });
+        }
+        g.restore();
+        g.textAlign = 'center'; g.font = `900 ${30 * dpr}px system-ui, sans-serif`; g.lineWidth = 6 * dpr; g.strokeStyle = '#000';
+        const title = t < 1.3 ? '⚔️ 諸神黃昏・人神對決' : t > 3.8 ? (humanWins ? '人類勝利！' : '眾神勝利！') : '';
+        if (title) { g.fillStyle = t > 3.8 ? (humanWins ? '#ff8a5a' : '#ffe9a0') : '#fff'; g.strokeText(title, cx, H * 0.18); g.fillText(title, cx, H * 0.18); }
+      }, () => { SFX.roar(); [1.4, 3.45].forEach(d => setTimeout(() => { SFX.clash(); SFX.thunder(); }, d * 1000)); setTimeout(() => (humanWins ? SFX.roar() : SFX.glory()), 3800); });
+    },
+    // ===== 夜城好運卡：意識共鳴（流動星雲、幾何符文、幻彩） =====
+    mindLink() {
+      const rnd = (a, b) => a + Math.random() * (b - a);
+      const blobs = Array.from({ length: 14 }, (_, k) => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.25, 0.6), h: (k * 47) % 360, sx: rnd(-0.05, 0.05), sy: rnd(-0.04, 0.04) }));
+      const stars = Array.from({ length: 160 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), z: rnd(0.2, 1) }));
+      return this.overlay(5200, (g, W, H, dpr, t) => {
+        g.fillStyle = '#05030f'; g.fillRect(0, 0, W, H);
+        g.globalCompositeOperation = 'lighter';
+        blobs.forEach(b => { const x = ((b.x + b.sx * t) % 1.2) * W, y = ((b.y + b.sy * t + 1) % 1.2) * H, r = b.r * Math.max(W, H); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `hsla(${(b.h + t * 40) % 360},90%,60%,0.22)`); gr.addColorStop(1, 'hsla(0,0%,0%,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); });
+        stars.forEach(s => { g.fillStyle = `rgba(255,255,255,${0.3 + s.z * 0.6})`; g.fillRect(((s.x + t * 0.01 * s.z) % 1) * W, s.y * H, 1.5 * dpr * s.z, 1.5 * dpr * s.z); });
+        const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.32;
+        // 幾何符文：旋轉的多邊形、同心圓、放射刻線
+        for (let ring = 0; ring < 4; ring++) {
+          const rr = R * (0.45 + ring * 0.22), n = [3, 6, 8, 12][ring], rot = t * (ring % 2 ? -0.4 : 0.3) * (1 + ring * 0.2);
+          g.strokeStyle = `hsla(${(t * 60 + ring * 70) % 360},100%,72%,${0.55 - ring * 0.08})`; g.lineWidth = 1.6 * dpr;
+          g.beginPath(); for (let k = 0; k <= n; k++) { const a = rot + k / n * 6.283; const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+          g.beginPath(); g.arc(cx, cy, rr * 1.04, 0, 6.283); g.stroke();
+          for (let k = 0; k < n * 2; k++) { const a = rot * 1.3 + k / (n * 2) * 6.283; g.beginPath(); g.moveTo(cx + Math.cos(a) * rr * 1.04, cy + Math.sin(a) * rr * 1.04); g.lineTo(cx + Math.cos(a) * rr * 1.12, cy + Math.sin(a) * rr * 1.12); g.stroke(); }
+        }
+        // 兩個意識（側臉剪影）之間連結的光絲
+        const k = Math.min(1, t / 1.6), gap = W * (0.34 - k * 0.12);
+        [-1, 1].forEach(sd => { g.save(); g.translate(cx + sd * gap, cy); g.scale(-sd, 1); g.fillStyle = 'rgba(255,255,255,0.12)'; g.strokeStyle = `hsla(${(t * 80 + (sd > 0 ? 180 : 0)) % 360},100%,75%,0.9)`; g.lineWidth = 2 * dpr;
+          const s = R / 120; g.beginPath(); g.moveTo(-40 * s, 90 * s); g.lineTo(-40 * s, 40 * s); g.quadraticCurveTo(-60 * s, -10 * s, -40 * s, -60 * s); g.quadraticCurveTo(0, -100 * s, 35 * s, -55 * s); g.lineTo(42 * s, -20 * s); g.lineTo(52 * s, -6 * s); g.lineTo(40 * s, 4 * s); g.lineTo(44 * s, 20 * s); g.quadraticCurveTo(30 * s, 40 * s, 10 * s, 40 * s); g.lineTo(10 * s, 90 * s); g.fill(); g.stroke(); g.restore(); });
+        for (let j = 0; j < 18; j++) { const ph = t * 2 + j; const y0 = cy - R * 0.25 + Math.sin(ph) * R * 0.18; g.strokeStyle = `hsla(${(j * 20 + t * 90) % 360},100%,70%,${0.25 + 0.35 * k})`; g.lineWidth = 1.2 * dpr; g.beginPath(); g.moveTo(cx - gap + R * 0.35, cy - R * 0.25); g.bezierCurveTo(cx - gap * 0.3, y0 - R * 0.4, cx + gap * 0.3, y0 + R * 0.4, cx + gap - R * 0.35, cy - R * 0.25); g.stroke(); }
+        const core = g.createRadialGradient(cx, cy - R * 0.25, 0, cx, cy - R * 0.25, R * 0.5 * k); core.addColorStop(0, 'rgba(255,255,255,0.8)'); core.addColorStop(1, 'rgba(160,200,255,0)'); g.fillStyle = core; g.fillRect(0, 0, W, H);
+        g.globalCompositeOperation = 'source-over';
+        if (t < 2.5) { g.globalAlpha = Math.min(1, t * 2, (2.5 - t) * 2); g.textAlign = 'center'; g.font = `800 ${24 * dpr}px system-ui, sans-serif`; g.fillStyle = '#fff'; g.fillText('意識共鳴', cx, H * 0.14); g.globalAlpha = 1; }
+      }, () => SFX.shimmer());
+    },
+    // ===== 夜城壞運卡：完美進化（只有抽到的人）→ 色彩與聲音消失，只剩虛無 =====
+    async evolution(seat) {
+      const st = this.el.querySelector('.mono-stage'), b = this.board;
+      SFX.void_(); st.style.transition = 'filter 2.4s'; st.style.filter = 'grayscale(1) brightness(0.8)';
+      if (b) await b.evolve(seat, k => SFX[k] && SFX[k]());
+      await this.overlay(3200, (g, W, H, dpr, t) => {
+        g.fillStyle = `rgba(10,10,12,${Math.min(1, t / 1.2)})`; g.fillRect(0, 0, W, H);
+        const a = Math.min(1, Math.max(0, (t - 0.8) / 0.8)) * Math.min(1, (3.2 - t) / 0.6);
+        g.globalAlpha = a; g.textAlign = 'center'; g.fillStyle = '#c8ccd2'; g.font = `300 ${26 * dpr}px system-ui, sans-serif`; g.fillText('完美進化', W / 2, H / 2 - 10 * dpr);
+        g.font = `300 ${13 * dpr}px system-ui, sans-serif`; g.fillStyle = '#8a8e96'; g.fillText('沒有痛苦，也沒有任何感覺', W / 2, H / 2 + 22 * dpr); g.globalAlpha = 1;
+      });
+      st.style.filter = ''; setTimeout(() => { st.style.transition = ''; }, 100);
     },
     // ===== 動物星球彩蛋：動物大遷徙（約 4.5 秒） =====
     migration() {

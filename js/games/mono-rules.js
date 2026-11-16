@@ -140,6 +140,14 @@
       case 'gtp': { const to = Math.floor(Math.random() * N); p.pos = to; ev(st, { t: 'tp', seat: s, to, gate: true }); land(st, s, depth + 1); break; }
       case 'gate': st.phase = 'gate'; st.pending = { gate: true }; break;
       case 'm': if (v >= 0) { p.cash += v; ev(st, { t: 'cash', seat: s, amt: v }); } else pay(st, s, -1, -v, '卡片'); break;
+      case 'war': { // 人神對決：看抽卡者是人類陣營（人類勇者、自畫角色）還是神的陣營
+        const human = p.char && (p.char.kind === 'custom' || p.char.i === 7); st.anim += 5500;
+        ev(st, { t: 'note', seat: s, text: v > 0 ? (human ? '人類勝利！' : '眾神勝利！') : (human ? '人類戰敗……' : '眾神戰敗……') });
+        if (v > 0) { p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '戰利品' }); } else pay(st, s, -1, -v, '戰敗賠償');
+        break;
+      }
+      case 'link': st.anim += 5000; p.cash += v; p.immune++; ev(st, { t: 'cash', seat: s, amt: v, why: '意識共鳴' }); break;
+      case 'evo': st.anim += 6000; p.evolved = true; pay(st, s, -1, Math.floor(p.cash * v / 100), '完美進化'); p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); break;
       case 'mig': st.anim += 4500; moveTo(st, s, v); land(st, s, depth + 1); break; // 動物大遷徙
       case 'cat': st.anim += 3500; p.skip += v; ev(st, { t: 'skipset', seat: s, n: v }); break; // 迷因貓
       case 'mv': moveTo(st, s, v); land(st, s, depth + 1); break;

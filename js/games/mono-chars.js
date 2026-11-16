@@ -114,7 +114,21 @@
     if (i === 2) { mesh(T, new T.SphereGeometry(0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), gold, 0, 0.02, 0, r.head); mesh(T, new T.BoxGeometry(0.03, 0.1, 0.24), M(T, '#9b1c1c'), 0, 0.16, 0, r.head); mesh(T, new T.CylinderGeometry(0.01, 0.01, 0.8, 6), M(T, '#8a6a3a'), 0, 0.1, 0, r.handR); const sh = mesh(T, new T.CylinderGeometry(0.12, 0.12, 0.02, 20), gold, 0, 0, 0.04, r.handL); sh.rotation.x = Math.PI / 2; }
     if (i === 3) { hair('#3d5a6c'); mesh(T, new T.ConeGeometry(0.1, 0.18, 10), M(T, '#3d5a6c', { roughness: 1 }), 0, -0.12, 0.08, r.head).rotation.x = Math.PI; const tr = new T.Group(); r.handR.add(tr); mesh(T, new T.CylinderGeometry(0.012, 0.012, 0.8, 6), gold, 0, 0.1, 0, tr); [-0.04, 0, 0.04].forEach(x => mesh(T, new T.ConeGeometry(0.012, 0.09, 4), gold, x, 0.54, 0, tr)); mesh(T, new T.TorusGeometry(0.11, 0.015, 6, 16), gold, 0, 0.1, 0, r.head).rotation.x = Math.PI / 2; }
     if (i === 5) { r.skull.material = M(T, '#6b4f2a'); mesh(T, new T.ConeGeometry(0.05, 0.12, 6), M(T, '#d9a441'), 0, -0.02, 0.15, r.head).rotation.x = Math.PI / 2; const sun = mesh(T, new T.CircleGeometry(0.13, 24), M(T, '#ffb703', { emissive: '#ff8c00', emissiveIntensity: 1.6, side: T.DoubleSide }), 0, 0.25, -0.05, r.head); void sun; }
-    if (i === 6) { hair('#3b2a1a'); for (let k = 0; k < 8; k++) mesh(T, new T.SphereGeometry(0.025, 6, 6), M(T, '#6a2c70'), Math.cos(k / 8 * 6.28) * 0.13, 0.07, Math.sin(k / 8 * 6.28) * 0.13, r.head); mesh(T, new T.CylinderGeometry(0.04, 0.025, 0.07, 10), gold, 0, 0.02, 0, r.handR); }
+    if (i === 6) { // 美杜莎：蛇髮、發光的金色蛇眼、綠色鱗紋長袍、蛇纏手臂
+      r.torso.material = M(T, '#2f6b45', { roughness: 0.5, metalness: 0.2 }); r.skull.material = M(T, '#cfe0c4');
+      const sk = M(T, '#4fae6a', { roughness: 0.4 }), dk = M(T, '#2a5a36', { roughness: 0.4 }), eyeG = M(T, '#ffd23a', { emissive: '#ffb000', emissiveIntensity: 2 });
+      const snakes = [];
+      for (let k = 0; k < 11; k++) { const a = k / 11 * Math.PI * 2, up = k % 3 === 0;
+        const g = new T.Group(); g.position.set(Math.cos(a) * 0.1, 0.05 + (up ? 0.04 : 0), Math.sin(a) * 0.1 - 0.02); g.rotation.set(Math.sin(a) * 0.9 - (up ? 0.6 : 0), 0, -Math.cos(a) * 0.9); r.head.add(g);
+        const pts = [0, 1, 2, 3].map(j => new T.Vector3(Math.sin(j * 1.4 + k) * 0.025, j * 0.05, Math.cos(j * 1.2) * 0.02));
+        mesh(T, new T.TubeGeometry(new T.CatmullRomCurve3(pts), 10, 0.013, 6), k % 2 ? sk : dk, 0, 0, 0, g);
+        const hd = mesh(T, new T.SphereGeometry(0.02, 8, 6), k % 2 ? sk : dk, pts[3].x, pts[3].y + 0.01, pts[3].z + 0.01, g); hd.scale.set(1, 0.8, 1.5);
+        [-1, 1].forEach(sd => mesh(T, new T.SphereGeometry(0.005, 4, 4), eyeG, pts[3].x + sd * 0.01, pts[3].y + 0.017, pts[3].z + 0.022, g));
+        snakes.push(g); }
+      r.head.traverse(c => { if (c.geometry && c.geometry.parameters && c.geometry.parameters.radius === 0.018) c.material = eyeG; });
+      const coil = mesh(T, new T.TorusGeometry(0.06, 0.016, 6, 14), sk, 0, 0.05, 0, r.handR); coil.rotation.x = Math.PI / 2; void coil;
+      r.tick = (t) => snakes.forEach((g, k) => { g.rotation.y = Math.sin(t * 2.2 + k) * 0.25; });
+    }
     if (i === 7) { hair('#4a3321'); r.torso.material = M(T, '#6b4a2e', { roughness: 0.9 }); mesh(T, new T.BoxGeometry(0.02, 0.35, 0.04), M(T, '#c0c6cc', { metalness: 0.9, roughness: 0.2 }), 0, -0.1, 0.02, r.handR); const sh = mesh(T, new T.CylinderGeometry(0.1, 0.1, 0.02, 16), M(T, '#7a5230'), 0, 0, 0.04, r.handL); sh.rotation.x = Math.PI / 2; }
     return r;
   }
@@ -332,7 +346,7 @@
     // 腳下的玩家色光圈
     const ring = new T.Mesh(new T.RingGeometry(0.2, 0.26, 28), new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; r.g.add(ring); r.ring = ring;
     // 頭上的箭頭（輪到時顯示）
-    const arrow = new T.Mesh(new T.ConeGeometry(0.07, 0.15, 4), new T.MeshBasicMaterial({ color })); arrow.rotation.x = Math.PI; arrow.position.y = 1.35; arrow.visible = false; r.g.add(arrow); r.arrow = arrow;
+    const arrow = new T.Mesh(new T.ConeGeometry(0.07, 0.15, 4), new T.MeshBasicMaterial({ color })); arrow.rotation.x = Math.PI; arrow.position.y = 1.35; arrow.visible = false; arrow.userData.tag = true; r.g.add(arrow); r.arrow = arrow;
     r.state = 'idle'; r.stateUntil = 0; r.phase = Math.random() * 6;
     return r;
   };
