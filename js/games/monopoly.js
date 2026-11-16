@@ -78,6 +78,20 @@
     crunch() { for (let i = 0; i < 6; i++) this.noise(0.05, { f: 900 + Math.random() * 1500, type: 'bandpass', q: 4, vol: 0.12, delay: i * 0.035, attack: 0.002 }); this.noise(0.25, { f: 350, vol: 0.06, delay: 0.05 }); },
     splat() { this.noise(0.35, { f: 600, type: 'lowpass', vol: 0.1, attack: 0.005 }); this.tone(220, 0.3, { type: 'sine', vol: 0.04, glide: 70, wet: 0.2 }); },
     roar() { this.tone(110, 1.0, { type: 'sawtooth', vol: 0.06, lp: 900, glide: 70, attack: 0.05 }); this.tone(165, 1.0, { type: 'sawtooth', vol: 0.04, lp: 1200, glide: 100, attack: 0.05 }); this.noise(0.9, { f: 800, type: 'bandpass', q: 0.8, vol: 0.06, attack: 0.05 }); },
+    stampede() { // 大地震動的蹄聲
+      this.noise(4.4, { f: 180, vol: 0.12, attack: 0.6 }); this.tone(45, 4.2, { type: 'sine', vol: 0.12, attack: 0.5 });
+      for (let i = 0; i < 46; i++) this.noise(0.07, { f: 140 + Math.random() * 160, vol: 0.09 + Math.random() * 0.05, delay: 0.15 + i * 0.09 + Math.random() * 0.04, attack: 0.003 });
+      [0.6, 1.8, 3.0].forEach(d => this.tone(220, 0.5, { type: 'sawtooth', vol: 0.025, lp: 900, glide: 160, delay: d, attack: 0.05 }));
+    },
+    oiia() { // 用合成器模擬貓叫的母音「喔、咿、咿、啊、咿」，越來越快、越來越高
+      try { const c = this.ac(); if (!this.on) return; const t0 = c.currentTime + 0.05;
+        const vow = { o: [480, 860], i: [320, 2400], a: [820, 1250] }, seq = ['o', 'i', 'i', 'a', 'i'];
+        let tt = 0, k = 0; while (tt < 3.3) { const v = vow[seq[k % 5]], d = Math.max(0.09, 0.26 - k * 0.012), f0 = 380 + k * 9;
+          const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t0 + tt); o.frequency.linearRampToValueAtTime(f0 * (seq[k % 5] === 'i' ? 1.25 : 0.95), t0 + tt + d);
+          const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0 + tt); g.gain.exponentialRampToValueAtTime(0.09, t0 + tt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + tt + d);
+          v.forEach((fr, j) => { const b = c.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = fr; b.Q.value = 6; const bg = c.createGain(); bg.gain.value = j ? 0.6 : 1; o.connect(b).connect(bg).connect(g); });
+          g.connect(c.destination); o.start(t0 + tt); o.stop(t0 + tt + d + 0.02); tt += d; k++; } } catch (e) {}
+    },
     glitch() { for (let i = 0; i < 14; i++) { this.noise(0.06, { f: 500 + Math.random() * 4000, type: 'bandpass', q: 8, vol: 0.08, delay: i * 0.07 }); this.tone(80 + Math.random() * 900, 0.06, { type: 'square', vol: 0.03, delay: i * 0.07 + 0.03, wet: false }); } }
   };
   try { SFX.on = localStorage.getItem('mono-sfx') !== '0'; } catch (e) {}
@@ -342,6 +356,8 @@
       clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 25000);
       await sleep(2200);
       if (e.eff === 'gagain' || e.eff.startsWith('gm:')) { this.closeCard(); await this.stargate(); }
+      else if (e.eff.startsWith('mig:')) { this.closeCard(); await this.migration(); }
+      else if (e.eff.startsWith('cat:')) { this.closeCard(); await this.catSpin(); }
     },
     closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
@@ -370,7 +386,7 @@
       const [k, v0] = eff.split(':'); const v = +v0; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)}`, give: `你付每位玩家 ${fmt(v)}`, house: `每一級建築付 ${fmt(-v)}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
+        each: `每位玩家付你 ${fmt(v)}`, give: `你付每位玩家 ${fmt(v)}`, house: `每一級建築付 ${fmt(-v)}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
     },
     hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; if (this.el) this.el.querySelector('.go-btn').disabled = true; },
     showPrompt() {
@@ -474,6 +490,98 @@
         };
         requestAnimationFrame(frame);
       });
+    },
+    // 全螢幕畫布動畫的共用外框
+    overlay(T, draw, sound) {
+      return new Promise(res => {
+        sound && sound(); if (this.board) this.board.paused = true;
+        const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
+        const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
+        const t0 = performance.now();
+        const frame = () => { const ms = performance.now() - t0; draw(g, W, H, dpr, ms / 1000, ms / T); cv.style.opacity = String(Math.min(1, ms / 250, (T - ms) / 300));
+          if (ms < T) requestAnimationFrame(frame); else { cv.remove(); if (this.board) this.board.paused = false; res(); } };
+        requestAnimationFrame(frame);
+      });
+    },
+    // ===== 動物星球彩蛋：動物大遷徙（約 4.5 秒） =====
+    migration() {
+      const L = [], rnd = (a, b) => a + Math.random() * (b - a);
+      [[0.6, 0.45, 0.42, 90], [0.7, 0.75, 0.6, 70], [0.84, 1.2, 0.85, 42]].forEach(([y, sc, sp, n], li) => { for (let k = 0; k < n; k++) L.push({ li, y: y + rnd(-0.05, 0.05), sc: sc * rnd(0.85, 1.15), sp: sp * rnd(0.9, 1.1), x0: rnd(-1.9, 0.15), ph: rnd(0, 6.28), ty: Math.random() < 0.55 ? 0 : Math.random() < 0.6 ? 1 : 2 }); });
+      L.sort((a, b) => a.y - b.y);
+      const trees = Array.from({ length: 5 }, () => ({ x: rnd(0, 1), s: rnd(0.7, 1.3) }));
+      const beast = (g, x, y, s, ty, ph, li) => {
+        const bob = -Math.abs(Math.sin(ph)) * (ty === 2 ? 10 : 3) * s; g.save(); g.translate(x, y + bob); g.scale(s, s);
+        const shade = [['#6a4a48', '#c9b8b0', '#b07a5a'], ['#463430', '#e2d9cc', '#bf8452'], ['#2e2824', '#f1ede2', '#c98a4b']][li][ty];
+        // 腳（奔跑擺動）
+        g.strokeStyle = ty === 1 ? '#2a2622' : shade; g.lineCap = 'round'; g.lineWidth = ty === 2 ? 2.2 : 3;
+        [[-11, 0], [-7, 1.6], [7, 3.1], [11, 4.7]].forEach(([hx, o]) => { const a = Math.sin(ph + o) * 0.75; g.beginPath(); g.moveTo(hx, -9); const kx = hx + Math.sin(a) * 6, ky = -3; g.lineTo(kx, ky); g.lineTo(kx + Math.sin(a * 1.4 - 0.4) * 6, 4); g.stroke(); });
+        g.fillStyle = shade;
+        if (ty === 0) { // 角馬：前高後低、駝背、鬍鬚、彎角
+          g.beginPath(); g.ellipse(-2, -12, 15, 7.5, -0.12, 0, 7); g.fill(); g.beginPath(); g.ellipse(8, -15, 8, 7.5, 0, 0, 7); g.fill();
+          g.beginPath(); g.moveTo(12, -19); g.lineTo(21, -17); g.lineTo(25, -8); g.lineTo(19, -7); g.lineTo(13, -9); g.closePath(); g.fill();
+          g.strokeStyle = '#d8cfbf'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(20, -18); g.quadraticCurveTo(17, -25, 23, -24); g.moveTo(22, -17); g.quadraticCurveTo(26, -23, 29, -20); g.stroke();
+          g.strokeStyle = '#1a1512'; g.lineWidth = 2; g.beginPath(); g.moveTo(19, -8); g.lineTo(18, -3); g.moveTo(-17, -12); g.quadraticCurveTo(-22, -10 + Math.sin(ph * 2) * 3, -21, -4); g.stroke();
+        } else if (ty === 1) { // 斑馬：白底黑條紋、立起的鬃毛
+          g.beginPath(); g.ellipse(0, -12, 15, 7, 0, 0, 7); g.fill();
+          g.beginPath(); g.moveTo(10, -16); g.lineTo(18, -24); g.lineTo(25, -20); g.lineTo(26, -15); g.lineTo(20, -14); g.lineTo(14, -9); g.closePath(); g.fill();
+          g.save(); g.beginPath(); g.ellipse(0, -12, 15, 7, 0, 0, 7); g.moveTo(10, -16); g.lineTo(18, -24); g.lineTo(25, -20); g.lineTo(26, -15); g.lineTo(20, -14); g.lineTo(14, -9); g.clip();
+          g.strokeStyle = '#1f1c19'; g.lineWidth = 1.8; for (let k = -16; k < 28; k += 3.6) { g.beginPath(); g.moveTo(k, -26); g.quadraticCurveTo(k + 2, -12, k - 1, -3); g.stroke(); } g.restore();
+          g.strokeStyle = '#1f1c19'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(11, -17); g.lineTo(18, -25); g.stroke(); g.beginPath(); g.moveTo(-15, -12); g.lineTo(-20, -6 + Math.sin(ph * 2) * 2); g.stroke();
+        } else { // 羚羊：細長、跳躍、白肚子、直角
+          g.beginPath(); g.ellipse(0, -13, 12, 5.5, -0.1, 0, 7); g.fill(); g.fillStyle = '#f4ead8'; g.beginPath(); g.ellipse(0, -10.5, 9, 2.5, 0, 0, 7); g.fill(); g.fillStyle = shade;
+          g.beginPath(); g.moveTo(8, -15); g.lineTo(14, -25); g.lineTo(20, -24); g.lineTo(19, -21); g.lineTo(12, -13); g.closePath(); g.fill();
+          g.strokeStyle = '#3a2a1a'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(15, -25); g.lineTo(13, -33); g.moveTo(17, -25); g.lineTo(17, -33); g.stroke();
+        }
+        g.restore();
+      };
+      const dust = Array.from({ length: 26 }, () => ({ x: rnd(-0.3, 1.1), y: rnd(0.55, 0.92), r: rnd(0.08, 0.2), sp: rnd(0.25, 0.5) }));
+      return this.overlay(4600, (g, W, H, dpr, t, k) => {
+        const shake = Math.min(1, t) * 3 * dpr; g.save(); g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        const sky = g.createLinearGradient(0, 0, 0, H * 0.6); sky.addColorStop(0, '#5a3a78'); sky.addColorStop(0.45, '#e8706a'); sky.addColorStop(1, '#ffc46b'); g.fillStyle = sky; g.fillRect(-20, -20, W + 40, H + 40);
+        g.fillStyle = 'rgba(255,236,170,0.95)'; g.beginPath(); g.arc(W * 0.7, H * 0.5, Math.min(W, H) * 0.16, 0, 6.283); g.fill();
+        g.fillStyle = '#7a4a5a'; g.beginPath(); g.moveTo(0, H * 0.56); for (let x = 0; x <= W; x += W / 12) g.lineTo(x, H * (0.52 + Math.sin(x / W * 9) * 0.02)); g.lineTo(W, H); g.lineTo(0, H); g.fill();
+        trees.forEach(tr => { const x = tr.x * W, y = H * 0.565, s2 = tr.s * W / 400; g.fillStyle = '#3a2430'; g.fillRect(x - 2 * s2, y - 40 * s2, 4 * s2, 40 * s2); g.beginPath(); g.ellipse(x, y - 42 * s2, 30 * s2, 7 * s2, 0, 0, 7); g.fill(); });
+        const gr = g.createLinearGradient(0, H * 0.56, 0, H); gr.addColorStop(0, '#c98a52'); gr.addColorStop(1, '#8a5a32'); g.fillStyle = gr; g.fillRect(-20, H * 0.565, W + 40, H);
+        const u = W / 390;
+        L.forEach(a => { const x = (a.x0 + a.sp * t) * W * 0.9; if (x < -60 * u || x > W + 60 * u) return; beast(g, x, a.y * H, a.sc * u * 2.3, a.ty, a.ph + t * (a.ty === 2 ? 12 : 16), a.li);
+          if (a.li === 2 && Math.random() < 0.12) { g.fillStyle = 'rgba(210,170,120,0.35)'; g.beginPath(); g.arc(x - 10 * u, a.y * H + 4 * u, rnd(4, 10) * u, 0, 6.283); g.fill(); } });
+        dust.forEach(d => { const x = ((d.x + d.sp * t) % 1.4) * W, y = d.y * H, r = d.r * W; const dg = g.createRadialGradient(x, y, 0, x, y, r); dg.addColorStop(0, 'rgba(225,180,130,0.32)'); dg.addColorStop(1, 'rgba(225,180,130,0)'); g.fillStyle = dg; g.fillRect(x - r, y - r, 2 * r, 2 * r); });
+        if (t < 2.2) { g.globalAlpha = Math.min(1, t * 3, (2.2 - t) * 3); g.fillStyle = '#fff'; g.strokeStyle = 'rgba(60,30,20,0.8)'; g.lineWidth = 6 * dpr; g.font = `900 ${34 * dpr}px system-ui, sans-serif`; g.textAlign = 'center'; g.strokeText('🦓 動物大遷徙！', W / 2, H * 0.22); g.fillText('🦓 動物大遷徙！', W / 2, H * 0.22); g.globalAlpha = 1; }
+        g.restore();
+      }, () => SFX.stampede());
+    },
+    // ===== 動物星球彩蛋：迷因貓轉圈圈（約 3.6 秒，自己畫的貓） =====
+    catSpin() {
+      const cat = (g, s, back) => { // 坐著的灰色虎斑貓，正面張嘴；轉到背面時看到背和尾巴
+        g.save(); g.scale(s, s);
+        g.fillStyle = '#9a9aa2'; g.beginPath(); g.ellipse(0, 40, 46, 52, 0, 0, 7); g.fill(); // 身體
+        if (back) { g.strokeStyle = '#9a9aa2'; g.lineWidth = 14; g.lineCap = 'round'; g.beginPath(); g.moveTo(10, 80); g.quadraticCurveTo(70, 70, 55, 10); g.stroke(); }
+        else { g.fillStyle = '#f2f0ec'; g.beginPath(); g.ellipse(0, 52, 26, 36, 0, 0, 7); g.fill(); }
+        g.fillStyle = '#b0b0b8'; g.beginPath(); g.ellipse(0, -30, 44, 38, 0, 0, 7); g.fill(); // 頭
+        [-1, 1].forEach(sd => { g.fillStyle = '#9a9aa2'; g.beginPath(); g.moveTo(sd * 40, -40); g.lineTo(sd * 32, -82); g.lineTo(sd * 10, -62); g.fill(); if (!back) { g.fillStyle = '#e8b0b8'; g.beginPath(); g.moveTo(sd * 33, -46); g.lineTo(sd * 29, -72); g.lineTo(sd * 15, -60); g.fill(); } });
+        g.strokeStyle = '#6a6a72'; g.lineWidth = 4; for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(k * 12, -66); g.lineTo(k * 10, -48); g.stroke(); }
+        if (!back) {
+          [-1, 1].forEach(sd => { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(sd * 17, -36, 11, 12, 0, 0, 7); g.fill(); g.fillStyle = '#2a8a3a'; g.beginPath(); g.ellipse(sd * 17, -35, 7, 9, 0, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.ellipse(sd * 17, -35, 2.5, 8, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(sd * 17 + 3, -39, 2.5, 0, 7); g.fill(); });
+          g.fillStyle = '#e88a9a'; g.beginPath(); g.moveTo(-5, -20); g.lineTo(5, -20); g.lineTo(0, -15); g.fill();
+          g.fillStyle = '#5a1a24'; g.beginPath(); g.ellipse(0, -5, 10, 12 + Math.sin(performance.now() / 60) * 4, 0, 0, 7); g.fill(); // 張大嘴「喔～」
+          g.fillStyle = '#e86a7a'; g.beginPath(); g.ellipse(0, 1, 6, 4, 0, 0, 7); g.fill();
+          g.strokeStyle = '#e8e8ea'; g.lineWidth = 1.5; [-1, 1].forEach(sd => { for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(sd * 14, -14 + k * 4); g.lineTo(sd * 46, -20 + k * 7); g.stroke(); } });
+        }
+        g.restore();
+      };
+      return this.overlay(3600, (g, W, H, dpr, t) => {
+        const ang = t * t * 9 + t * 4; // 越轉越快
+        g.fillStyle = '#1a1030'; g.fillRect(0, 0, W, H);
+        const cx = W / 2, cy = H * 0.5, R = Math.hypot(W, H);
+        for (let k = 0; k < 18; k++) { const a = k / 18 * 6.283 + t * 1.5; g.fillStyle = `hsl(${(k * 20 + t * 240) % 360},90%,60%)`; g.globalAlpha = 0.55; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R, a, a + 6.283 / 36); g.fill(); }
+        g.globalAlpha = 1;
+        const sx = Math.cos(ang), s = Math.min(W, H) / 260 * (1 + Math.sin(t * 6) * 0.03);
+        g.save(); g.translate(cx, cy + Math.sin(t * 12) * 4 * dpr); g.scale(sx >= 0 ? Math.max(0.04, sx) : Math.min(-0.04, sx), 1); cat(g, s, sx < 0); g.restore();
+        g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(cx, cy + 100 * s, 60 * s * Math.abs(sx) + 20 * s, 10 * s, 0, 0, 7); g.fill();
+        g.font = `900 ${30 * dpr}px system-ui, sans-serif`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 5 * dpr;
+        const txt = ['喔', '咿', '咿', '啊', '咿'][Math.floor(ang / Math.PI) % 5] + '～'; g.strokeText(txt, cx, H * 0.18); g.fillText(txt, cx, H * 0.18);
+        if (t > 2.8) { g.fillStyle = `rgba(255,255,255,${(t - 2.8) * 1.2})`; g.fillRect(0, 0, W, H); }
+      }, () => SFX.oiia());
     },
     tileInfo(i) {
       const v = this.v; if (!v || this.playing) return; const t = R().BOARD[i]; const th = TH()[v.theme];

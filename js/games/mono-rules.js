@@ -114,6 +114,8 @@
       case 'gtp': { const to = Math.floor(Math.random() * N); p.pos = to; ev(st, { t: 'tp', seat: s, to, gate: true }); land(st, s, depth + 1); break; }
       case 'gate': st.phase = 'gate'; st.pending = { gate: true }; break;
       case 'm': if (v >= 0) { p.cash += v; ev(st, { t: 'cash', seat: s, amt: v }); } else pay(st, s, -1, -v, '卡片'); break;
+      case 'mig': st.anim += 4500; moveTo(st, s, v); land(st, s, depth + 1); break; // 動物大遷徙
+      case 'cat': st.anim += 3500; p.skip += v; ev(st, { t: 'skipset', seat: s, n: v }); break; // 迷因貓
       case 'mv': moveTo(st, s, v); land(st, s, depth + 1); break;
       case 'go': jump(st, s, v, true); land(st, s, depth + 1); break;
       case 'gonb': jump(st, s, v, false); break;
