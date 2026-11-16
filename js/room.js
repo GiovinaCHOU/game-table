@@ -21,6 +21,7 @@
   // 清掉超過 6 小時的舊房間
   try { Object.keys(localStorage).forEach(k => { if (/^(snap|seat):/.test(k)) { const v = LS.get(k); if (!v || Date.now() - (v.t || 0) > KEEP_MS) LS.del(k); } }); } catch (e) {}
   // 同一個 PIN 用固定身分，重新整理或被系統關掉分頁後回來，還是坐回原本的位子
+  const TEST_PIN = '777777'; // 測試房：可以加電腦玩家
   function cidFor(pin) { if (window.Net.LOCAL) return myCid(); const v = LS.get('seat:' + pin); if (v && v.cid) { LS.set('seat:' + pin, { cid: v.cid, t: Date.now() }); return v.cid; } const c = rid(); LS.set('seat:' + pin, { cid: c, t: Date.now() }); return c; }
 
   const Room = {
@@ -65,10 +66,10 @@
     hasSnap(pin) { return !!this.loadSnap(pin); },
 
     // ================= 建房 =================
-    async create(name) {
+    async create(name, fixedPin) {
       this.name = name; this.isHost = true;
-      for (let i = 0; i < 5; i++) {
-        const pin = randPin();
+      for (let i = 0; i < (fixedPin ? 1 : 5); i++) {
+        const pin = fixedPin || randPin();
         try {
           const peer = await this._openPeer(prefix + pin);
           this.pin = pin; this.peer = peer; this.cid = cidFor(pin);
@@ -253,7 +254,7 @@
     restore(R, pin, snap, msg) {
       this.init(R, pin);
       this.lobby = snap.lobby || this.lobby; this.game = snap.game || null;
-      this.members = (snap.members || []).map(m => Object.assign({}, m, { offAt: Date.now() + 20000, online: m.cid === R.cid, voice: m.cid === R.cid ? (window.Net.Voice.mode === 'off' ? null : window.Net.Voice.mode) : null, seen: Date.now() }));
+      this.members = (snap.members || []).map(m => Object.assign({}, m, { offAt: Date.now() + 20000, online: m.cid === R.cid || !!m.bot, auto: !!m.bot, voice: m.cid === R.cid ? (window.Net.Voice.mode === 'off' ? null : window.Net.Voice.mode) : null, seen: Date.now() }));
       if (!this.m(R.cid)) this.members.push({ cid: R.cid, name: R.name, role: 'player', online: true, voice: null, peerId: R.peer.id, seen: Date.now() });
       else { const me = this.m(R.cid); me.peerId = R.peer.id; me.name = R.name || me.name; }
       // 時限重新給：避免一回來就被判逾時
@@ -264,19 +265,19 @@
     },
     heir() {
       // 候補房主：最早加入、目前在線、不是房主的人（玩家優先）
-      const c = this.members.filter(m => m.online && m.cid !== this.R.cid);
+      const c = this.members.filter(m => m.online && !m.bot && m.cid !== this.R.cid);
       const p = c.filter(m => m.role === 'player');
       return (p[0] || c[0] || {}).cid || null;
     },
     heirs() {
-      const c = this.members.filter(m => m.online && m.cid !== this.R.cid);
+      const c = this.members.filter(m => m.online && !m.bot && m.cid !== this.R.cid);
       return c.filter(m => m.role === 'player').concat(c.filter(m => m.role !== 'player')).slice(0, 2).map(m => m.cid);
     },
     sendSnap() {
       if (this._snapQ) return; this._snapQ = true;
       setTimeout(() => {
         this._snapQ = false;
-        const members = this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, peerId: m.peerId, avatar: m.avatar || null }));
+        const members = this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, peerId: m.peerId, avatar: m.avatar || null, bot: !!m.bot }));
         const s = { lobby: this.lobby, game: this.game, members };
         this.R.saveSnap(s); // 房主自己也存一份：網頁被系統關掉後回來可以救回
         this.heirs().forEach(h => this.to(h, { t: 'snap', s }));
@@ -303,6 +304,7 @@
       const now = Date.now();
       this.members.forEach(m => {
         if (m.cid === this.R.cid) return;
+        if (m.bot) { m.online = true; m.seen = now; return; }
         if (m.online && m.seen && now - m.seen > 15000) { m.online = false; m.offAt = now; m.voice = null; this.pushRoom(); }
         this.to(m.cid, { t: 'ping', now });
       });
@@ -312,8 +314,8 @@
     names() { return this.seats().map(cid => (this.m(cid) || {}).name || '?'); },
     roomInfo() {
       return {
-        pin: this.pin, hostCid: this.R.cid, heir: this.heir(), heirs: this.heirs(),
-        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, auto: !!m.auto, seat: this.seats().indexOf(m.cid) })),
+        pin: this.pin, test: this.pin === TEST_PIN, hostCid: this.R.cid, heir: this.heir(), heirs: this.heirs(),
+        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, auto: !!m.auto, bot: !!m.bot, seat: this.seats().indexOf(m.cid) })),
         lobby: this.lobby,
         game: this.game ? { id: this.game.id, seats: this.game.seats, opts: this.game.opts } : null
       };
@@ -336,13 +338,13 @@
       const mod = G()[this.game.id];
       // 斷線超過 15 秒的人輪到時，系統代打，遊戲不會卡住
       if (mod.auto) {
-        let w = null; try { w = mod.auto(this.game.state); } catch (e) {}
+        let w = null; try { w = mod.auto(this.game.state, (seat) => { const mm = this.m(this.game.seats[seat]); return !!(mm && (mm.auto || !mm.online)); }); } catch (e) {}
         if (w && w.seat >= 0) {
           const m = this.m(this.game.seats[w.seat]);
           const key = JSON.stringify(w); if (key !== this._autoKey) { this._autoKey = key; this._autoSince = Date.now(); }
           const offlineDue = m && !m.online && Date.now() - (m.offAt || 0) > 40000;
-          const pilotDue = m && m.auto && Date.now() - this._autoSince > 1300; // 託管：稍等一下再出，看起來比較自然
-          if ((offlineDue || pilotDue) && Date.now() - (this._lastAuto || 0) > 900) {
+          const pilotDue = m && m.auto && Date.now() - this._autoSince > (m.bot ? 700 : 1300); // 託管：稍等一下再出，看起來比較自然
+          if ((offlineDue || pilotDue) && Date.now() - (this._lastAuto || 0) > (m.bot ? 450 : 900)) {
             this._lastAuto = Date.now();
             let err; try { err = mod.action(this.game.state, w.seat, w.a, { now: Date.now(), names: this.names(), relay() {}, seat: w.seat }); } catch (e) { err = e; }
             if (!err) { this.pushViews(); return; }
@@ -374,6 +376,11 @@
         case 'role': if (m && !this.game) { m.role = d.role === 'spec' ? 'spec' : 'player'; this.pushRoom(); } break;
         case 'lobby': if (isHost && !this.game) { this.lobby = { gameId: d.gameId, opts: d.opts || {}, skin: this.lobby.skin }; this.pushRoom(); } break;
         case 'skin': if (isHost) { this.lobby.skin = ['nebula', 'classic', 'ragnarok', 'cyber', 'animal', 'alien'].includes(d.skin) ? d.skin : 'nebula'; this.pushRoom(); } break;
+        case 'addbot': if (isHost && this.pin === TEST_PIN && !this.game) {
+          const used = new Set(this.members.filter(x => x.bot).map(x => x.name)); let k = 1; while (used.has('電腦' + k)) k++;
+          this.members.push({ cid: 'bot-' + Math.random().toString(36).slice(2, 8), name: '電腦' + k, role: 'player', online: true, auto: true, bot: true, seen: Date.now() });
+          this.pushRoom(); } break;
+        case 'clearbots': if (isHost && !this.game) { this.members = this.members.filter(x => !x.bot); this.pushRoom(); } break;
         case 'start': if (isHost) this.start(); break;
         case 'end': if (isHost) { this.game = null; this.pushRoom(); this.sysChat('回到大廳'); } break;
         case 'kick': if (isHost && d.cid !== this.R.cid) { this.to(d.cid, { t: 'kick' }); const i = this.members.findIndex(x => x.cid === d.cid); if (i >= 0) { const c = this.conns[d.cid]; this.members.splice(i, 1); setTimeout(() => { try { c && c.close(); } catch (e) {} }, 300); } this.pushRoom(); } break;

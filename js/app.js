@@ -43,7 +43,12 @@
     const pin = $('#pinInput').value.replace(/\D/g, '');
     if (pin.length !== 6) { $('#homeMsg').textContent = 'PIN 是 6 位數字'; return; }
     busy(true); $('#homeMsg').textContent = '連線中…';
-    try { const r = await R.join(pin, name, $('#specCheck').checked); enterRoom(); if (r === 'revived') toast('房間已從這台裝置的暫存救回，請朋友用同一個 PIN 回來', 4000); } catch (e) { $('#homeMsg').textContent = e.message || String(e); }
+    try { const r = await R.join(pin, name, $('#specCheck').checked); enterRoom(); if (r === 'revived') toast('房間已從這台裝置的暫存救回，請朋友用同一個 PIN 回來', 4000); }
+    catch (e) {
+      // 測試房 777777：房間不存在就直接由自己開
+      if (pin === '777777') { try { try { R.peer && R.peer.destroy(); } catch (_) {} R.peer = null; R._connecting = false; await R.create(name, pin); enterRoom(); toast('🧪 已開啟測試房，可以在大廳加電腦玩家', 3500); busy(false); return; } catch (e2) { e = e2; } }
+      $('#homeMsg').textContent = e.message || String(e);
+    }
     busy(false);
   };
   $('#pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
@@ -147,12 +152,12 @@
       <div class="mchip ${m.online ? '' : 'off'} ${m.role === 'spec' ? 'spec' : ''}" data-peer="${U.esc(m.peerId)}" data-cid="${U.esc(m.cid)}">
         <span class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</span>
         ${m.cid === room.hostCid ? '👑' : ''}${U.esc(m.name)}${m.cid === R.cid ? '（你）' : ''}
-        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.auto ? '<small>🤖託管</small>' : ''}${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
+        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.bot ? '<small>🤖電腦</small>' : m.auto ? '<small>🤖託管</small>' : ''}${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
         ${meHost && m.cid !== R.cid ? `<button class="kick" data-kick="${U.esc(m.cid)}" title="請出房間">×</button>` : ''}
       </div>`).join('');
     $('#members').querySelectorAll('[data-kick]').forEach(b => b.onclick = (e) => {
       e.stopPropagation(); const m = room.members.find(x => x.cid === b.dataset.kick);
-      if (m && confirm(`把 ${m.name} 請出房間？`)) R.send({ t: 'kick', cid: m.cid });
+      if (m && (m.bot || confirm(`把 ${m.name} 請出房間？`))) R.send({ t: 'kick', cid: m.cid });
     });
   }
 
@@ -178,6 +183,8 @@
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
         <label class="opt"><span>桌面風格（所有遊戲）</span><select id="skinSel" ${host ? '' : 'disabled'}>${[['nebula', '🌈 星雲霓虹'], ['classic', '🟢 經典綠桌'], ['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']].map(([v, l]) => `<option value="${v}" ${(lobby.skin || 'nebula') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        ${room.test && host ? `<div class="testbox"><b>🧪 測試房</b><span>電腦玩家會自動出牌，用來測試遊戲流程</span>
+          <div class="act-row"><button class="btn sm" id="addBot" ${players.length >= mod.max ? 'disabled' : ''}>＋ 加電腦玩家</button><button class="btn ghost sm" id="fillBot" ${players.length >= mod.max ? 'disabled' : ''}>補滿到 ${mod.max} 人</button><button class="btn ghost sm" id="clearBot" ${room.members.some(m => m.bot) ? '' : 'disabled'}>移除全部電腦</button></div></div>` : ''}
         <p class="pcount ${countOk ? '' : 'bad'}">玩家 ${players.length} 人（${mod.min}–${mod.max} 人）${countOk ? '' : ' — 人數不符'}</p>
         <div class="act-row">
           <button class="btn ghost" id="myRole">${me && me.role === 'spec' ? '我要當玩家' : '我改成觀戰'}</button>
@@ -194,6 +201,11 @@
     if (host) $('#startBtn').onclick = () => R.send({ t: 'start' });
     $('#skinSel').onchange = (e) => R.send({ t: 'skin', skin: e.target.value });
     $('#inviteBtn').onclick = copyInvite;
+    if ($('#addBot')) {
+      $('#addBot').onclick = () => R.send({ t: 'addbot' });
+      $('#fillBot').onclick = () => { for (let i = players.length; i < mod.max; i++) R.send({ t: 'addbot' }); };
+      $('#clearBot').onclick = () => R.send({ t: 'clearbots' });
+    }
   }
 
   async function copyInvite() {

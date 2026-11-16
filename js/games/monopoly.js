@@ -124,7 +124,14 @@
       const w = R().autoAct(st); if (!w) return false;
       R().act(st, w.seat < 0 ? 0 : w.seat, w.a, now); return true;
     },
-    auto(st) { const w = R().autoAct(st); return w && w.seat >= 0 ? w : null; },
+    auto(st, isAuto) {
+      // 選角色階段：電腦／託管的玩家自動挑一個還沒被選走的角色
+      if (st.phase === 'pick' && isAuto) {
+        const th = TH()[st.theme]; const s = st.players.findIndex((p, k) => !p.char && isAuto(k));
+        if (s >= 0) { const used = new Set(st.players.filter(p => p.char && p.char.kind === 'preset').map(p => p.char.i)); const free = th.chars.map((_, i) => i).filter(i => !used.has(i)); return { seat: s, a: { type: 'pick', i: free[(s * 3 + st.n) % free.length] } }; } // 不能用亂數：同一個決定要維持穩定，系統才會在等待後出手
+        return null;
+      }
+      const w = R().autoAct(st); return w && w.seat >= 0 ? w : null; },
     view(st) {
       return {
         theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
