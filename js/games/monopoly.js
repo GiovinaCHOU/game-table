@@ -272,7 +272,7 @@
       m.querySelector('[data-a="ok"]').onclick = () => {
         const small = document.createElement('canvas'); small.width = small.height = 128; small.getContext('2d').drawImage(cv, 0, 0, 128, 128);
         const img = small.toDataURL('image/jpeg', 0.8);
-        root.Room.send({ t: 'avatar', img }); m.hidden = true; m.innerHTML = ''; if (after) setTimeout(after, 300); setTimeout(() => this.showPrompt(), 400);
+        root.Room.setAvatar(img); m.hidden = true; m.innerHTML = ''; if (after) setTimeout(after, 300); setTimeout(() => this.showPrompt(), 400);
       };
     },
 

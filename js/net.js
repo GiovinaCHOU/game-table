@@ -49,7 +49,7 @@
       return c;
     }
     call() { return null; }
-    reconnect() {} destroy() { this._bc.close(); }
+    reconnect() {} destroy() { this._dead = true; this.destroyed = true; this._bc.close(); }
     get disconnected() { return false; }
   }
 

@@ -19,7 +19,7 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) {} }
   };
   // 清掉超過 6 小時的舊房間
-  try { Object.keys(localStorage).forEach(k => { if (/^(snap|seat):/.test(k)) { const v = LS.get(k); if (!v || Date.now() - (v.t || 0) > KEEP_MS) LS.del(k); } }); } catch (e) {}
+  try { Object.keys(localStorage).forEach(k => { if (/^(snap|seat|av):/.test(k)) { const v = LS.get(k); if (!v || Date.now() - (v.t || 0) > KEEP_MS) LS.del(k); } }); } catch (e) {}
   // 同一個 PIN 用固定身分，重新整理或被系統關掉分頁後回來，還是坐回原本的位子
   const TEST_PIN = '777777'; // 測試房：可以加電腦玩家
   function cidFor(pin) { if (window.Net.LOCAL) return myCid(); const v = LS.get('seat:' + pin); if (v && v.cid) { LS.set('seat:' + pin, { cid: v.cid, t: Date.now() }); return v.cid; } const c = rid(); LS.set('seat:' + pin, { cid: c, t: Date.now() }); return c; }
@@ -37,7 +37,26 @@
     },
     act(a) { this.send({ t: 'act', a }); },
     // 房主→本機
-    _hello() { try { this.conn && this.conn.open && this.conn.send({ t: 'hello', cid: this.cid, name: this.name, spec: this.spec, peerId: this.peer.id, voice: Voice.mode === 'off' ? null : Voice.mode }); } catch (e) {} this._helloAt = Date.now(); },
+    // 自己畫的頭像：記在這台裝置，每次連上房主都會重送（斷線時傳丟也會補回來）
+    myAvatar() { if (this._av) return this._av; const v = this.pin && LS.get('av:' + this.pin); return (v && v.img) || null; },
+    setAvatar(img) { this._av = img; if (this.pin) LS.set('av:' + this.pin, { img, t: Date.now() }); this.send({ t: 'avatar', img }); this._avCheck(img, 0); },
+    _avCheck(img, n) { setTimeout(() => { const me = this.room && this.room.members.find(x => x.cid === this.cid); if (me && me.avatar === img) return; if (n < 5) { this.send({ t: 'avatar', img }); this._avCheck(img, n + 1); } }, 2500); },
+    // 手機網路切換（5G／Wi‑Fi）後，連線元件可能已經壞掉：壞了就換一個新的
+    async _ensurePeer() {
+      if (this.isHost) return;
+      const p = this.peer;
+      if (p && !p.destroyed && !p.disconnected) { this._discSince = 0; return; }
+      if (p && !p.destroyed && p.disconnected) {
+        if (!this._discSince) this._discSince = Date.now();
+        if (Date.now() - this._discSince < 8000) { try { p.reconnect(); } catch (e) {} return; }
+      }
+      try { p && p.destroy(); } catch (e) {}
+      this._discSince = 0; this.cb.status('網路變了，重新建立連線…', true);
+      this.peer = await this._openPeer(null); Voice.attach(this.peer);
+      this.peer.on('disconnected', () => { setTimeout(() => { try { this.peer.reconnect(); } catch (e) {} }, 1000); });
+      this._connecting = false;
+    },
+    _hello() { try { this.conn && this.conn.open && this.conn.send({ t: 'hello', cid: this.cid, name: this.name, spec: this.spec, peerId: this.peer.id, voice: Voice.mode === 'off' ? null : Voice.mode, avatar: this.myAvatar() }); } catch (e) {} this._helloAt = Date.now(); },
     // 連上了卻一直沒收到房間／遊戲畫面（手機網路常見）：先重送打招呼，再不行就整個重連
     _resync() {
       if (this.isHost || !this.conn || this._connecting) return;
@@ -197,7 +216,8 @@
 
     // ================= 加入 =================
     async join(pin, name, spec) {
-      this.name = name; this.pin = pin; this.isHost = false; this.spec = spec; this.cid = cidFor(pin);
+      this.name = name; this.pin = pin; this.isHost = false; this.spec = spec; this.cid = cidFor(pin); this._av = null;
+      if (this.peer && this.peer.destroyed) this.peer = null;
       if (!this.peer) {
         this.peer = await this._openPeer(null);
         Voice.attach(this.peer);
@@ -214,7 +234,7 @@
         if (this._leaving) return;
         if (this.isHost) return;
         this._resync();
-        if (Date.now() - (this._lastHost || 0) > 13000) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._connect().catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
+        if (Date.now() - (this._lastHost || 0) > 13000) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._ensurePeer().then(() => this._connect()).catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
       }, 4000);
     },
     _connect() {
@@ -238,7 +258,7 @@
           if (this._leaving || this.isHost || this.conn !== conn) return;
           this.cb.status('與房主斷線，重新連線中…', true);
           setTimeout(() => this._takeover(), 1500);
-          setTimeout(() => { if (!this.isHost && !this._leaving) this._connect().catch(() => {}); }, 3500);
+          setTimeout(() => { if (!this.isHost && !this._leaving) this._ensurePeer().then(() => this._connect()).catch(() => {}); }, 3500);
         });
         conn.on('error', () => {});
       });
@@ -378,6 +398,7 @@
             this.members.push(m); this.sysChat(`${name} 加入了房間${m.role === 'spec' ? '（觀戰）' : ''}`);
           } else { const was = m.online; m.online = true; m.peerId = d.peerId; m.name = name; m.seen = Date.now(); if (!was) this.sysChat(`${name} 回來了`); }
           if (d.voice !== undefined) m.voice = d.voice;
+          if (typeof d.avatar === 'string' && d.avatar.startsWith('data:image/') && d.avatar.length < 60000) m.avatar = d.avatar;
           this.pushRoom(); this.pushViews();
           break;
         }
