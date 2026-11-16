@@ -10,7 +10,16 @@
   const RENT_MUL = [0.092, 0.35, 0.74, 1.29, 2.02]; // 過路費比原本少約 8%
   const BUYOUT_MUL = 1.4, ROUND_CAP = 40;
   const START_BONUS = 5000, BOOST = 3000, JAIL = 7;
-  const taxOf = (st, s) => Math.max(2000, Math.round(worth(st, s) * 0.06 / 100) * 100); // 累進稅：越有錢繳越多
+  // 稅金＝財產稅（總資產分段累進）＋房屋稅（每蓋一級 500，地標一塊 3,000），最少 1,000
+  const TAX_BRACKETS = [[50000, 0.02], [100000, 0.05], [200000, 0.08], [Infinity, 0.11]], HOUSE_TAX = 500, LANDMARK_TAX = 3000;
+  function taxDetail(st, s) {
+    let w = worth(st, s), prev = 0, wealth = 0;
+    for (const [cap, r] of TAX_BRACKETS) { if (w <= prev) break; wealth += (Math.min(w, cap) - prev) * r; prev = cap; }
+    let house = 0; BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s) { const lv = st.levels[t.i]; house += lv >= 4 ? LANDMARK_TAX : lv * HOUSE_TAX; } });
+    wealth = Math.round(wealth / 100) * 100;
+    return { wealth, house, total: Math.max(1000, wealth + house) };
+  }
+  const taxOf = (st, s) => taxDetail(st, s).total;
   const BOARD = []; { let pi = 0; LAYOUT.forEach((c, i) => {
     if (c[0] === 'P') { const g = +c[1]; BOARD.push({ i, type: 'prop', g, pi: pi++, price: GROUP_PRICE[g], up: Math.round(GROUP_PRICE[g] * 0.6), color: GROUP_COLOR[g] }); }
     else BOARD.push({ i, type: { S: 'start', L: 'luck', B: 'bad', X: 'tax', J: 'jail', F: 'free', G: 'gotojail', T: 'teleport', I: 'item' }[c] });
@@ -230,7 +239,7 @@
     }
     if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
     if (t.type === 'item' || t.type === 'free') return openShop(st, s, t.type === 'free');
-    if (t.type === 'tax') { pay(st, s, -1, taxOf(st, s), '稅金'); return false; }
+    if (t.type === 'tax') { const d = taxDetail(st, s); ev(st, { t: 'note', seat: s, text: `財產稅 ${d.wealth.toLocaleString()}＋房屋稅 ${d.house.toLocaleString()}${d.total > d.wealth + d.house ? '（最少 1,000）' : ''}` }); pay(st, s, -1, d.total, '稅金'); return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
     return false;
@@ -265,7 +274,7 @@
   }
 
   const R = {
-    BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, buyoutOf,
+    BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;

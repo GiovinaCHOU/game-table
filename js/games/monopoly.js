@@ -108,7 +108,7 @@
 
   const M = {
     id: 'monopoly', name: '大富翁', icon: '🎩', min: 2, max: 6,
-    desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
+    desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢、房子越多繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
     options: [
       { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
@@ -896,7 +896,7 @@
         const o = v.owners[i]; const lv = v.levels[i];
         body = `<p>${o >= 0 ? `地主：${this.faceHTML(v, o, 22)} ${U.esc(v.names[o])}　建築 Lv${lv}` : `空地，售價 ${fmt(t.price)} ${th.unit}`}</p>
           <p class="hint">過路費：${[0, 1, 2, 3, 4].map(k => `Lv${k} ${fmt(Math.round(t.price * R().RENT_MUL[k] * (v.infl || 1)))}`).join('、')}${v.infl > 1 ? `（已含漲價 ×${v.infl.toFixed(1)}）` : ''}<br>升級一次 ${fmt(t.up)} ${th.unit}${o >= 0 && lv < 4 ? `<br>收購價 ${fmt(R().buyoutOf({ levels: v.levels }, i))}` : ''}</p>`;
-      } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，從 3 張道具中免費挑一張', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '繳總資產的 6%（最少 2,000）', teleport: '隨機傳送到任一塊地', item: '從 3 張道具中挑一張買（越買越貴、錢最少的人 5 折），擲骰子前可以使用' }[t.type]}</p>`;
+      } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，從 3 張道具中免費挑一張', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '財產稅＋房屋稅：總資產分段累進（5 萬內 2%、5–10 萬 5%、10–20 萬 8%、20 萬以上 11%），每蓋一級房子再加 500、地標一塊 3,000', teleport: '隨機傳送到任一塊地', item: '從 3 張道具中挑一張買（越買越貴、錢最少的人 5 折），擲骰子前可以使用' }[t.type]}</p>`;
       m.hidden = false;
       m.innerHTML = `<div class="mm-card tinfo">${t.type === 'prop' ? `<div class="tile-chip" style="background:${t.color}"></div>` : ''}<h3>${U.esc(R().tileName(v.theme, i))}</h3>${body}<button class="btn sm" data-x>關閉</button></div>`;
       m.onclick = (e) => { if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); } };
