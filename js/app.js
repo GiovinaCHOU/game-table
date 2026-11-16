@@ -244,7 +244,12 @@
   document.addEventListener('click', (e) => { if (!e.target.closest('#menu')) $('#menu').hidden = true; });
   $('#leaveBtn').onclick = () => { const h = R.room && R.room.members.find(m => m.cid === R.room.heir);
     if (confirm(R.isHost ? (h ? `你是房主，離開後會由「${h.name}」接手當房主，遊戲繼續。確定離開？` : '你是房主，目前沒有其他人，離開後房間會關閉。確定？') : '確定離開房間？')) R.leave(); };
-  $('#endBtn').onclick = () => { $('#menu').hidden = true; if (lastPhaseOver || confirm('結束目前的遊戲，回到大廳？')) R.send({ t: 'end' }); };
+  // 回大廳：房主那台如果還是舊版網頁，不會理會非房主的要求，這時提示大家重新整理
+  window.backToLobby = () => {
+    R.send({ t: 'end' });
+    if (!R.isHost) setTimeout(() => { if (R.room && R.room.game) toast('房主那邊還沒反應：請房主重新整理網頁後再按一次，或請房主按「回遊戲大廳」', 5000); }, 2500);
+  };
+  $('#endBtn').onclick = () => { $('#menu').hidden = true; if (lastPhaseOver || confirm('結束目前的遊戲，回到大廳？')) window.backToLobby(); };
   $('#roleBtn').onclick = () => {
     $('#menu').hidden = true;
     if (R.room && R.room.game) { toast('遊戲進行中不能切換，回大廳後再換'); return; }
