@@ -211,6 +211,7 @@
       b.init(stage, v.theme, R()).then(() => {
         b.ready = true; this.board = b; try { const an = Math.min(8, b.renderer.capabilities.getMaxAnisotropy()); b.scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (m.map) { m.map.anisotropy = an; m.map.needsUpdate = true; } }); }); } catch (e) {} /* 斜看的格子文字比較不糊 */ stage.querySelector('.mono-loading').remove();
         b.onPan = () => { this._camFree = true; };
+        b.onLost = () => { if (this.board !== b || !this.v || !this.ui) return; try { this.destroy(); } catch (e) {} const host = this.el; if (host) { host.dataset.g = ''; this.render(host, this.v, this.ui); } };
         b.onTap = (h) => { if (h.tile != null && this.canAct('gate')) this.pickGate(h.tile); else if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
         try { if (!localStorage.getItem('mono-hint')) { const hn = el.querySelector('.mono-hint'); hn.hidden = false; setTimeout(() => hn.hidden = true, 6000); localStorage.setItem('mono-hint', '1'); } } catch (x) {}
         b.onStep = () => SFX.step();

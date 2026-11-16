@@ -30,6 +30,8 @@
       r.shadowMap.enabled = this.q.high; r.shadowMap.type = T.PCFSoftShadowMap;
       r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.0 : 1.0;
       el.appendChild(r.domElement); r.domElement.style.touchAction = 'none';
+      // iOS／App 內建瀏覽器切到背景時可能把 3D 畫面回收（context lost），回來後通知外面整個重建
+      r.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; setTimeout(() => this.onLost && this.onLost(), 300); });
       const sc = this.scene = new T.Scene();
       sc.background = new T.Color(S.bg); sc.fog = new T.Fog(S.fog[0], S.fog[1], S.fog[2]);
       this.cam = new T.PerspectiveCamera(45, w / h, 0.1, 300);
