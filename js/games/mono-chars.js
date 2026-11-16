@@ -339,6 +339,7 @@
   // 每一幀更新動作
   C.update = function (r, t, dt) {
     const s = r.state, now = performance.now();
+    if (s === 'puppet') { if (r.tick) r.tick(t, s); if (r.arrow.visible) r.arrow.position.y = 1.35; return; } // 由動畫腳本直接控制
     if (r.stateUntil && now > r.stateUntil && s !== 'walk' && s !== 'fall') { r.state = 'idle'; r.stateUntil = 0; }
     r.phase += dt * (s === 'walk' ? 11 : 2);
     const sw = Math.sin(r.phase);

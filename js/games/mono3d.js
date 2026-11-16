@@ -17,6 +17,7 @@
   }
   function quality() { if (window.__monoQ) return window.__monoQ; try { return localStorage.getItem('mono-q') || ((navigator.hardwareConcurrency || 4) <= 4 ? 'low' : 'high'); } catch (e) { return 'high'; } }
 
+  const U_shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   class Board3D {
     constructor() { this.tokens = {}; this.bld = {}; this.anim = []; this.upd = []; this.t0 = performance.now(); this.last = performance.now(); }
     async init(el, theme, R) {
@@ -24,7 +25,7 @@
       this.el = el; this.theme = theme; this.R = R; this.q = { high: quality() === 'high' };
       const w = el.clientWidth || 360, h = el.clientHeight || 400;
       const r = this.renderer = new T.WebGLRenderer({ antialias: this.q.high, powerPreference: 'high-performance' });
-      r.setPixelRatio(Math.min(this.q.high ? 2 : 1.25, window.devicePixelRatio || 1)); r.setSize(w, h);
+      r.setPixelRatio(Math.min(this.q.high ? 1.5 : 1, window.devicePixelRatio || 1)); r.setSize(w, h);
       r.shadowMap.enabled = this.q.high; r.shadowMap.type = T.PCFSoftShadowMap;
       r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.0 : 1.0;
       el.appendChild(r.domElement); r.domElement.style.touchAction = 'none';
@@ -43,7 +44,7 @@
       } catch (e) { console.warn(e); }
       sc.add(new T.HemisphereLight(S.hemi[0], S.hemi[1], S.hemi[2]));
       const sun = new T.DirectionalLight(S.sun[0], S.sun[1]); sun.position.set(10, 18, 8); sun.castShadow = this.q.high;
-      sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 60 }); sun.shadow.bias = -0.0005; sc.add(sun);
+      sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 60 }); sun.shadow.bias = -0.0005; sc.add(sun);
       A.env(T, sc, theme, this.q, this.upd);
       this.buildTiles();
       this.cr = { target: new T.Vector3(0, 0, 0), dist: 15, polar: 0.75, azim: 0 };
@@ -51,7 +52,8 @@
       this.overview(true);
       this.bindGestures();
       this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
-      const loop = () => { if (this.dead) return; this.raf = requestAnimationFrame(loop); if (!this.paused) this.frame(); };
+      // 省電：最多 30 fps、分頁在背景時不畫（手機比較不會燙）
+      let lastR = 0; const loop = (ts) => { if (this.dead) return; this.raf = requestAnimationFrame(loop); if (this.paused || document.hidden) return; if (ts - lastR < 31) return; lastR = ts; this.frame(); };
       loop();
     }
     resize() { const w = this.el.clientWidth, h = this.el.clientHeight; if (!w || !h) return; this.renderer.setSize(w, h); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
@@ -224,6 +226,7 @@
           r.g.add(this.nameTag(p.name, p.color)); r.g.scale.setScalar(1.15); this.scene.add(r.g);
           tk = this.tokens[p.seat] = { r, key, pos: -1 };
         }
+        tk.color = p.color;
         if (tk.eaten) tk.r.g.visible = false;
         else if (p.alive === false && tk.r.state !== 'fall') root.MONO_CHARS.set(tk.r, 'fall');
       });
@@ -275,13 +278,14 @@
       this.follow(victim); this.goal.dist = 3.4; this.goal.polar = 1.18; this.goal.azim = yaw + Math.PI / 2 + 0.5; this.clampGoal();
       await wait(450);
       // 3. 生物機械巨顎：從債主頭部長出來
-      const black = new T.MeshStandardMaterial({ color: '#1d1622', roughness: 0.12, metalness: 0.8 }), gum = new T.MeshStandardMaterial({ color: '#5a0d18', roughness: 0.35, side: T.BackSide }),
-        bone = new T.MeshStandardMaterial({ color: '#e8dfc8', roughness: 0.3 }), slime = new T.MeshStandardMaterial({ color: '#c9d8a0', roughness: 0.05, transparent: true, opacity: 0.6 });
+      const black = new T.MeshPhysicalMaterial({ color: '#1a1420', roughness: 0.18, metalness: 0.6, clearcoat: 1, clearcoatRoughness: 0.08 }), gum = new T.MeshPhysicalMaterial({ color: '#6a0f1e', roughness: 0.25, clearcoat: 1, side: T.BackSide }),
+        bone = new T.MeshStandardMaterial({ color: '#efe6cf', roughness: 0.22, emissive: '#2a2010', emissiveIntensity: 0.3 }), slime = new T.MeshStandardMaterial({ color: '#c9d8a0', roughness: 0.05, transparent: true, opacity: 0.6 });
       const maw = new T.Group(); this.scene.add(maw);
       const mk = (up) => { const j = new T.Group(); maw.add(j);
         const sh = new T.Mesh(new T.SphereGeometry(0.42, 24, 12, 0, Math.PI * 2, up ? 0 : Math.PI / 2, Math.PI / 2), black); sh.scale.set(1, 0.7, 1.25); sh.position.z = 0.32; j.add(sh);
         const in_ = new T.Mesh(new T.SphereGeometry(0.4, 20, 10, 0, Math.PI * 2, up ? 0 : Math.PI / 2, Math.PI / 2), gum); in_.scale.set(0.97, 0.66, 1.2); in_.position.z = 0.32; j.add(in_);
-        for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; const tth = new T.Mesh(new T.ConeGeometry(0.03, 0.13 + (k % 3 === 0 ? 0.06 : 0), 5), bone); tth.position.set(Math.cos(a) * 0.38, 0, 0.32 + Math.sin(a) * 0.48); tth.rotation.x = up ? Math.PI : 0; j.add(tth); }
+        for (let row = 0; row < 2; row++) for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2; if (Math.sin(a) < -0.6) continue; const rr = row ? 0.3 : 0.39, tth = new T.Mesh(new T.ConeGeometry(row ? 0.022 : 0.034, (row ? 0.09 : 0.15) + (k % 3 === 0 ? 0.08 : 0), 6), bone); tth.position.set(Math.cos(a) * rr, 0, 0.32 + Math.sin(a) * rr * 1.25); tth.rotation.x = up ? Math.PI : 0; tth.rotation.z = (up ? 1 : -1) * Math.cos(a) * 0.15; j.add(tth); }
+        for (let k = 0; k < 7; k++) { const vn = new T.Mesh(new T.TorusGeometry(0.4 - k * 0.012, 0.01, 4, 16, 0.9), new T.MeshStandardMaterial({ color: '#3a0a14', roughness: 0.3 })); vn.rotation.set(up ? -0.3 - k * 0.12 : 0.3 + k * 0.12, 0, Math.PI / 2); vn.position.z = 0.32; j.add(vn); }
         for (let k = 0; k < 4; k++) { const rb = new T.Mesh(new T.TorusGeometry(0.42, 0.018, 6, 20, Math.PI), bone); rb.scale.set(1, 0.7, 1); rb.rotation.set(up ? 0 : Math.PI, Math.PI / 2, 0); rb.position.z = 0.05 + k * 0.17; j.add(rb); }
         for (let k = 0; k < 3; k++) { const d = new T.Mesh(new T.CylinderGeometry(0.008, 0.004, 0.25, 4), slime); d.position.set(-0.15 + k * 0.15, up ? -0.12 : 0.12, 0.45); j.add(d); }
         return j; };
@@ -292,23 +296,35 @@
       const head0 = E.r.g.position.clone().add(new T.Vector3(0, 0.9, 0)), target = V.r.g.position.clone().add(new T.Vector3(0, 0.45, 0));
       maw.position.copy(head0); maw.lookAt(target); maw.scale.setScalar(0.01);
       S('hiss');
-      const open = (a) => { upper.rotation.x = -a; lower.rotation.x = a; };
+      // 上下顎之間牽絲的黏液
+      const strands = []; for (let k = 0; k < 5; k++) { const st = new T.Mesh(new T.CylinderGeometry(0.006, 0.01, 1, 5), slime); st.position.set(-0.2 + k * 0.1, 0, 0.45 + (k % 2) * 0.1); maw.add(st); strands.push(st); }
+      const open = (a) => { upper.rotation.x = -a; lower.rotation.x = a; strands.forEach((st, k) => { const h = Math.sin(a) * (0.42 + (k % 2) * 0.1) * 2; st.scale.y = Math.max(0.01, h * (a < 1.0 ? 1 : 0.3)); st.visible = a > 0.12; }); };
       await this.tween(500, k => { const e = 1 - Math.pow(1 - k, 3); maw.scale.setScalar(0.01 + e * 1.15); open(e * 0.9); });
       // 張大嘴移到獵物上方，唾液滴落
       const over = target.clone().sub(dirV.clone().multiplyScalar(0.25)); over.y += 0.15;
       await this.tween(550, k => { maw.position.lerpVectors(head0, over, k); maw.lookAt(target); open(0.9 + k * 0.35); });
       await this.tween(220, k => { inner.position.z = Math.sin(k * Math.PI) * 0.45; });
-      // 4. 咬合！
+      // 4. 咬合！把獵物整個叼起來
       S('snap');
-      await this.tween(110, k => { open(1.25 * (1 - k)); maw.position.lerpVectors(over, target, k); });
-      V.r.g.visible = false; V.eaten = true;
-      this.gore(target, S);
-      // 震動鏡頭
-      const c0 = this.goal.target.clone(); await this.tween(450, k => { const a = (1 - k) * 0.12; this.goal.target.set(c0.x + (Math.random() - 0.5) * a, 0, c0.z + (Math.random() - 0.5) * a); });
-      this.goal.target.copy(c0);
-      // 咀嚼兩下
-      for (let c = 0; c < 2; c++) { S('crunch'); await this.tween(260, k => open(Math.sin(k * Math.PI) * 0.28)); }
-      await wait(250);
+      await this.tween(110, k => { open(1.25 * (1 - k) + 0.25 * k); maw.position.lerpVectors(over, target, k); });
+      this.gore(target, S, 70, 0.8);
+      maw.attach(V.r.g); root.MONO_CHARS.set(V.r, 'scared', 6000);
+      const c0 = this.goal.target.clone(); this.tween(450, k => { const a = (1 - k) * 0.12; this.goal.target.set(c0.x + (Math.random() - 0.5) * a, 0, c0.z + (Math.random() - 0.5) * a); }).then(() => this.goal.target.copy(c0));
+      // 叼高、猛力甩動，體液一路噴灑
+      const up0 = maw.position.clone(), up1 = up0.clone().add(new T.Vector3(0, 0.75, 0));
+      await this.tween(380, k => maw.position.lerpVectors(up0, up1, 1 - Math.pow(1 - k, 2)));
+      let lastSp = 0; S('growl');
+      await this.tween(1100, k => {
+        maw.rotation.z = Math.sin(k * 34) * 0.5 * (1 - k * 0.4); maw.position.x = up1.x + Math.sin(k * 17) * 0.12;
+        const now = performance.now(); if (now - lastSp > 130) { lastSp = now; const w = new T.Vector3(); V.r.g.getWorldPosition(w); w.y += 0.2; this.gore(w, null, 12, 0.55, true); }
+      });
+      maw.rotation.z = 0;
+      // 吞下去：咀嚼、獵物被嚼碎消失
+      for (let c = 0; c < 3; c++) { S('crunch'); const s0 = V.r.g.scale.x; await this.tween(240, k => { open(0.25 + Math.sin(k * Math.PI) * 0.3); V.r.g.scale.setScalar(s0 * (1 - k * 0.3)); }); const w = new T.Vector3(); maw.getWorldPosition(w); this.gore(w, null, 18, 0.6, true); }
+      V.r.g.visible = false; V.eaten = true; this.scene.attach(V.r.g);
+      await this.tween(300, k => open(0.25 * (1 - k)));
+      await this.tween(300, k => maw.position.lerpVectors(up1, up0, k));
+      await wait(200);
       // 5. 巨顎縮回債主體內，債主得意
       const back = E.r.g.position.clone().add(new T.Vector3(0, 0.9, 0)), mp = maw.position.clone();
       await this.tween(420, k => { maw.position.lerpVectors(mp, back, k); maw.scale.setScalar(1.15 * (1 - k) + 0.01); });
@@ -318,26 +334,184 @@
       this.follow(eater); this.goal.dist = 8;
       E.busy = false; await this.teleport(eater, home, true);
     }
+    // ===== 分食：大家（或債主）圍上去，各自用不同方式吃 =====
+    mouth(r) { if (r.head) { const rad = (r.skull && r.skull.geometry.parameters.radius) || 0.13; return [r.head, new THREE.Vector3(0, -0.05, rad * 1.1)]; } return [r.body, new THREE.Vector3(0, 0.6, 0.25)]; }
+    wpos(obj, p) { obj.updateWorldMatrix(true, false); return obj.localToWorld(p.clone()); }
+    gm() { const T = THREE; return this._gm || (this._gm = { meat: new T.MeshPhysicalMaterial({ color: '#9b1b2a', roughness: 0.3, clearcoat: 0.8, flatShading: true }), dark: new T.MeshStandardMaterial({ color: '#4a0812', roughness: 0.25 }), fat: new T.MeshStandardMaterial({ color: '#f0dcc0', roughness: 0.5 }), bone: new T.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.35 }) }); }
+    chunk(sz) {
+      const T = THREE, g = new T.Group(), m = this.gm();
+      const a = new T.Mesh(new T.DodecahedronGeometry(sz, 0), m.meat); a.scale.set(1.3, 0.8, 1); g.add(a);
+      const f = new T.Mesh(new T.SphereGeometry(sz * 0.45, 6, 5), m.fat); f.position.set(sz * 0.5, sz * 0.35, 0); g.add(f);
+      const d = new T.Mesh(new T.SphereGeometry(sz * 0.4, 6, 5), m.dark); d.position.set(-sz * 0.4, -sz * 0.2, sz * 0.3); g.add(d);
+      if (Math.random() < 0.6) { const b = new T.Mesh(new T.CapsuleGeometry(sz * 0.18, sz * 1.6, 3, 6), m.bone); b.rotation.z = 1.3; b.position.x = sz * 0.6; g.add(b); }
+      g.traverse(o => { if (o.isMesh) o.castShadow = this.q.high; }); return g;
+    }
+    carcass(at, color) {
+      const T = THREE, g = new T.Group(), m = this.gm(), meat = []; g.position.set(at.x, 0, at.z); this.scene.add(g);
+      const torso = new T.Mesh(new T.SphereGeometry(0.26, 12, 9), m.meat); torso.scale.set(1.4, 0.55, 0.85); torso.position.y = 0.13; g.add(torso); meat.push(torso);
+      for (let k = 0; k < 6; k++) { const rb = new T.Mesh(new T.TorusGeometry(0.15, 0.014, 5, 12, Math.PI), m.bone); rb.position.set(-0.2 + k * 0.08, 0.14, 0); rb.rotation.y = Math.PI / 2; g.add(rb); }
+      const spine = new T.Mesh(new T.CapsuleGeometry(0.02, 0.55, 3, 6), m.bone); spine.rotation.z = Math.PI / 2; spine.position.y = 0.06; g.add(spine);
+      const skull = new T.Mesh(new T.SphereGeometry(0.09, 10, 8), m.bone); skull.position.set(0.38, 0.09, 0); g.add(skull);
+      [-1, 1].forEach(sd => { const so = new T.Mesh(new T.SphereGeometry(0.022, 6, 5), m.dark); so.position.set(0.44, 0.11, sd * 0.035); g.add(so); });
+      for (let k = 0; k < 7; k++) { const c = this.chunk(0.05 + Math.random() * 0.05); c.position.set((Math.random() - 0.5) * 0.7, 0.05, (Math.random() - 0.5) * 0.5); c.rotation.set(Math.random() * 3, Math.random() * 3, 0); g.add(c); meat.push(c); }
+      const cloth = new T.Mesh(new T.PlaneGeometry(0.22, 0.14), new T.MeshStandardMaterial({ color: color || '#888', side: T.DoubleSide, roughness: 0.8 })); cloth.rotation.set(-Math.PI / 2, 0, 0.6); cloth.position.set(-0.32, 0.02, 0.22); g.add(cloth);
+      g.traverse(o => { if (o.isMesh) o.castShadow = this.q.high; });
+      return { g, meat, torso };
+    }
+    // 投擲物：帶血滴軌跡，落地變一灘
+    fling(obj, vel, S) {
+      const T = THREE; let last = 0;
+      return new Promise(res => { const step = (t, dt) => {
+        vel.y -= 9.8 * dt; obj.position.addScaledVector(vel, dt); obj.rotation.x += dt * 9; obj.rotation.z += dt * 6;
+        const now = performance.now(); if (now - last > 70) { last = now; this.gore(obj.position.clone(), null, 3, 0.25, true); }
+        if (obj.position.y <= 0.05) { obj.position.y = 0.05; const i = this.upd.indexOf(step); if (i >= 0) this.upd.splice(i, 1); this.gore(obj.position.clone(), S, 16, 0.5); S && S('splat'); res(); }
+      }; this.upd.push(step); });
+    }
+    pose(r, k) { // 0＝站好，1＝低頭彎腰去咬
+      if (r.kind === 'float') { r.body.position.y = 0.15 - k * 0.3; if (r.head) r.head.rotation.x = k * 0.5; return; }
+      if (r.kind === 'standee') { r.body.rotation.x = k * 0.7; return; }
+      const biped = r.kind === 'biped';
+      r.body.rotation.x = k * (biped ? 0.65 : 0.32); if (r.head) r.head.rotation.x = k * (biped ? 0.35 : 0.55);
+      if (biped) r.arms.forEach(a => { a.rotation.x = -k * 1.1; a.rotation.z = 0; });
+    }
+    async bite(E, S, at) {
+      const r = E.r;
+      await this.tween(240, k => this.pose(r, 0.2 + k * 0.8));
+      const [mo, mp] = this.mouth(r); const w = at || this.wpos(mo, mp); this.gore(w, null, 10, 0.45, true); S('crunch');
+      await this.tween(140, k => { r.body.position.y = -Math.sin(k * Math.PI) * 0.03; });
+      await this.tween(220, k => this.pose(r, 1 - k * 0.8));
+    }
+    async bhGnaw(E, S, F) { for (let i = 0; i < 4; i++) { await this.bite(E, S); if (F.torso) F.torso.scale.multiplyScalar(0.97); } }
+    async bhHowlTear(E, S, F) {
+      const T = THREE, r = E.r; await this.bite(E, S);
+      const [mo, mp] = this.mouth(r);
+      if (r.kind === 'biped' && r.handL && r.handR) {
+        // 雙手捧起一大塊肉，抬頭嚎叫，再用力往兩邊掰開，爆血
+        const a = this.chunk(0.08), b = this.chunk(0.08); r.handL.add(a); r.handR.add(b); a.position.set(0.05, -0.04, 0.03); b.position.set(-0.05, -0.04, 0.03);
+        await this.tween(350, k => { this.pose(r, 1 - k); r.arms.forEach((ar, i) => { ar.rotation.x = -1.2 - k * 0.3; ar.rotation.z = (i ? -1 : 1) * 0.35 * k; }); });
+        S('roar');
+        await this.tween(900, k => { r.head.rotation.x = -0.9 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2); r.body.rotation.x = -0.18 * k; r.arms.forEach((ar, i) => { ar.rotation.x = -1.5 - k * 1.0; }); r.body.position.y = Math.sin(k * 30) * 0.01; });
+        // 掰開
+        S('splat'); const mid = this.wpos(r.handL, new T.Vector3(0, 0, 0)).lerp(this.wpos(r.handR, new T.Vector3(0, 0, 0)), 0.5);
+        this.gore(mid, S, 45, 0.8, true);
+        await this.tween(220, k => r.arms.forEach((ar, i) => { ar.rotation.z = (i ? -1 : 1) * (0.35 - k * 1.25); }));
+        await this.tween(500, k => { r.head.rotation.x = -0.9 * (1 - k); });
+        // 一手送進嘴裡啃
+        for (let i = 0; i < 2; i++) { await this.tween(260, k => { r.arms[1].rotation.x = -2.5 + k * 0.6; r.arms[1].rotation.z = -0.9 + k * 0.9; r.head.rotation.x = k * 0.3; }); S('crunch'); this.gore(this.wpos(mo, mp), null, 8, 0.4, true); b.scale.multiplyScalar(0.7); await this.tween(200, k => { r.arms[1].rotation.x = -1.9 - k * 0.6; }); }
+        [a, b].forEach(c => { this.scene.attach(c); this.fling(c, new T.Vector3((Math.random() - 0.5) * 0.5, 0.2, (Math.random() - 0.5) * 0.5), null); });
+      } else {
+        // 四腳或無手：用前腳壓住、咬住一塊往後猛扯，扯斷爆血，再抬頭嚎叫
+        const c = this.chunk(0.09); mo.add(c); c.position.copy(mp);
+        await this.tween(260, k => { r.legs.slice(0, 2).forEach(l => l.rotation.x = -0.5 * k); });
+        await this.tween(500, k => { const e = Math.sin(k * Math.PI * 3) * 0.1; this.pose(r, 1 - k * 0.6); if (r.head) r.head.rotation.x += e; });
+        await this.tween(150, k => { this.pose(r, 0.4 - k * 0.9); });
+        S('splat'); this.gore(this.wpos(mo, mp), S, 40, 0.75, true);
+        const half = this.chunk(0.06); this.scene.add(half); half.position.copy(this.wpos(mo, mp)); this.fling(half, new T.Vector3(0, -0.5, 0), null);
+        S('roar');
+        await this.tween(950, k => { if (r.head) r.head.rotation.x = -0.9 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2); r.body.rotation.x = -0.15 * k; });
+        await this.tween(300, k => { if (r.head) r.head.rotation.x = -0.9 * (1 - k); r.legs.slice(0, 2).forEach(l => l.rotation.x = -0.5 * (1 - k)); r.body.rotation.x = -0.15 * (1 - k); });
+        this.scene.attach(c); this.fling(c, new T.Vector3(0, 0, 0), null);
+      }
+      await this.bite(E, S);
+    }
+    async bhFlingShake(E, S, F) {
+      const T = THREE, r = E.r; await this.bite(E, S);
+      const [mo, mp] = this.mouth(r); const c = this.chunk(0.085); mo.add(c); c.position.copy(mp);
+      await this.tween(250, k => this.pose(r, 1 - k * 1.1));
+      // 甩頭：左右猛甩，體液四濺
+      let last = 0; const tgt = r.head || r.body; S('growl');
+      await this.tween(850, k => { tgt.rotation.y = Math.sin(k * 42) * 0.7; r.body.rotation.y = Math.sin(k * 42) * 0.12; const now = performance.now(); if (now - last > 110) { last = now; this.gore(this.wpos(mo, mp), null, 6, 0.45, true); } });
+      tgt.rotation.y = 0; r.body.rotation.y = 0;
+      // 甩飛出去
+      const side = Math.random() < 0.5 ? -1 : 1, yaw = E.r.g.rotation.y + side * 1.4;
+      this.scene.attach(c); S('hiss');
+      await this.tween(160, k => { tgt.rotation.y = side * 0.8 * k; });
+      this.fling(c, new T.Vector3(Math.sin(yaw) * 2.6, 2.6, Math.cos(yaw) * 2.6), S);
+      await this.tween(250, k => { tgt.rotation.y = side * 0.8 * (1 - k); });
+      await this.bite(E, S);
+    }
+    async bhDrag(E, S, F, C) {
+      const T = THREE, r = E.r; await this.bite(E, S);
+      const [mo, mp] = this.mouth(r); const c = this.chunk(0.1); mo.add(c); c.position.copy(mp);
+      // 咬著肉往後拖到旁邊
+      const p0 = r.g.position.clone(), out = p0.clone().sub(C); out.y = 0; out.normalize(); const p1 = p0.clone().addScaledVector(out, 0.95);
+      S('growl');
+      await this.tween(1200, k => { this.pose(r, 0.5); r.g.position.lerpVectors(p0, p1, k); r.legs.forEach((l, i) => l.rotation.x = Math.sin(k * 26 + i * Math.PI) * 0.5); if (r.kind === 'biped') r.arms.forEach(a => a.rotation.x = -0.9); });
+      // 轉身背對大家，自己吃
+      const y0 = r.g.rotation.y; await this.tween(380, k => { r.g.rotation.y = y0 + Math.PI * k; r.legs.forEach(l => l.rotation.x *= 0.8); });
+      this.scene.attach(c); c.position.set(c.position.x, 0.06, c.position.z);
+      const fw = new T.Vector3(Math.sin(r.g.rotation.y), 0, Math.cos(r.g.rotation.y)); c.position.copy(r.g.position).addScaledVector(fw, 0.32); c.position.y = 0.06;
+      for (let i = 0; i < 4; i++) { await this.bite(E, S, c.position.clone().add(new T.Vector3(0, 0.05, 0))); c.scale.multiplyScalar(0.78); }
+      this.scene.remove(c);
+      await this.tween(380, k => { r.g.rotation.y = y0 + Math.PI * (1 - k); });
+      await this.tween(500, k => r.g.position.lerpVectors(p1, p0, k));
+    }
+    async feast(eaters, victim, sfx) {
+      const T = THREE, V = this.tokens[victim]; if (!V) return;
+      const S = (k) => sfx && sfx(k), wait = (ms) => new Promise(r => setTimeout(r, ms * (root.__monoSlow || 1)));
+      eaters = eaters.filter(s => s !== victim && this.tokens[s]); if (!eaters.length) return;
+      const N = this.R.N; V.busy = true; root.MONO_CHARS.set(V.r, 'scared', 20000);
+      const C = V.r.g.position.clone(); C.y = 0;
+      this.follow(null); this.goal.target.set(C.x, 0, C.z); this.goal.dist = 6.5; this.goal.polar = 1.0; this.clampGoal();
+      S('growl');
+      const homes = {};
+      // 1. 大家從各自的位置走過來（同時出發）
+      await Promise.all(eaters.map((s, k) => (async () => {
+        const E = this.tokens[s]; homes[s] = E.pos; E.busy = true; await wait(k * 160);
+        const fw = (V.pos - E.pos + N) % N, bw = (E.pos - V.pos + N) % N, dir = fw <= bw ? 1 : -1, n = Math.min(fw, bw);
+        const path = []; for (let i = 1; i <= n; i++) path.push((E.pos + dir * i + N) % N);
+        if (path.length) await this.hop(s, path, false, Math.max(80, Math.min(170, 1600 / path.length)));
+      })()));
+      root.MONO_CHARS.set(V.r, 'fall'); S('hiss'); await wait(500);
+      // 2. 圍成一圈
+      const n = eaters.length, base = Math.random() * 6.28;
+      await Promise.all(eaters.map((s, k) => { const E = this.tokens[s]; const a = base + k / Math.max(n, 2) * Math.PI * 2, rr = 0.62 + (E.r.kind === 'quad' ? 0.22 : 0);
+        const p0 = E.r.g.position.clone(), p1 = new T.Vector3(C.x + Math.cos(a) * rr, 0.005, C.z + Math.sin(a) * rr), yaw = Math.atan2(C.x - p1.x, C.z - p1.z);
+        root.MONO_CHARS.set(E.r, 'walk');
+        return this.tween(450, k2 => { E.r.g.position.lerpVectors(p0, p1, k2); E.r.g.rotation.y += (yaw - E.r.g.rotation.y) * 0.25; }).then(() => { E.r.g.rotation.y = yaw; root.MONO_CHARS.set(E.r, 'puppet'); this.pose(E.r, 0); }); }));
+      // 3. 撲上去：獵物變成一具屍骸
+      V.r.g.visible = false; V.eaten = true; S('snap'); S('crunch');
+      const F = this.carcass(C, V.color); this.gore(C.clone().add(new T.Vector3(0, 0.3, 0)), S, 80, 0.85);
+      const orbit = (t, dt) => { this.goal.azim += dt * 0.32; }; this.upd.push(orbit);
+      this.goal.dist = n > 1 ? 5.4 : 4.4; this.goal.polar = n > 1 ? 0.9 : 1.02;
+      // 4. 各吃各的：有人嚎叫撕開、有人甩頭甩飛、有人叼去旁邊、有人埋頭猛啃
+      const acts = U_shuffle(['howl', 'fling', 'drag', 'gnaw']);
+      await Promise.all(eaters.map((s, k) => (async () => {
+        const E = this.tokens[s]; await wait(k * 280);
+        const seq = n === 1 ? ['howl', 'fling', 'gnaw'] : [acts[k % 4], 'gnaw'];
+        for (const a of seq) {
+          if (a === 'howl') await this.bhHowlTear(E, S, F); else if (a === 'fling') await this.bhFlingShake(E, S, F); else if (a === 'drag') await this.bhDrag(E, S, F, C); else await this.bhGnaw(E, S, F);
+        }
+      })()));
+      // 5. 吃乾淨只剩骨頭，大家回到原位
+      F.meat.forEach(m => F.g.remove(m)); this.gore(C.clone().add(new T.Vector3(0, 0.1, 0)), null, 14, 0.4, true);
+      const oi = this.upd.indexOf(orbit); if (oi >= 0) this.upd.splice(oi, 1);
+      eaters.forEach(s => { const E = this.tokens[s]; this.pose(E.r, 0); E.r.body.rotation.set(0, 0, 0); if (E.r.head) E.r.head.rotation.set(0, 0, 0); root.MONO_CHARS.set(E.r, 'joy', 900); });
+      await wait(900);
+      await Promise.all(eaters.map(s => { const E = this.tokens[s]; E.busy = false; return this.teleport(s, homes[s], false); }));
+      setTimeout(() => { const t0 = performance.now(); F.g.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; } }); const fade = () => { const k = (performance.now() - t0) / 2500; F.g.traverse(o => { if (o.material) o.material.opacity = Math.max(0, 1 - k); }); if (k < 1 && !this.dead) requestAnimationFrame(fade); else this.scene.remove(F.g); }; fade(); }, 9000);
+    }
     // 血花：深紅與黑色體液噴濺、骨頭碎片，落地變成一灘一灘，幾秒後慢慢淡掉
-    gore(at, S) {
+    gore(at, S, n, pw, noPool) {
+      n = n || 110; pw = pw || 1;
       const T = THREE, parts = [], splats = [];
       const cols = ['#5c0010', '#8a0018', '#b3001b', '#3a0008', '#1a0a12'];
-      for (let k = 0; k < 110; k++) {
-        const m = new T.Mesh(new T.SphereGeometry(0.022 + Math.random() * 0.045, 6, 5), new T.MeshStandardMaterial({ color: cols[k % cols.length], roughness: 0.15, metalness: 0.1 }));
-        m.position.copy(at); const a = Math.random() * 6.28, sp = 0.8 + Math.random() * 2.4;
-        m.userData.v = new T.Vector3(Math.cos(a) * sp, 1.2 + Math.random() * 3, Math.sin(a) * sp); this.scene.add(m); parts.push(m);
+      for (let k = 0; k < n; k++) {
+        const m = new T.Mesh(new T.SphereGeometry((0.022 + Math.random() * 0.045) * Math.sqrt(pw), 6, 5), new T.MeshStandardMaterial({ color: cols[k % cols.length], roughness: 0.15, metalness: 0.1 }));
+        m.position.copy(at); const a = Math.random() * 6.28, sp = (0.8 + Math.random() * 2.4) * pw;
+        m.userData.v = new T.Vector3(Math.cos(a) * sp, (1.2 + Math.random() * 3) * pw, Math.sin(a) * sp); this.scene.add(m); parts.push(m);
       }
-      for (let k = 0; k < 10; k++) { const m = new T.Mesh(new T.CapsuleGeometry(0.012, 0.05 + Math.random() * 0.06, 3, 5), new T.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.4 })); m.position.copy(at); const a = Math.random() * 6.28; m.userData.v = new T.Vector3(Math.cos(a) * 1.4, 2 + Math.random() * 2, Math.sin(a) * 1.4); m.userData.spin = Math.random() * 10; this.scene.add(m); parts.push(m); }
+      for (let k = 0; k < (pw >= 1 ? 10 : 0); k++) { const m = new T.Mesh(new T.CapsuleGeometry(0.012, 0.05 + Math.random() * 0.06, 3, 5), new T.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.4 })); m.position.copy(at); const a = Math.random() * 6.28; m.userData.v = new T.Vector3(Math.cos(a) * 1.4, 2 + Math.random() * 2, Math.sin(a) * 1.4); m.userData.spin = Math.random() * 10; this.scene.add(m); parts.push(m); }
       // 獵物原地慢慢擴散的一大灘
-      const pool = new T.Mesh(new T.CircleGeometry(0.5, 28), new T.MeshStandardMaterial({ color: '#4a0010', roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.95 }));
+      if (!noPool) { const pool = new T.Mesh(new T.CircleGeometry(0.5, 28), new T.MeshStandardMaterial({ color: '#4a0010', roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.95 }));
       pool.rotation.x = -Math.PI / 2; pool.position.set(at.x, 0.012, at.z); pool.scale.setScalar(0.05); this.scene.add(pool); splats.push(pool);
-      const p0 = performance.now(); const grow = () => { const k = Math.min(1, (performance.now() - p0) / 1500); pool.scale.set(0.05 + k * 1.1, 0.05 + k * 0.9, 1); if (k < 1 && !this.dead) requestAnimationFrame(grow); }; grow();
+      const p0 = performance.now(), ps = pw; const grow = () => { const k = Math.min(1, (performance.now() - p0) / 1500); pool.scale.set(0.05 + k * 1.1 * ps, 0.05 + k * 0.9 * ps, 1); if (k < 1 && !this.dead) requestAnimationFrame(grow); }; grow(); }
       let landed = 0;
       const step = (t, dt) => {
         parts.forEach(m => { if (m.userData.done) return; const v = m.userData.v; v.y -= 9.8 * dt; m.position.addScaledVector(v, dt); if (m.userData.spin) m.rotation.z += m.userData.spin * dt;
           if (m.position.y <= 0.03) { m.userData.done = true; m.position.y = 0.03; landed++;
             if (!m.userData.spin) { const sz = 0.07 + Math.random() * 0.2; const sp = new T.Mesh(new T.CircleGeometry(sz, 12), new T.MeshStandardMaterial({ color: m.material.color, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.95 })); sp.rotation.x = -Math.PI / 2; sp.position.set(m.position.x, 0.02 + Math.random() * 0.004, m.position.z); sp.scale.set(1, 1 + Math.random() * 0.8, 1); this.scene.add(sp); splats.push(sp); this.scene.remove(m); }
-            if (landed === 12) S && S('splat'); } });
+            if (landed === 12 && pw >= 1) S && S('splat'); } });
       };
       this.upd.push(step);
       setTimeout(() => { const i = this.upd.indexOf(step); if (i >= 0) this.upd.splice(i, 1); parts.forEach(m => this.scene.remove(m));

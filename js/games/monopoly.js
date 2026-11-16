@@ -6,6 +6,9 @@
   // ---------- 音效（Web Audio 即時合成） ----------
   const SFX = {
     on: true, ctx: null, rev: null,
+    unlock() { // iPhone 要在使用者點擊時啟動音效，否則整場都沒聲音
+      try { const c = this.ac(); const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); if (c.state !== 'running') c.resume(); } catch (e) {}
+    },
     ac() {
       if (!this.ctx) {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -137,7 +140,7 @@
       if (!this.board || !this.board.ready) { this._pendingSync = true; return; }
       if (v.evId !== this._evId) {
         const evs = v.ev.slice(); this._evId = v.evId;
-        this.queue = this.queue.then(() => this.play(evs)).then(() => this.syncBoard()).catch(e => console.error(e));
+        this.queue = this.queue.then(() => this.play(evs)).then(() => this.holdCam()).then(() => this.syncBoard()).catch(e => console.error(e));
       } else if (!this.playing) this.syncBoard();
       this.queue.then(() => this.showPrompt());
     },
@@ -238,16 +241,17 @@
       };
     },
 
-    syncBoard(first) {
+    syncBoard(first, mid) {
+      // mid＝播放中途呼叫：只更新棋盤，不換鏡頭
       const b = this.board, v = this.v; if (!b || !v || v.phase === 'pick') return;
       b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s] }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
       b.setTurn(v.phase === 'over' ? -1 : v.turn);
       // 換人時鏡頭自動切到輪到的人（自己拖地圖後，這一輪就不再自動跟）；輪到自己一定拉回來
-      if (v.phase !== 'over' && this._camTurn !== v.turn) { this._camTurn = v.turn; this._camFree = false; b.focusSeat(v.turn, true); }
+      if (!mid && v.phase !== 'over' && this._camTurn !== v.turn) { this._camTurn = v.turn; this._camFree = false; b.focusSeat(v.turn, true); }
       const myTurn = v.seat >= 0 && v.turn === v.seat && v.phase === 'roll';
-      if (myTurn && this._lastMyTurn !== v.evId) { this._lastMyTurn = v.evId; this._camFree = false; b.focusSeat(v.seat, true); }
+      if (!mid && myTurn && this._lastMyTurn !== v.evId) { this._lastMyTurn = v.evId; this._camFree = false; b.focusSeat(v.seat, true); }
       if (first && v.seat < 0) b.overview(true);
     },
     vfx(kind) {
@@ -262,7 +266,13 @@
       const d = document.createElement('div'); d.className = 'mfx ' + (cls || ''); d.textContent = text; d.style.left = p.x + 'px'; d.style.top = p.y + 'px';
       host.appendChild(d); setTimeout(() => d.remove(), 1600);
     },
+    // 換人前在剛剛那個人身上多停一下，讓買地、蓋房、進監獄的動畫看得完整（約 1.2 秒，不會停太久）
+    holdCam() {
+      const v = this.v; if (!v || v.phase === 'over' || this._camTurn === v.turn || this._camTurn == null || !this._played) return;
+      this._played = false; return sleep(1200);
+    },
     async play(evs) {
+      this._played = evs.some(e => ['buy', 'up', 'buyout', 'jail', 'pay', 'card', 'sell', 'down', 'skip', 'skipset', 'cash', 'immune'].includes(e.t));
       this.playing = true; this.hidePrompt();
       const v = this.v, b = this.board, unit = TH()[v.theme].unit; const watch = (s) => !this._camFree || b.following === s;
       try {
@@ -279,11 +289,11 @@
               if (e.to >= 0) this.feed(`${this.who(e.from)} 付給 ${this.who(e.to)} <b class="r">${fmt(e.amt)}</b> ${U.esc(e.why || '')}${e.tile != null ? `<small>（${U.esc(R().tileName(v.theme, e.tile))}）</small>` : ''}`, 'pay');
               else if (e.why !== '卡片' || e.amt >= 3000) this.feed(`${this.who(e.from)} 付出 <b class="r">${fmt(e.amt)}</b> ${U.esc(e.why || '')}`, 'pay');
               await sleep(650); break;
-            case 'buy': SFX.build(); b.mood(e.seat, 'joy', 900); this.fx(`買下！`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 買下 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'good'); this.syncBoard(); await sleep(500); break;
-            case 'buyout': SFX.build(); SFX.lose(); b.mood(e.seat, 'joy', 1200); b.mood(e.from, 'sad', 1200); this.fx('強制收購！', 'gain big', null, e.tile); this.feed(`${this.who(e.seat)} 花 <b>${fmt(e.amt)}</b> 收購了 ${this.who(e.from)} 的 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'big'); this.syncBoard(); await sleep(900); break;
-            case 'up': SFX.build(); this.fx(e.free ? '免費升級！' : `升級 Lv${e.level}`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 把 <b>${U.esc(R().tileName(v.theme, e.tile))}</b> 蓋到 Lv${e.level}`, 'good'); this.syncBoard(); await sleep(600); break;
-            case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(); await sleep(600); break;
-            case 'sell': this.fx(e.what === 'land' ? '被迫賣地' : '被迫賣房', 'loss', null, e.tile); this.feed(`${this.who(e.seat)} 錢不夠，被迫${e.what === 'land' ? '賣掉' : '拆掉'} <b>${U.esc(R().tileName(v.theme, e.tile))}</b>${e.what === 'land' ? '' : ' 的建築'}`, 'pay'); this.syncBoard(); await sleep(400); break;
+            case 'buy': SFX.build(); b.mood(e.seat, 'joy', 900); this.fx(`買下！`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 買下 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'good'); this.syncBoard(false, true); await sleep(500); break;
+            case 'buyout': SFX.build(); SFX.lose(); b.mood(e.seat, 'joy', 1200); b.mood(e.from, 'sad', 1200); this.fx('強制收購！', 'gain big', null, e.tile); this.feed(`${this.who(e.seat)} 花 <b>${fmt(e.amt)}</b> 收購了 ${this.who(e.from)} 的 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'big'); this.syncBoard(false, true); await sleep(900); break;
+            case 'up': SFX.build(); this.fx(e.free ? '免費升級！' : `升級 Lv${e.level}`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 把 <b>${U.esc(R().tileName(v.theme, e.tile))}</b> 蓋到 Lv${e.level}`, 'good'); this.syncBoard(false, true); await sleep(600); break;
+            case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(false, true); await sleep(600); break;
+            case 'sell': this.fx(e.what === 'land' ? '被迫賣地' : '被迫賣房', 'loss', null, e.tile); this.feed(`${this.who(e.seat)} 錢不夠，被迫${e.what === 'land' ? '賣掉' : '拆掉'} <b>${U.esc(R().tileName(v.theme, e.tile))}</b>${e.what === 'land' ? '' : ' 的建築'}`, 'pay'); this.syncBoard(false, true); await sleep(400); break;
             case 'card': await this.showCard(e); break;
             case 'immune': this.fx('🛡 抵擋了厄運！', 'gain', e.seat); SFX.glory(); this.vfx('glory'); b.mood(e.seat, 'joy', 1200); await sleep(900); break;
             case 'jailfree': this.fx('🎫 使用免罪卡！', 'gain', e.seat); await sleep(900); break;
@@ -291,9 +301,17 @@
             case 'skip': this.fx('⏸ 暫停一回合', 'loss', e.seat); await sleep(700); break;
             case 'skipset': this.fx(`⏸ 停 ${e.n} 回合`, 'loss', e.seat); await sleep(500); break;
             case 'bankrupt':
-              if (v.theme === 'alien' && e.by >= 0 && b.tokens[e.by] && b.tokens[e.seat]) {
-                this.feed(`🩸 ${this.who(e.seat)} 破產了，被 ${this.who(e.by)} 吞掉了`, 'big'); SFX.doom(); this.vfx('doom');
-                await b.devour(e.by, e.seat, k => SFX[k] && SFX[k]()); break;
+              if ((v.theme === 'alien' || v.theme === 'animal') && b.tokens[e.seat]) {
+                const snd = k => SFX[k] && SFX[k](); SFX.doom(); this.vfx('doom'); this._played = true;
+                if (e.by >= 0 && b.tokens[e.by]) { // 欠誰的錢，就被誰吃掉
+                  this.feed(`🩸 ${this.who(e.seat)} 破產了，被 ${this.who(e.by)} 吃掉了`, 'big');
+                  if (v.theme === 'alien') await b.devour(e.by, e.seat, snd); else await b.feast([e.by], e.seat, snd);
+                } else { // 不是欠玩家錢：還活著的人一起圍上去分食
+                  const eaters = v.players.map((p, s) => s).filter(s => s !== e.seat && v.players[s].alive && b.tokens[s] && !b.tokens[s].eaten);
+                  this.feed(`🩸 ${this.who(e.seat)} 破產了，大家一起分食`, 'big');
+                  if (eaters.length) await b.feast(eaters, e.seat, snd);
+                }
+                break;
               }
               this.feed(`💥 ${this.who(e.seat)} 破產了！`, 'big'); SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
             case 'note': this.fx(e.text, '', e.seat); await sleep(600); break;
@@ -471,5 +489,6 @@
       m.onclick = (e) => { if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); } };
     }
   };
+  if (typeof document !== 'undefined') ['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (!SFX.ctx || SFX.ctx.state !== 'running') SFX.unlock(); }, { passive: true }));
   root.GAMES.monopoly = M;
 })(typeof window !== 'undefined' ? window : globalThis);

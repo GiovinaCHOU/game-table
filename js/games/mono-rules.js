@@ -89,7 +89,7 @@
     const p = st.players[s]; p.alive = false;
     BOARD.forEach(t => { if (st.owners[t.i] === s) { st.owners[t.i] = -1; st.levels[t.i] = 0; } });
     ev(st, { t: 'bankrupt', seat: s, by: by >= 0 && st.players[by].alive ? by : -1 });
-    if (by >= 0 && st.theme === 'alien') st.anim += 7000; // 吞食動畫
+    if (st.theme === 'alien' || st.theme === 'animal') st.anim += 12000; // 吞食／分食動畫
   }
   function sendJail(st, s) {
     const p = st.players[s];
