@@ -251,7 +251,7 @@
         <p class="hint">所有人選好就開始，<span class="timer" data-deadline="${v.deadline}"></span> 後自動分配</p>
         ${myAv ? '<button class="btn sm ghost" data-redraw>重畫我的角色</button>' : ''}</div>`;
       box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => this.ui.send({ type: 'pick', i: +b.dataset.i }));
-      const d = box.querySelector('[data-draw]'); if (d) d.onclick = () => { if (myAv) this.ui.send({ type: 'pick', custom: true }); else this.drawPad(() => this.ui.send({ type: 'pick', custom: true })); };
+      const d = box.querySelector('[data-draw]'); if (d) d.onclick = () => { this.ui.send({ type: 'pick', custom: true }); if (!myAv) this.drawPad(); }; // 先佔好「自己畫」，畫圖時間到了也不會被系統換成預設角色；畫好的圖送出後角色會自動換成立牌
       const rd = box.querySelector('[data-redraw]'); if (rd) rd.onclick = () => this.drawPad();
     },
     drawPad(after) {
