@@ -301,9 +301,9 @@
         for (const e of evs) {
           if (!this.board) break;
           switch (e.t) {
-            case 'dice': this.closeCard(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
+            case 'dice': this.closeCard(); this.ungrey(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
             case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
-            case 'tp': if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
+            case 'tp': if (e.gate && this._gateShown) { this._gateShown = false; } else if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
             case 'cash': SFX.coin(); this.fx(`+${$(e.amt)}${why(e.why)}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${$(e.amt)}</b>`, 'good'); await sleep(450); break;
             case 'pay':
               SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${$(e.amt)}${why(e.why)}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
@@ -370,6 +370,14 @@
     // 卡片：所有人都看得到（頭像＋名字），可以自己關；下一位擲骰前自動收掉
     async showCard(e) {
       const v = this.v, th = TH()[v.theme]; const good = e.deck === 'luck';
+      // 彩蛋卡：先跑全螢幕動畫，再翻開卡片內容，比較震撼
+      const k0 = e.eff.split(':')[0];
+      if (['gm', 'gagain', 'gtp'].includes(k0)) { await this.stargate(); if (k0 === 'gtp') this._gateShown = true; }
+      else if (k0 === 'mig') await this.migration();
+      else if (k0 === 'cat') await this.catSpin();
+      else if (k0 === 'war') { const ch = v.players[e.seat].char || {}; const human = ch.kind === 'custom' || ch.i === 7; await this.godWar(good ? human : !human); }
+      else if (k0 === 'link') await this.mindLink();
+      else if (k0 === 'evo') await this.evolution(e.seat);
       if (good) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.seat, 'joy', 1800); }
       else if (e.eff === 'psycho') { SFX.glitch(); SFX.doom(); this.vfx('glitch'); this.board && this.board.mood(e.seat, 'scared', 2500); }
       else { SFX.doom(); this.vfx('doom'); this.board && this.board.mood(e.seat, 'scared', 1800); }
@@ -382,13 +390,8 @@
       L.classList.add('on'); L.onclick = () => this.closeCard();
       clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 25000);
       await sleep(2200);
-      if (e.eff === 'gagain' || e.eff.startsWith('gm:')) { this.closeCard(); await this.stargate(); }
-      else if (e.eff.startsWith('mig:')) { this.closeCard(); await this.migration(); }
-      else if (e.eff.startsWith('cat:')) { this.closeCard(); await this.catSpin(); }
-      else if (e.eff.startsWith('war:')) { const ch = this.v.players[e.seat].char || {}; const human = ch.kind === 'custom' || ch.i === 7; this.closeCard(); await this.godWar(good ? human : !human); }
-      else if (e.eff.startsWith('link:')) { this.closeCard(); await this.mindLink(); }
-      else if (e.eff.startsWith('evo:')) { this.closeCard(); await this.evolution(e.seat); }
     },
+    ungrey() { if (!this._grey) return; this._grey = false; const st = this.el && this.el.querySelector('.mono-stage'); if (st) { st.style.transition = 'filter 1.2s'; st.style.filter = ''; } },
     closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
     feed(html, cls) {
@@ -538,7 +541,8 @@
         <div class="qz-opts">${pd.opts.map((o, i) => { const st = res ? (i === key ? 'ok' : 'ng') : (ans[me] && ans[me].c === i ? 'pick' : '');
           const heads = Object.entries(ans).filter(([, a]) => a.c === i).map(([s]) => this.faceHTML(v, +s, 26)).join('');
           return `<button class="qz-o ${st}" data-c="${i}" ${mine && !answered(me) ? '' : 'disabled'}><span>${'ABCD'[i]}</span>${U.esc(o)}<i>${heads}</i></button>`; }).join('')}</div>
-        <p class="qz-tip">${res ? (res.win ? `🎉 ${U.esc(v.names[pd.debtor])} 翻盤成功！不用付 ${fmt(pd.amt)} ${th.unit}` : `💀 ${U.esc(v.names[pd.debtor])} 翻盤失敗……`) : mine ? (answered(me) ? '已送出，等對方……' : '搶答！比對方先答對就贏') : `賭注：${fmt(pd.amt)} ${th.unit} 過路費・破產者答對而且比收錢者快，就免付、不出局`}</p></div>`;
+        ${res && res.note ? `<div class="qz-note">💡 ${U.esc(res.note)}</div>` : ''}
+        <p class="qz-tip">${res ? (res.win ? `🎉 ${U.esc(v.names[pd.debtor])} 翻盤成功！不用付 ${fmt(pd.amt)} ${th.unit}` : `💀 ${U.esc(v.names[pd.debtor])} 翻盤失敗……`) + '<br><small>點一下繼續</small>' : mine ? (answered(me) ? '已送出，等對方……' : '搶答！比對方先答對就贏') : `賭注：${fmt(pd.amt)} ${th.unit} 過路費・破產者答對而且比收錢者快，就免付、不出局`}</p></div>`;
       box.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (b.disabled) return; this.ui.send({ type: 'answer', c: +b.dataset.c }); box.querySelectorAll('[data-c]').forEach(x => x.disabled = true); b.classList.add('pick'); SFX.step(); });
     },
     now() { try { return root.Room && root.Room.serverNow ? root.Room.serverNow() : Date.now(); } catch (e) { return Date.now(); } },
@@ -547,7 +551,9 @@
       this.quizUI({ debtor: e.debtor, cred: e.cred, q: e.q, opts: e.opts, amt: e.amt }, e);
       if (e.win) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.debtor, 'joy', 2000); this.board && this.board.mood(e.cred, 'sad', 2000); }
       else { SFX.doom(); this.board && this.board.mood(e.debtor, 'scared', 2500); }
-      await sleep(3200);
+      // 小知識讓大家看完（約 6.5 秒），點一下可以先收起來
+      await new Promise(r => { const qz = this.el.querySelector('.mono-quiz'); const t = setTimeout(r, 6500); qz.onclick = () => { clearTimeout(t); r(); }; });
+      const qz0 = this.el && this.el.querySelector('.mono-quiz'); if (qz0) qz0.onclick = null;
       this._revealing = false; const qz = this.el && this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true;
     },
     // 全螢幕畫布動畫的共用外框
@@ -565,102 +571,177 @@
     // ===== 諸神黃昏彩蛋：人類 vs 眾神（humanWins：人類贏） =====
     godWar(humanWins) {
       const rnd = (a, b) => a + Math.random() * (b - a);
-      const human = (g, s, pose, hit) => { // 肌肉人類戰士剪影：寬肩、粗手臂、握拳
-        g.save(); g.scale(s, s); g.fillStyle = hit ? '#ffffff' : '#2a1410'; g.strokeStyle = '#ff6a3a'; g.lineWidth = 3; g.shadowColor = '#ff5a20'; g.shadowBlur = 25;
-        g.beginPath(); g.moveTo(-34, -60); g.quadraticCurveTo(0, -78, 34, -60); g.lineTo(26, 0); g.lineTo(14, 8); g.lineTo(-14, 8); g.lineTo(-26, 0); g.closePath(); g.fill(); g.stroke();
-        g.beginPath(); g.arc(0, -88, 15, 0, 7); g.fill(); g.stroke();
-        [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * 32, -58, 14, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.ellipse(sd * 14, -46, 15, 10, 0, 0, 7); g.stroke(); }); // 三角肌、胸肌
-        for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(-9, -30 + k * 11); g.lineTo(9, -30 + k * 11); g.stroke(); } // 腹肌
-        g.lineCap = 'round'; g.lineWidth = 22; g.strokeStyle = g.fillStyle;
-        g.beginPath(); g.moveTo(-30, -56); g.lineTo(-48 + pose * 6, -24); g.lineTo(-36 + pose * 20, -6); g.stroke();
-        g.beginPath(); g.moveTo(30, -56); g.lineTo(58 + pose * 30, -60 - pose * 4); g.lineTo(84 + pose * 50, -62); g.stroke();
-        g.beginPath(); g.arc(88 + pose * 50, -62, 11, 0, 7); g.fill();
-        g.lineWidth = 19; g.beginPath(); g.moveTo(-12, 6); g.lineTo(-24, 50); g.lineTo(-30, 92); g.moveTo(12, 6); g.lineTo(28, 46); g.lineTo(40, 92); g.stroke();
-        g.restore();
+      // 有肌肉弧度的肢體（兩端不同粗細、一側鼓起）
+      const limb = (g, x1, y1, x2, y2, w1, w2, bulge) => {
+        const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, mx = (x1 + x2) / 2, my = (y1 + y2) / 2, b = bulge == null ? 1.25 : bulge, wm = Math.max(w1, w2);
+        g.beginPath(); g.moveTo(x1 + nx * w1, y1 + ny * w1); g.quadraticCurveTo(mx + nx * wm * b, my + ny * wm * b, x2 + nx * w2, y2 + ny * w2);
+        g.arc(x2, y2, w2, Math.atan2(ny, nx), Math.atan2(ny, nx) + Math.PI, true);
+        g.quadraticCurveTo(mx - nx * wm * (b * 0.85), my - ny * wm * (b * 0.85), x1 - nx * w1, y1 - ny * w1); g.arc(x1, y1, w1, Math.atan2(-ny, -nx), Math.atan2(-ny, -nx) + Math.PI, true); g.closePath(); g.fill(); g.stroke();
       };
-      const god = (g, s, pose, hit) => { // 巨大的神：發光光環、長袍、舉起權杖放出神力
-        g.save(); g.scale(s, s); g.shadowColor = '#ffe9a0'; g.shadowBlur = 40;
-        const au = g.createRadialGradient(0, -40, 10, 0, -40, 170); au.addColorStop(0, 'rgba(255,240,190,0.35)'); au.addColorStop(1, 'rgba(255,240,190,0)'); g.fillStyle = au; g.beginPath(); g.arc(0, -40, 170, 0, 7); g.fill(); // 神力光暈
-        g.strokeStyle = 'rgba(255,233,160,0.9)'; g.lineWidth = 5; g.beginPath(); g.arc(0, -112, 30, 0, 7); g.stroke();
-        g.fillStyle = hit ? '#ffffff' : '#f4ead2'; g.beginPath(); g.moveTo(-36, -70); g.quadraticCurveTo(0, -86, 36, -70); g.lineTo(52, 92); g.lineTo(-52, 92); g.closePath(); g.fill();
-        g.fillStyle = '#d9b85a'; g.fillRect(-38, -10, 76, 8);
-        g.fillStyle = hit ? '#ffffff' : '#f0d9b8'; g.beginPath(); g.arc(0, -96, 17, 0, 7); g.fill();
-        g.lineCap = 'round'; g.strokeStyle = g.fillStyle; g.lineWidth = 14;
-        g.beginPath(); g.moveTo(-32, -62); g.lineTo(-68 - pose * 30, -66 - pose * 10); g.stroke();
-        g.strokeStyle = '#d9b85a'; g.lineWidth = 6; g.beginPath(); g.moveTo(32, -62); g.lineTo(44, -130); g.stroke();
-        g.fillStyle = '#fff6c8'; g.beginPath(); g.arc(44, -136, 12, 0, 7); g.fill();
-        g.restore();
+      const lerp = (a, b, k) => a + (b - a) * k;
+      // 戰士骨架：p＝出拳伸展程度，crouch＝蹲低
+      const skel = (p, crouch, big) => { const s = big ? 1.18 : 1;
+        const hip = [0, -95 * s + crouch * 12], chest = [6 * p, -160 * s + crouch * 14], neck = [10 * p, -182 * s + crouch * 14], head = [14 * p, -205 * s + crouch * 14];
+        const shF = [chest[0] + 16, chest[1] - 12], shB = [chest[0] - 22, chest[1] - 10];
+        const elF = [lerp(shF[0] + 30, shF[0] + 62, p), lerp(shF[1] + 34, shF[1] - 4, p)], haF = [lerp(shF[0] + 52, shF[0] + 118, p), lerp(shF[1] + 6, shF[1] - 6, p)];
+        const elB = [shB[0] - 26, shB[1] + 38], haB = [lerp(shB[0] - 2, shB[0] - 30, p), lerp(shB[1] + 66, shB[1] + 40, p)];
+        const knF = [hip[0] + 34 + p * 10, hip[1] + 48 - crouch * 6], ftF = [hip[0] + 48 + p * 16, 0], knB = [hip[0] - 30, hip[1] + 46 - crouch * 6], ftB = [hip[0] - 54 - p * 10, 0];
+        return { hip, chest, neck, head, shF, shB, elF, haF, elB, haB, knF, ftF, knB, ftB, s };
       };
-      const sparks = Array.from({ length: 120 }, () => ({ a: rnd(0, 6.28), v: rnd(0.3, 1), l: rnd(0.2, 1) }));
-      return this.overlay(5600, (g, W, H, dpr, t) => {
-        const cx = W / 2, gy = H * 0.68, u = Math.min(W, H) / 330;
-        const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#1a1030'); sky.addColorStop(0.55, '#5a1e2a'); sky.addColorStop(1, '#120a10'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
-        g.fillStyle = 'rgba(255,200,120,0.08)'; for (let k = 0; k < 9; k++) { g.beginPath(); g.arc(cx + (k - 4) * W * 0.14, gy + 40 * u, W * 0.2, Math.PI, 0); g.fill(); } // 競技場看台
-        g.fillStyle = '#2a1a16'; g.fillRect(0, gy, W, H - gy);
-        // 兩人位置：0～1.4 秒對峙衝刺，1.4 第一次碰撞，2.6 第二次，3.6 勝負
-        let hx, gx, pose = 0, hit = 0, hitH = 0, hitG = 0, shake = 0;
-        if (t < 1.4) { const k = Math.min(1, t / 1.4); hx = cx - W * (0.36 - k * k * 0.26); gx = cx + W * (0.36 - k * k * 0.26); pose = k; }
-        else if (t < 2.6) { const k = (t - 1.4) / 1.2; hx = cx - W * (0.1 + Math.sin(k * Math.PI) * 0.12); gx = cx + W * (0.1 + Math.sin(k * Math.PI) * 0.12); hit = Math.max(0, 1 - (t - 1.4) * 4); pose = 1 - k * 0.6; }
-        else if (t < 3.6) { const k = (t - 2.6) / 1.0; hx = cx - W * (0.22 - k * 0.14); gx = cx + W * (0.22 - k * 0.14); pose = 0.4 + k * 0.6; hit = Math.max(0, 1 - (t - 3.45) * 6) * (t > 3.45 ? 1 : 0); }
-        else { const k = Math.min(1, (t - 3.6) / 0.5); hx = cx - W * 0.08; gx = cx + W * 0.08; pose = 1; if (humanWins) { gx += W * 0.6 * k; hitG = 1 - k; } else { hx -= W * 0.6 * k; hitH = 1 - k; } }
-        if (hit > 0 || (t > 3.6 && t < 4)) shake = 12 * dpr * Math.max(hit, t > 3.6 && t < 4 ? (4 - t) * 2.5 : 0);
-        g.save(); g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      const human = (g, p, crouch, flash) => { // 肌肉人類戰士：寬肩窄腰、繃帶拳頭、短刺髮
+        const k = skel(p, crouch, false);
+        const skin = g.createLinearGradient(-60, -230, 80, 0); skin.addColorStop(0, '#e2a77a'); skin.addColorStop(0.55, '#b0714a'); skin.addColorStop(1, '#5e3420');
+        const ink = '#2a1208'; g.lineWidth = 2.2; g.lineJoin = 'round'; g.strokeStyle = ink;
+        const S = flash ? '#111' : skin, pants = flash ? '#111' : '#262230';
+        g.fillStyle = pants; limb(g, k.hip[0] - 8, k.hip[1], k.knB[0], k.knB[1], 17, 13); limb(g, k.knB[0], k.knB[1], k.ftB[0], k.ftB[1] - 6, 13, 9, 1.1);
+        g.fillStyle = S; limb(g, k.shB[0], k.shB[1], k.elB[0], k.elB[1], 15, 12, 1.4); limb(g, k.elB[0], k.elB[1], k.haB[0], k.haB[1], 12, 10, 1.2);
+        g.fillStyle = flash ? '#111' : '#f1e6d2'; g.beginPath(); g.arc(k.haB[0], k.haB[1], 12, 0, 7); g.fill(); g.stroke();
+        // 軀幹：倒三角＋胸肌腹肌
+        g.fillStyle = S; g.beginPath(); g.moveTo(k.shB[0] - 10, k.shB[1] - 4); g.quadraticCurveTo(k.chest[0], k.chest[1] - 28, k.shF[0] + 12, k.shF[1] - 4);
+        g.quadraticCurveTo(k.shF[0] + 18, k.chest[1] + 30, k.hip[0] + 20, k.hip[1] - 6); g.lineTo(k.hip[0] - 20, k.hip[1] - 6); g.quadraticCurveTo(k.shB[0] - 16, k.chest[1] + 30, k.shB[0] - 10, k.shB[1] - 4); g.closePath(); g.fill(); g.stroke();
+        if (!flash) { g.strokeStyle = 'rgba(60,24,10,0.55)'; g.lineWidth = 1.8;
+          g.beginPath(); g.moveTo(k.chest[0] - 18, k.chest[1] + 6); g.quadraticCurveTo(k.chest[0] - 4, k.chest[1] + 16, k.chest[0] + 2, k.chest[1] + 2); g.quadraticCurveTo(k.chest[0] + 10, k.chest[1] + 16, k.chest[0] + 24, k.chest[1] + 4); g.stroke();
+          for (let r = 0; r < 3; r++) { const y = k.chest[1] + 28 + r * 13; g.beginPath(); g.moveTo(k.chest[0] - 9, y); g.quadraticCurveTo(k.chest[0] - 3, y + 4, k.chest[0] + 2, y); g.quadraticCurveTo(k.chest[0] + 7, y + 4, k.chest[0] + 13, y); g.stroke(); }
+          g.beginPath(); g.moveTo(k.chest[0] + 2, k.chest[1] + 4); g.lineTo(k.chest[0] + 3, k.hip[1] - 10); g.stroke(); g.strokeStyle = ink; g.lineWidth = 2.2; }
+        g.fillStyle = flash ? '#111' : '#3a1d10'; g.fillRect(k.hip[0] - 21, k.hip[1] - 10, 42, 9); // 腰帶
+        g.fillStyle = pants; limb(g, k.hip[0] + 8, k.hip[1], k.knF[0], k.knF[1], 18, 14); limb(g, k.knF[0], k.knF[1], k.ftF[0], k.ftF[1] - 6, 14, 9, 1.1);
+        g.fillStyle = flash ? '#111' : '#1a1418'; [k.ftB, k.ftF].forEach(f => { g.beginPath(); g.ellipse(f[0] + 6, f[1] - 4, 16, 7, 0, 0, 7); g.fill(); });
+        // 頭：方下巴、刺髮
+        g.fillStyle = S; limb(g, k.neck[0], k.neck[1] + 6, k.head[0], k.head[1] + 8, 11, 10, 1); g.beginPath(); g.ellipse(k.head[0] + 2, k.head[1], 17, 21, 0.15, 0, 7); g.fill(); g.stroke();
+        g.fillStyle = flash ? '#111' : '#120a08'; g.beginPath(); g.moveTo(k.head[0] - 16, k.head[1] - 4); for (let i = 0; i < 7; i++) { const a = Math.PI * (1.05 + i * 0.14); g.lineTo(k.head[0] + Math.cos(a) * 30, k.head[1] - 6 + Math.sin(a) * 30); g.lineTo(k.head[0] + Math.cos(a + 0.07) * 17, k.head[1] - 4 + Math.sin(a + 0.07) * 19); } g.closePath(); g.fill();
+        if (!flash) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(k.head[0] + 10, k.head[1] - 2, 4, 2, -0.2, 0, 7); g.fill(); g.strokeStyle = ink; g.beginPath(); g.moveTo(k.head[0] + 4, k.head[1] - 9); g.lineTo(k.head[0] + 16, k.head[1] - 6); g.stroke(); }
+        g.fillStyle = S; limb(g, k.shF[0], k.shF[1], k.elF[0], k.elF[1], 17, 13, 1.5); limb(g, k.elF[0], k.elF[1], k.haF[0], k.haF[1], 13, 11, 1.25);
+        g.fillStyle = flash ? '#111' : '#f1e6d2'; g.beginPath(); g.arc(k.haF[0], k.haF[1], 14, 0, 7); g.fill(); g.stroke();
+        if (!flash) { g.strokeStyle = 'rgba(255,170,110,0.9)'; g.lineWidth = 3; g.beginPath(); g.moveTo(k.shF[0] + 10, k.shF[1] - 8); g.quadraticCurveTo(k.shF[0] + 20, k.chest[1] + 20, k.hip[0] + 20, k.hip[1] - 8); g.stroke(); } // 邊緣光
+      };
+      const god = (g, p, crouch, flash, t) => { // 神：金色光環、飄動長髮鬍鬚、披肩長袍、手臂纏繞雷電
+        const k = skel(p, crouch, true); const ink = '#5a4320'; g.lineWidth = 2; g.lineJoin = 'round'; g.strokeStyle = ink;
+        if (!flash) { const au = g.createRadialGradient(k.chest[0], k.chest[1], 20, k.chest[0], k.chest[1], 230); au.addColorStop(0, 'rgba(255,236,170,0.45)'); au.addColorStop(1, 'rgba(255,236,170,0)'); g.fillStyle = au; g.beginPath(); g.arc(k.chest[0], k.chest[1], 230, 0, 7); g.fill(); }
+        const skin = flash ? '#111' : (() => { const s2 = g.createLinearGradient(-60, -260, 80, 0); s2.addColorStop(0, '#fff3d6'); s2.addColorStop(1, '#c9a46a'); return s2; })();
+        const cloth = flash ? '#111' : (() => { const c = g.createLinearGradient(-80, -200, 60, 0); c.addColorStop(0, '#ffffff'); c.addColorStop(1, '#cfc6b4'); return c; })();
+        // 長袍下擺（隨風飄）
+        g.fillStyle = cloth; g.beginPath(); g.moveTo(k.hip[0] - 26, k.hip[1] - 14); g.quadraticCurveTo(k.hip[0] - 60 - Math.sin(t * 6) * 10, k.hip[1] + 50, k.ftB[0] - 20, 0); g.lineTo(k.ftF[0] + 26, 0); g.quadraticCurveTo(k.hip[0] + 50, k.hip[1] + 40, k.hip[0] + 26, k.hip[1] - 14); g.closePath(); g.fill(); g.stroke();
+        if (!flash) { g.strokeStyle = 'rgba(120,100,70,0.35)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(k.hip[0] - 18 + i * 9, k.hip[1]); g.quadraticCurveTo(k.hip[0] - 26 + i * 14, k.hip[1] + 50, k.hip[0] - 34 + i * 20, -4); g.stroke(); } g.strokeStyle = ink; }
+        g.fillStyle = skin; limb(g, k.shB[0], k.shB[1], k.elB[0], k.elB[1], 16, 13, 1.35); limb(g, k.elB[0], k.elB[1], k.haB[0], k.haB[1], 13, 10, 1.2);
+        g.fillStyle = skin; g.beginPath(); g.moveTo(k.shB[0] - 12, k.shB[1] - 4); g.quadraticCurveTo(k.chest[0], k.chest[1] - 30, k.shF[0] + 14, k.shF[1] - 4); g.quadraticCurveTo(k.shF[0] + 20, k.chest[1] + 34, k.hip[0] + 24, k.hip[1] - 10); g.lineTo(k.hip[0] - 24, k.hip[1] - 10); g.quadraticCurveTo(k.shB[0] - 18, k.chest[1] + 34, k.shB[0] - 12, k.shB[1] - 4); g.closePath(); g.fill(); g.stroke();
+        // 斜披一邊肩膀的布
+        g.fillStyle = cloth; g.beginPath(); g.moveTo(k.shB[0] - 14, k.shB[1] - 6); g.quadraticCurveTo(k.chest[0] + 10, k.chest[1] + 10, k.hip[0] + 26, k.hip[1] - 10); g.lineTo(k.hip[0] - 4, k.hip[1] - 4); g.quadraticCurveTo(k.chest[0] - 18, k.chest[1] + 20, k.shB[0] - 6, k.shB[1] + 14); g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = flash ? '#111' : '#d9b85a'; g.fillRect(k.hip[0] - 26, k.hip[1] - 16, 52, 8);
+        // 頭、飄動長髮與鬍鬚、金色桂冠、發光的眼睛
+        g.fillStyle = flash ? '#111' : '#f4f1ea';
+        for (let i = 0; i < 9; i++) { const w = Math.sin(t * 5 + i) * 8; g.beginPath(); g.moveTo(k.head[0] - 14, k.head[1] - 14 + i * 3); g.quadraticCurveTo(k.head[0] - 40 + w, k.head[1] + 10 + i * 5, k.head[0] - 52 + w * 1.6, k.head[1] + 40 + i * 6); g.lineTo(k.head[0] - 44 + w, k.head[1] + 36 + i * 6); g.quadraticCurveTo(k.head[0] - 30, k.head[1] + 6 + i * 4, k.head[0] - 10, k.head[1] - 8 + i * 3); g.fill(); }
+        g.fillStyle = skin; limb(g, k.neck[0], k.neck[1] + 6, k.head[0], k.head[1] + 8, 12, 11, 1); g.beginPath(); g.ellipse(k.head[0] + 2, k.head[1], 18, 22, 0.1, 0, 7); g.fill(); g.stroke();
+        g.fillStyle = flash ? '#111' : '#f4f1ea'; g.beginPath(); g.moveTo(k.head[0] - 12, k.head[1] + 6); g.quadraticCurveTo(k.head[0] + 4, k.head[1] + 60 + Math.sin(t * 4) * 4, k.head[0] + 22, k.head[1] + 6); g.quadraticCurveTo(k.head[0] + 6, k.head[1] + 16, k.head[0] - 12, k.head[1] + 6); g.fill(); g.stroke();
+        if (!flash) { g.strokeStyle = '#d9b85a'; g.lineWidth = 3; g.beginPath(); g.arc(k.head[0], k.head[1] - 6, 20, Math.PI * 1.05, Math.PI * 1.95); g.stroke(); for (let i = 0; i < 6; i++) { const a = Math.PI * (1.1 + i * 0.15); g.fillStyle = '#e8c860'; g.beginPath(); g.ellipse(k.head[0] + Math.cos(a) * 21, k.head[1] - 6 + Math.sin(a) * 21, 6, 3, a + 1.2, 0, 7); g.fill(); }
+          g.fillStyle = '#fffbe0'; g.shadowColor = '#ffe680'; g.shadowBlur = 16; g.beginPath(); g.ellipse(k.head[0] + 11, k.head[1] - 3, 5, 2.5, 0, 0, 7); g.fill(); g.shadowBlur = 0; g.strokeStyle = ink; g.lineWidth = 2; }
+        g.strokeStyle = 'rgba(255,240,180,0.8)'; g.lineWidth = 4; if (!flash) { g.beginPath(); g.arc(k.head[0], k.head[1] - 8, 40, 0, 7); g.stroke(); } g.strokeStyle = ink; g.lineWidth = 2;
+        g.fillStyle = skin; limb(g, k.shF[0], k.shF[1], k.elF[0], k.elF[1], 18, 14, 1.45); limb(g, k.elF[0], k.elF[1], k.haF[0], k.haF[1], 14, 12, 1.2); g.beginPath(); g.arc(k.haF[0], k.haF[1], 14, 0, 7); g.fill(); g.stroke();
+        if (!flash) { g.strokeStyle = 'rgba(200,230,255,0.95)'; g.lineWidth = 2.5; g.shadowColor = '#9fd0ff'; g.shadowBlur = 14; for (let j = 0; j < 3; j++) { g.beginPath(); let x = k.shF[0], y = k.shF[1]; g.moveTo(x, y); for (let i = 1; i <= 6; i++) { x = lerp(k.shF[0], k.haF[0], i / 6) + rnd(-10, 10); y = lerp(k.shF[1], k.haF[1], i / 6) + rnd(-10, 10); g.lineTo(x, y); } g.stroke(); } g.shadowBlur = 0; }
+      };
+      const debris = Array.from({ length: 40 }, () => ({ a: rnd(-3, 0), v: rnd(0.4, 1.2), r: rnd(3, 9), spin: rnd(-8, 8) }));
+      const crowd = Array.from({ length: 160 }, () => ({ x: Math.random(), row: Math.floor(Math.random() * 3), h: rnd(0, 360) }));
+      return this.overlay(6200, (g, W, H, dpr, t) => {
+        const cx = W / 2, gy = H * 0.7, u = Math.min(W / 440, H / 620);
+        // 時間軸：0～1.3 對峙蓄力、1.3～1.6 衝刺、1.6 第一擊（定格）、1.6～3.2 角力、3.2 第二擊、3.6 勝負
+        const hitT = [1.6, 3.2], near = hitT.map(h => Math.max(0, 1 - Math.abs(t - h) * 5));
+        const impact = Math.max(...near), freeze = hitT.some(h => t > h && t < h + 0.12);
+        const zoom = 1 + impact * 0.18 + (t > 3.6 ? 0.08 : 0);
+        g.save(); g.translate(cx, gy - 80 * u); g.scale(zoom, zoom); g.translate(-cx, -(gy - 80 * u));
+        const shake = impact * 14 * dpr; g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        // 背景：暮色天空、競技場拱門、觀眾
+        const sky = g.createLinearGradient(0, 0, 0, gy); sky.addColorStop(0, '#120a24'); sky.addColorStop(0.5, '#4a1a30'); sky.addColorStop(1, '#c8562a'); g.fillStyle = freeze ? '#fff' : sky; g.fillRect(-W, -H, W * 3, H * 3);
+        if (!freeze) {
+          g.fillStyle = 'rgba(255,190,120,0.18)'; g.beginPath(); g.arc(cx, gy - 40 * u, 220 * u, Math.PI, 0); g.fill();
+          for (let tier = 0; tier < 2; tier++) { const y0 = gy - (150 - tier * 70) * u, h = 60 * u; g.fillStyle = tier ? '#3a1e1a' : '#2c1616'; g.fillRect(-W, y0, W * 3, h);
+            g.fillStyle = tier ? '#1a0c0c' : '#140808'; for (let x = -W; x < W * 2; x += 44 * u) { g.beginPath(); g.moveTo(x + 8 * u, y0 + h); g.lineTo(x + 8 * u, y0 + 22 * u); g.arc(x + 22 * u, y0 + 22 * u, 14 * u, Math.PI, 0); g.lineTo(x + 36 * u, y0 + h); g.fill(); } }
+          crowd.forEach(c => { const y = gy - (176 - c.row * 9) * u, x = c.x * W; g.fillStyle = `hsla(${c.h},30%,${30 + c.row * 6}%,1)`; g.beginPath(); g.arc(x, y + Math.sin(t * 12 + c.x * 40) * 1.5 * u, 3.2 * u, 0, 7); g.fill(); });
+          const gr = g.createLinearGradient(0, gy, 0, H); gr.addColorStop(0, '#6a3a24'); gr.addColorStop(1, '#2a140c'); g.fillStyle = gr; g.fillRect(-W, gy, W * 3, H);
+          g.strokeStyle = 'rgba(30,10,4,0.6)'; g.lineWidth = 2 * dpr; if (t > 1.6) for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI; g.beginPath(); g.moveTo(cx, gy + 4); g.lineTo(cx + Math.cos(a) * 160 * u, gy + 4 + Math.sin(a) * 26 * u); g.stroke(); }
+        } else { g.fillStyle = '#fff'; g.fillRect(-W, gy, W * 3, H); }
+        // 位置與姿勢
+        let hx, gx, hp = 0, gp = 0, hc = 0, gc = 0;
+        if (t < 1.3) { hx = cx - 118 * u; gx = cx + 118 * u; hc = 1; gc = 0.5; hp = 0; gp = Math.min(1, t) * 0.3; }
+        else if (t < 1.6) { const k = (t - 1.3) / 0.3; hx = cx - lerp(118, 52, k) * u; gx = cx + lerp(118, 60, k) * u; hp = k; gp = k; }
+        else if (t < 3.2) { const k = (t - 1.6) / 1.6; const push = Math.sin(k * Math.PI * 3) * 10 * u; hx = cx - (52 + Math.sin(k * Math.PI) * 60) * u + push; gx = cx + (60 + Math.sin(k * Math.PI) * 60) * u + push; hp = 1 - Math.sin(k * Math.PI) * 0.8; gp = hp; hc = Math.sin(k * Math.PI) * 0.6; }
+        else if (t < 3.6) { hx = cx - 52 * u; gx = cx + 60 * u; hp = 1; gp = 1; }
+        else { const k = Math.min(1, (t - 3.6) / 0.6), e = 1 - Math.pow(1 - k, 3); hx = cx - 52 * u; gx = cx + 60 * u; hp = gp = 1; if (humanWins) gx += e * W * 0.9; else hx -= e * W * 0.9; }
+        const flyRot = (t > 3.6) ? Math.min(1, (t - 3.6) / 0.6) * 2.4 : 0;
+        // 衝刺殘影
+        if (t > 1.3 && t < 1.6 && !freeze) { g.globalAlpha = 0.25; [40, 80].forEach(o => { g.save(); g.translate(hx - o * u, gy); g.scale(u, u); human(g, hp, hc, false); g.restore(); }); g.globalAlpha = 1; }
+        g.save(); g.translate(hx, gy); if (!humanWins && flyRot) g.rotate(-flyRot); g.scale(u, u); human(g, hp, hc, freeze); g.restore();
+        g.save(); g.translate(gx, gy); if (humanWins && flyRot) g.rotate(flyRot); g.scale(-u, u); god(g, gp, gc, freeze, t); g.restore();
+        // 碰撞：衝擊波、光、飛石
+        hitT.forEach(h => { const k = (t - h) / 0.7; if (k < 0 || k > 1 || freeze) return; const px = cx + 4 * u, py = gy - 170 * u;
+          g.strokeStyle = `rgba(255,250,230,${1 - k})`; g.lineWidth = 10 * dpr * (1 - k); g.beginPath(); g.ellipse(px, py, k * 260 * u, k * 120 * u, 0, 0, 7); g.stroke();
+          const fl = g.createRadialGradient(px, py, 0, px, py, 140 * u * (1 - k * 0.5)); fl.addColorStop(0, `rgba(255,255,240,${1 - k})`); fl.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = fl; g.beginPath(); g.arc(px, py, 140 * u, 0, 7); g.fill();
+          debris.forEach(d => { const dd = k * d.v * 260 * u; g.save(); g.translate(px + Math.cos(d.a) * dd, py + Math.sin(d.a) * dd + k * k * 120 * u); g.rotate(d.spin * k); g.fillStyle = '#4a2a1a'; g.fillRect(-d.r * u / 2, -d.r * u / 2, d.r * u, d.r * u * 0.7); g.restore(); }); });
         // 漫畫速度線
-        if (t > 1.2 && t < 4.2) { g.strokeStyle = 'rgba(255,240,220,0.18)'; g.lineWidth = 2 * dpr; for (let k = 0; k < 40; k++) { const a = k / 40 * 6.283; g.beginPath(); g.moveTo(cx + Math.cos(a) * W * 0.25, H * 0.45 + Math.sin(a) * W * 0.25); g.lineTo(cx + Math.cos(a) * W, H * 0.45 + Math.sin(a) * W); g.stroke(); } }
-        g.save(); g.translate(hx, gy - 92 * u * 1.1); human(g, u * 1.1, pose, hit > 0.5 || hitH > 0.5); g.restore();
-        g.save(); g.translate(gx, gy - 92 * u * 1.35); g.scale(-1, 1); god(g, u * 1.35, pose, hit > 0.5 || hitG > 0.5); g.restore();
-        if (hit > 0) { // 碰撞瞬間：白光、衝擊波、火花
-          const R0 = (1 - hit) * W * 0.6; g.strokeStyle = `rgba(255,255,255,${hit})`; g.lineWidth = 8 * dpr; g.beginPath(); g.arc(cx, H * 0.45, R0, 0, 6.283); g.stroke();
-          g.fillStyle = `rgba(255,250,230,${hit * 0.7})`; g.fillRect(0, 0, W, H);
-          sparks.forEach(sp => { const r1 = (1 - hit) * sp.v * W * 0.5; g.strokeStyle = `rgba(255,${180 + Math.random() * 70 | 0},80,${hit})`; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(cx + Math.cos(sp.a) * r1 * 0.6, H * 0.45 + Math.sin(sp.a) * r1 * 0.6); g.lineTo(cx + Math.cos(sp.a) * r1, H * 0.45 + Math.sin(sp.a) * r1); g.stroke(); });
-        }
+        if (t > 1.25 && t < 4.2) { g.strokeStyle = freeze ? 'rgba(0,0,0,0.6)' : 'rgba(255,240,220,0.16)'; g.lineWidth = 1.6 * dpr; for (let i = 0; i < 60; i++) { const a = i / 60 * 6.283 + (i % 3) * 0.02; const r0 = W * (0.35 + (i % 5) * 0.04); g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, gy - 160 * u + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * W * 1.2, gy - 160 * u + Math.sin(a) * W * 1.2); g.stroke(); } }
         g.restore();
-        g.textAlign = 'center'; g.font = `900 ${30 * dpr}px system-ui, sans-serif`; g.lineWidth = 6 * dpr; g.strokeStyle = '#000';
-        const title = t < 1.3 ? '⚔️ 諸神黃昏・人神對決' : t > 3.8 ? (humanWins ? '人類勝利！' : '眾神勝利！') : '';
-        if (title) { g.fillStyle = t > 3.8 ? (humanWins ? '#ff8a5a' : '#ffe9a0') : '#fff'; g.strokeText(title, cx, H * 0.18); g.fillText(title, cx, H * 0.18); }
-      }, () => { SFX.roar(); [1.4, 3.45].forEach(d => setTimeout(() => { SFX.clash(); SFX.thunder(); }, d * 1000)); setTimeout(() => (humanWins ? SFX.roar() : SFX.glory()), 3800); });
+        g.textAlign = 'center'; g.lineJoin = 'round'; g.font = `900 ${28 * dpr}px system-ui, sans-serif`; g.lineWidth = 7 * dpr; g.strokeStyle = '#000';
+        const title = t < 1.3 ? '⚔️ 諸神黃昏・人神對決' : t > 3.9 ? (humanWins ? '人類勝利！' : '眾神勝利！') : '';
+        if (title) { g.fillStyle = t > 3.9 ? (humanWins ? '#ff9a6a' : '#ffe9a0') : '#fff'; g.strokeText(title, cx, H * 0.16); g.fillText(title, cx, H * 0.16); }
+      }, () => { SFX.roar(); [1.6, 3.2].forEach(d => setTimeout(() => { SFX.clash(); SFX.thunder(); }, d * 1000)); setTimeout(() => (humanWins ? SFX.roar() : SFX.glory()), 3900); });
     },
-    // ===== 夜城好運卡：意識共鳴（流動星雲、幾何符文、幻彩） =====
+    // ===== 夜城好運卡：意識共鳴（夢幻、幻彩、有機的意識空間） =====
     mindLink() {
       const rnd = (a, b) => a + Math.random() * (b - a);
-      const blobs = Array.from({ length: 14 }, (_, k) => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.25, 0.6), h: (k * 47) % 360, sx: rnd(-0.05, 0.05), sy: rnd(-0.04, 0.04) }));
-      const stars = Array.from({ length: 160 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), z: rnd(0.2, 1) }));
-      return this.overlay(5200, (g, W, H, dpr, t) => {
-        g.fillStyle = '#05030f'; g.fillRect(0, 0, W, H);
-        g.globalCompositeOperation = 'lighter';
-        blobs.forEach(b => { const x = ((b.x + b.sx * t) % 1.2) * W, y = ((b.y + b.sy * t + 1) % 1.2) * H, r = b.r * Math.max(W, H); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `hsla(${(b.h + t * 40) % 360},90%,60%,0.22)`); gr.addColorStop(1, 'hsla(0,0%,0%,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); });
-        stars.forEach(s => { g.fillStyle = `rgba(255,255,255,${0.3 + s.z * 0.6})`; g.fillRect(((s.x + t * 0.01 * s.z) % 1) * W, s.y * H, 1.5 * dpr * s.z, 1.5 * dpr * s.z); });
-        const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.32;
-        // 幾何符文：旋轉的多邊形、同心圓、放射刻線
-        for (let ring = 0; ring < 4; ring++) {
-          const rr = R * (0.45 + ring * 0.22), n = [3, 6, 8, 12][ring], rot = t * (ring % 2 ? -0.4 : 0.3) * (1 + ring * 0.2);
-          g.strokeStyle = `hsla(${(t * 60 + ring * 70) % 360},100%,72%,${0.55 - ring * 0.08})`; g.lineWidth = 1.6 * dpr;
-          g.beginPath(); for (let k = 0; k <= n; k++) { const a = rot + k / n * 6.283; const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
-          g.beginPath(); g.arc(cx, cy, rr * 1.04, 0, 6.283); g.stroke();
-          for (let k = 0; k < n * 2; k++) { const a = rot * 1.3 + k / (n * 2) * 6.283; g.beginPath(); g.moveTo(cx + Math.cos(a) * rr * 1.04, cy + Math.sin(a) * rr * 1.04); g.lineTo(cx + Math.cos(a) * rr * 1.12, cy + Math.sin(a) * rr * 1.12); g.stroke(); }
-        }
-        // 兩個意識（側臉剪影）之間連結的光絲
-        const k = Math.min(1, t / 1.6), gap = W * (0.34 - k * 0.12);
-        [-1, 1].forEach(sd => { g.save(); g.translate(cx + sd * gap, cy); g.scale(-sd, 1); g.fillStyle = 'rgba(255,255,255,0.12)'; g.strokeStyle = `hsla(${(t * 80 + (sd > 0 ? 180 : 0)) % 360},100%,75%,0.9)`; g.lineWidth = 2 * dpr;
-          const s = R / 120; g.beginPath(); g.moveTo(-40 * s, 90 * s); g.lineTo(-40 * s, 40 * s); g.quadraticCurveTo(-60 * s, -10 * s, -40 * s, -60 * s); g.quadraticCurveTo(0, -100 * s, 35 * s, -55 * s); g.lineTo(42 * s, -20 * s); g.lineTo(52 * s, -6 * s); g.lineTo(40 * s, 4 * s); g.lineTo(44 * s, 20 * s); g.quadraticCurveTo(30 * s, 40 * s, 10 * s, 40 * s); g.lineTo(10 * s, 90 * s); g.fill(); g.stroke(); g.restore(); });
-        for (let j = 0; j < 18; j++) { const ph = t * 2 + j; const y0 = cy - R * 0.25 + Math.sin(ph) * R * 0.18; g.strokeStyle = `hsla(${(j * 20 + t * 90) % 360},100%,70%,${0.25 + 0.35 * k})`; g.lineWidth = 1.2 * dpr; g.beginPath(); g.moveTo(cx - gap + R * 0.35, cy - R * 0.25); g.bezierCurveTo(cx - gap * 0.3, y0 - R * 0.4, cx + gap * 0.3, y0 + R * 0.4, cx + gap - R * 0.35, cy - R * 0.25); g.stroke(); }
-        const core = g.createRadialGradient(cx, cy - R * 0.25, 0, cx, cy - R * 0.25, R * 0.5 * k); core.addColorStop(0, 'rgba(255,255,255,0.8)'); core.addColorStop(1, 'rgba(160,200,255,0)'); g.fillStyle = core; g.fillRect(0, 0, W, H);
+      const cells = Array.from({ length: 70 }, () => ({ a: rnd(0, 6.283), d: rnd(0.05, 1.2), rx: rnd(0.6, 1.4), ry: rnd(0.45, 0.9), rot: rnd(0, 3), h: rnd(150, 290), sp: rnd(0.6, 1.2) }));
+      const tend = Array.from({ length: 11 }, (_, i) => ({ a: i / 11 * 6.283 + rnd(-0.2, 0.2), w: rnd(14, 26), ph: rnd(0, 6), holes: Array.from({ length: 9 }, () => ({ k: rnd(0.25, 0.95), o: rnd(-0.5, 0.5), r: rnd(3, 8) })) }));
+      const sparks = Array.from({ length: 90 }, () => ({ a: rnd(0, 6.283), d: rnd(0, 1), sp: rnd(0.1, 0.4), h: rnd(0, 360) }));
+      let layer = null;
+      return this.overlay(5600, (g, W, H, dpr, t) => {
+        const cx = W / 2, cy = H * 0.48, M = Math.max(W, H), R = Math.min(W, H) * 0.16 * (1 + Math.sin(t * 2) * 0.03);
+        // 柔和的粉藍白光背景
+        const bg = g.createRadialGradient(cx, cy, 0, cx, cy, M * 0.75); bg.addColorStop(0, '#fbfdff'); bg.addColorStop(0.25, '#d6f3f6'); bg.addColorStop(0.55, '#a9c9ee'); bg.addColorStop(0.85, '#8a78c8'); bg.addColorStop(1, '#4a3a88'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+        // 有機細胞斑點：從中心往外飛（像在往前穿越）
+        cells.forEach(c => { c.d += c.sp * 0.006 * (1 + t * 0.4); if (c.d > 1.3) { c.d = 0.05; c.a = rnd(0, 6.283); }
+          const dist = Math.pow(c.d, 1.6) * M * 0.75, x = cx + Math.cos(c.a) * dist, y = cy + Math.sin(c.a) * dist, sz = (8 + c.d * 70) * dpr;
+          g.save(); g.translate(x, y); g.rotate(c.rot + t * 0.2); g.globalAlpha = Math.min(1, c.d * 3) * 0.9;
+          const cg = g.createRadialGradient(0, 0, 0, 0, 0, sz); cg.addColorStop(0, `hsla(${c.h},55%,22%,0.95)`); cg.addColorStop(0.6, `hsla(${c.h},55%,38%,0.85)`); cg.addColorStop(0.85, `hsla(${(c.h + 60) % 360},80%,75%,0.9)`); cg.addColorStop(1, `hsla(${(c.h + 120) % 360},90%,90%,0)`);
+          g.fillStyle = cg; g.beginPath(); g.ellipse(0, 0, sz * c.rx, sz * c.ry, 0, 0, 7); g.fill();
+          g.strokeStyle = `hsla(${(c.h + t * 80) % 360},100%,85%,0.6)`; g.lineWidth = 1.5 * dpr; g.beginPath(); g.ellipse(-sz * 0.2, -sz * 0.15, sz * c.rx * 0.6, sz * c.ry * 0.5, 0, 3.6, 5.6); g.stroke();
+          g.restore(); });
+        g.globalAlpha = 1;
+        // 幻彩薄膜觸鬚（有破洞的網狀組織），從中央的核心往外延伸
+        if (!layer || layer.width !== W) { layer = document.createElement('canvas'); layer.width = W; layer.height = H; }
+        const L = layer.getContext('2d'); L.clearRect(0, 0, W, H);
+        tend.forEach(td => { const len = M * 0.62, a = td.a + Math.sin(t * 0.8 + td.ph) * 0.12, bend = Math.sin(t * 1.3 + td.ph) * 0.35;
+          const p = (k) => { const ang = a + bend * k * k; return [cx + Math.cos(ang) * (R * 0.9 + k * len), cy + Math.sin(ang) * (R * 0.9 + k * len)]; };
+          const gr = L.createLinearGradient(cx, cy, cx + Math.cos(a) * len, cy + Math.sin(a) * len); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.3, `hsla(${(300 + t * 30) % 360},80%,80%,0.9)`); gr.addColorStop(0.65, `hsla(${(200 + t * 30) % 360},80%,75%,0.85)`); gr.addColorStop(1, 'hsla(260,70%,70%,0)');
+          L.fillStyle = gr; L.beginPath(); const N = 16; const pts = []; for (let i = 0; i <= N; i++) pts.push(p(i / N));
+          for (let i = 0; i <= N; i++) { const [x, y] = pts[i], w = td.w * dpr * (1 - i / N * 0.85) * (1 + Math.sin(i * 1.7 + t * 3) * 0.2), nx = -Math.sin(a), ny = Math.cos(a); i ? L.lineTo(x + nx * w, y + ny * w) : L.moveTo(x + nx * w, y + ny * w); }
+          for (let i = N; i >= 0; i--) { const [x, y] = pts[i], w = td.w * dpr * (1 - i / N * 0.85) * (1 + Math.cos(i * 1.3 + t * 3) * 0.2), nx = -Math.sin(a), ny = Math.cos(a); L.lineTo(x - nx * w, y - ny * w); }
+          L.closePath(); L.fill();
+          L.globalCompositeOperation = 'destination-out'; td.holes.forEach(hh => { const [x, y] = p(hh.k), w = td.w * dpr * (1 - hh.k * 0.85); L.beginPath(); L.ellipse(x + hh.o * w, y - hh.o * w * 0.5, hh.r * dpr * (1 - hh.k * 0.5), hh.r * dpr * 0.6, a, 0, 7); L.fill(); }); L.globalCompositeOperation = 'source-over'; });
+        g.drawImage(layer, 0, 0);
+        // 中央的意識核心：發光球體，表面是一圈圈幻彩花瓣
+        const glow = g.createRadialGradient(cx, cy, R * 0.5, cx, cy, R * 2.4); glow.addColorStop(0, 'rgba(255,255,255,0.9)'); glow.addColorStop(1, 'rgba(200,230,255,0)'); g.fillStyle = glow; g.beginPath(); g.arc(cx, cy, R * 2.4, 0, 7); g.fill();
+        const orb = g.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R); orb.addColorStop(0, '#ffffff'); orb.addColorStop(0.6, '#e6f6ff'); orb.addColorStop(1, '#9ab6e8'); g.fillStyle = orb; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
+        g.save(); g.beginPath(); g.arc(cx, cy, R * 0.97, 0, 7); g.clip();
+        [[0.28, 6, 0.16], [0.55, 12, 0.13], [0.8, 18, 0.1]].forEach(([rr, n, ps], ri) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283 + t * (ri % 2 ? -0.35 : 0.25); const x = cx + Math.cos(a) * R * rr, y = cy + Math.sin(a) * R * rr * 0.92;
+          g.save(); g.translate(x, y); g.rotate(a + Math.PI / 2); const hue = (i * 360 / n + ri * 50 + t * 60) % 360; const pg = g.createLinearGradient(0, -R * ps, 0, R * ps); pg.addColorStop(0, `hsl(${hue},90%,82%)`); pg.addColorStop(1, `hsl(${(hue + 80) % 360},85%,62%)`);
+          g.fillStyle = pg; g.strokeStyle = 'rgba(40,30,80,0.55)'; g.lineWidth = 1.2 * dpr; g.beginPath(); g.ellipse(0, 0, R * ps * 0.45, R * ps, 0, 0, 7); g.fill(); g.stroke(); g.restore(); } });
+        g.restore();
+        g.fillStyle = 'rgba(255,255,255,0.75)'; g.beginPath(); g.ellipse(cx - R * 0.35, cy - R * 0.42, R * 0.28, R * 0.14, -0.6, 0, 7); g.fill();
+        // 幻彩光點
+        g.globalCompositeOperation = 'lighter'; sparks.forEach(sp => { sp.d = (sp.d + sp.sp * 0.01) % 1; const dist = R * 1.1 + sp.d * M * 0.5; g.fillStyle = `hsla(${(sp.h + t * 90) % 360},100%,75%,${1 - sp.d})`; g.beginPath(); g.arc(cx + Math.cos(sp.a) * dist, cy + Math.sin(sp.a) * dist, (1 + (1 - sp.d) * 2.5) * dpr, 0, 7); g.fill(); });
         g.globalCompositeOperation = 'source-over';
-        if (t < 2.5) { g.globalAlpha = Math.min(1, t * 2, (2.5 - t) * 2); g.textAlign = 'center'; g.font = `800 ${24 * dpr}px system-ui, sans-serif`; g.fillStyle = '#fff'; g.fillText('意識共鳴', cx, H * 0.14); g.globalAlpha = 1; }
+        if (t < 2.6) { g.globalAlpha = Math.min(1, t * 2, (2.6 - t) * 2); g.textAlign = 'center'; g.font = `600 ${22 * dpr}px system-ui, sans-serif`; g.fillStyle = '#3a2a78'; g.fillText('意識共鳴', cx, H * 0.12); g.globalAlpha = 1; }
       }, () => SFX.shimmer());
     },
     // ===== 夜城壞運卡：完美進化（只有抽到的人）→ 色彩與聲音消失，只剩虛無 =====
     async evolution(seat) {
       const st = this.el.querySelector('.mono-stage'), b = this.board;
-      SFX.void_(); st.style.transition = 'filter 2.4s'; st.style.filter = 'grayscale(1) brightness(0.8)';
+      SFX.void_(); st.style.transition = 'filter 2.4s'; st.style.filter = 'grayscale(1) brightness(0.92)';
       if (b) await b.evolve(seat, k => SFX[k] && SFX[k]());
       await this.overlay(3200, (g, W, H, dpr, t) => {
-        g.fillStyle = `rgba(10,10,12,${Math.min(1, t / 1.2)})`; g.fillRect(0, 0, W, H);
+        g.fillStyle = `rgba(52,54,58,${Math.min(0.7, t / 1.5)})`; g.fillRect(0, 0, W, H);
         const a = Math.min(1, Math.max(0, (t - 0.8) / 0.8)) * Math.min(1, (3.2 - t) / 0.6);
         g.globalAlpha = a; g.textAlign = 'center'; g.fillStyle = '#c8ccd2'; g.font = `300 ${26 * dpr}px system-ui, sans-serif`; g.fillText('完美進化', W / 2, H / 2 - 10 * dpr);
         g.font = `300 ${13 * dpr}px system-ui, sans-serif`; g.fillStyle = '#8a8e96'; g.fillText('沒有痛苦，也沒有任何感覺', W / 2, H / 2 + 22 * dpr); g.globalAlpha = 1;
       });
-      st.style.filter = ''; setTimeout(() => { st.style.transition = ''; }, 100);
+      this._grey = true; // 這一輪剩下的畫面維持灰色，換下一位擲骰時才恢復
     },
     // ===== 動物星球彩蛋：動物大遷徙（約 4.5 秒） =====
     migration() {

@@ -96,7 +96,7 @@
     st.qused = st.qused || []; let pool = U.range(bank.length).filter(i => !st.qused.includes(i)); if (!pool.length) { st.qused = []; pool = U.range(bank.length); }
     const qi = pool[Math.floor(Math.random() * pool.length)]; st.qused.push(qi);
     const q = bank[qi]; const order = U.shuffle([0, 1, 2, 3]);
-    st.quizKey = order.indexOf(0); // 正確答案的位置（揭曉前不給畫面）
+    st.quizKey = order.indexOf(0); st.quizNote = q[5] || ''; // 正確答案與小知識（揭曉前不給畫面）
     st.phase = 'quiz'; st.pending = { quiz: true, debtor: s, cred: o, amt, tile, q: q[0], opts: order.map(k => q[1 + k]), ans: {}, start: 0 };
     ev(st, { t: 'quiz', debtor: s, cred: o, amt, tile }); st.anim += 1500;
   }
@@ -106,7 +106,7 @@
     const dOK = ok(pd.debtor), cOK = ok(pd.cred);
     const win = dOK && (!cOK || a[pd.debtor].t < a[pd.cred].t);
     st.ev = []; st.anim = 0; st.evId++;
-    ev(st, { t: 'quizres', debtor: pd.debtor, cred: pd.cred, q: pd.q, opts: pd.opts, ans: a, key, win, amt: pd.amt, tile: pd.tile }); st.anim += 3500;
+    ev(st, { t: 'quizres', debtor: pd.debtor, cred: pd.cred, q: pd.q, opts: pd.opts, ans: a, key, win, amt: pd.amt, tile: pd.tile, note: st.quizNote || '' }); st.anim += 7000;
     st.phase = 'roll'; const { debtor, cred, amt, tile } = pd; st.pending = null; st.quizKey = null;
     if (!win) pay(st, debtor, cred, amt, '過路費', tile);
     endTurn(st, now);
