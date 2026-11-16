@@ -7,7 +7,7 @@
   const LAYOUT = ['S', 'P0', 'L', 'P0', 'X', 'P1', 'B', 'J', 'P1', 'P2', 'I', 'P2', 'P3', 'B', 'F', 'P3', 'P4', 'L', 'P4', 'T', 'P5', 'G', 'P5', 'I', 'P6', 'P6', 'P7', 'P7'];
   const GROUP_PRICE = [3000, 4000, 5000, 6000, 8000, 9000, 11000, 13000];
   const GROUP_COLOR = ['#8d6e63', '#4fc3f7', '#ec407a', '#ffa726', '#ef5350', '#ffee58', '#66bb6a', '#5c6bc0'];
-  const RENT_MUL = [0.1, 0.38, 0.8, 1.4, 2.2];
+  const RENT_MUL = [0.092, 0.35, 0.74, 1.29, 2.02]; // 過路費比原本少約 8%
   const BUYOUT_MUL = 1.4, ROUND_CAP = 40;
   const START_BONUS = 5000, BOOST = 3000, JAIL = 7;
   const taxOf = (st, s) => Math.max(2000, Math.round(worth(st, s) * 0.06 / 100) * 100); // 累進稅：越有錢繳越多

@@ -132,12 +132,13 @@
         return null;
       }
       const w = R().autoAct(st); return w && w.seat >= 0 ? w : null; },
-    view(st) {
+    view(st, seat) {
       return {
         theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map(p => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, items: p.items || [], invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
-        owners: st.owners, levels: st.levels, ev: st.ev, evId: st.evId, pending: st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks
+        owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
+        pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks
       };
     },
 
@@ -331,7 +332,7 @@
               if (!this._camFree) b.focusSeat(e.debtor, true); await sleep(1400); break;
             }
             case 'quizres': await this.quizReveal(e); break;
-            case 'getitem': { const nm = this.itemName(e.k); SFX.coin(); b.jumpJoy(e.seat); this.fx(`🎒 ${nm}`, 'gain', e.seat); this.feed(`${this.who(e.seat)} ${e.amt ? `花 ${$(e.amt)} 買了` : '拿到'}道具 <b>${U.esc(e.seat === v.seat ? nm : '？？？')}</b>`, 'good'); await sleep(900); break; }
+            case 'getitem': { const mine = e.seat === v.seat, nm = mine ? this.itemName(e.k) : '道具'; SFX.coin(); b.jumpJoy(e.seat); this.fx(`🎒 ${nm}`, 'gain', e.seat); this.feed(mine ? `你${e.amt ? `花 ${$(e.amt)} 買了` : '拿到'} <b>${U.esc(nm)}</b>` : `${this.who(e.seat)} ${e.amt ? '買了' : '拿到'}一張道具`, 'good'); await sleep(900); break; }  // 別人買了什麼、花多少都不顯示
             case 'item': {
               const nm = this.itemName(e.k), tg = e.target != null && e.target >= 0 ? this.who(e.target) : '';
               this._played = true; if (!this._camFree) { if (e.tile != null) b.focusTile(e.tile); else b.focusSeat(e.target >= 0 ? e.target : e.seat, true); }
