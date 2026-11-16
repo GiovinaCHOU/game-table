@@ -42,6 +42,12 @@
     setAvatar(img) { this._av = img; if (this.pin) LS.set('av:' + this.pin, { img, t: Date.now() }); this.send({ t: 'avatar', img }); this._avCheck(img, 0); },
     _avCheck(img, n) { setTimeout(() => { const me = this.room && this.room.members.find(x => x.cid === this.cid); if (me && me.avatar === img) return; if (n < 5) { this.send({ t: 'avatar', img }); this._avCheck(img, n + 1); } }, 2500); },
     // 手機網路切換（5G／Wi‑Fi）後，連線元件可能已經壞掉：壞了就換一個新的
+    // 連線元件出事（被系統關掉、網路切換）：不等心跳逾時，馬上修
+    _watchPeer(p) {
+      const fix = () => { if (this._leaving || this.isHost || this.peer !== p) return; setTimeout(() => this._ensurePeer().then(() => this._connect()).catch(() => {}), 200); };
+      p.on('close', fix); p.on('error', (e) => { if (e && /network|disconnected|server-error|socket/.test(e.type || '')) fix(); });
+      p.on('disconnected', () => { setTimeout(() => { try { if (this.peer === p && !p.destroyed) p.reconnect(); } catch (e) {} }, 500); });
+    },
     async _ensurePeer() {
       if (this.isHost) return;
       const p = this.peer;
@@ -52,9 +58,8 @@
       }
       try { p && p.destroy(); } catch (e) {}
       this._discSince = 0; this.cb.status('網路變了，重新建立連線…', true);
-      this.peer = await this._openPeer(null); Voice.attach(this.peer);
-      this.peer.on('disconnected', () => { setTimeout(() => { try { this.peer.reconnect(); } catch (e) {} }, 1000); });
-      this._connecting = false;
+      this.peer = await this._openPeer(null); Voice.attach(this.peer); this._watchPeer(this.peer);
+      this._connecting = false; this._attempts = 0;
     },
     _hello() { try { this.conn && this.conn.open && this.conn.send({ t: 'hello', cid: this.cid, name: this.name, spec: this.spec, peerId: this.peer.id, voice: Voice.mode === 'off' ? null : Voice.mode, avatar: this.myAvatar() }); } catch (e) {} this._helloAt = Date.now(); },
     // 連上了卻一直沒收到房間／遊戲畫面（手機網路常見）：先重送打招呼，再不行就整個重連
@@ -146,7 +151,7 @@
     },
     // 回到網頁時：立刻重連；房間不見了就用暫存救回
     async wake() {
-      if (!this.pin || this._leaving || this._waking) return;
+      if (!this.pin || this._leaving || this._waking || this._joining) return; // 正在加入中就不要再插一腳（會變成兩條連線互搶）
       this._waking = true;
       try {
         if (this.isHost) {
@@ -157,14 +162,15 @@
         }
         if (this.peer && this.peer.disconnected && !this.peer.destroyed) { try { this.peer.reconnect(); } catch (e) {} await new Promise(r => setTimeout(r, 800)); }
         if (this.peer && this.peer.destroyed) this.peer = null;
-        if (this.conn && this.conn.open && Date.now() - (this._lastHost || 0) < 6000) return;
+        if (this.conn && this.conn.open && Date.now() - (this._lastHost || 0) < 3500) return;
         await this.reenter();
       } finally { this._waking = false; }
     },
     // 先試著加入；連不到而且有暫存，就由自己重開房間
     async reenter() {
       try {
-        if (!this.peer) { this.peer = await this._openPeer(null); Voice.attach(this.peer); this.peer.on('disconnected', () => { setTimeout(() => { try { this.peer.reconnect(); } catch (e) {} }, 1000); }); }
+        if (this.peer && this.peer.destroyed) this.peer = null;
+        if (!this.peer) { this.peer = await this._openPeer(null); Voice.attach(this.peer); this._watchPeer(this.peer); }
         this._connecting = false; await this._connect(); return 'joined';
       } catch (e) {
         if (this.hasSnap(this.pin)) {
@@ -175,8 +181,11 @@
       }
     },
     // ================= 接手房主 =================
-    async _takeover() {
+    async _takeover(force) {
       if (this._takingOver || this.isHost || this._leaving) return;
+      // 只是收不到心跳（可能是自己網路不好或房主短暫切出去）：等久一點才接手；連線明確被關掉才立刻接手
+      // 手機卡頓、短暫收不到也不要急著搶房主（會變成兩個房間）：沒收到心跳 20 秒、或連線被關掉而且 5 秒都沒消息才接手
+      if (Date.now() - (this._lastHost || 0) < (force ? 5000 : 20000)) return;
       if (!this.room || !this._snap) return;
       const heirs = this.room.heirs || [this.room.heir];
       // 第一順位候補立刻接；第二順位等久一點才接（第一順位可能也切出去了）
@@ -216,12 +225,15 @@
 
     // ================= 加入 =================
     async join(pin, name, spec) {
+      this._joining = true;
+      try { return await this._join(pin, name, spec); } finally { this._joining = false; }
+    },
+    async _join(pin, name, spec) {
       this.name = name; this.pin = pin; this.isHost = false; this.spec = spec; this.cid = cidFor(pin); this._av = null;
       if (this.peer && this.peer.destroyed) this.peer = null;
       if (!this.peer) {
         this.peer = await this._openPeer(null);
-        Voice.attach(this.peer);
-        this.peer.on('disconnected', () => { setTimeout(() => { try { this.peer.reconnect(); } catch (e) {} }, 1000); });
+        Voice.attach(this.peer); this._watchPeer(this.peer);
       }
       try { await this._connect(); }
       catch (e) {
@@ -234,31 +246,36 @@
         if (this._leaving) return;
         if (this.isHost) return;
         this._resync();
-        if (Date.now() - (this._lastHost || 0) > 13000) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._ensurePeer().then(() => this._connect()).catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
-      }, 4000);
+        if (Date.now() - (this._lastHost || 0) > 6500 && (this._attempts || 0) < 2 && Date.now() - (this._lastTry || 0) > 2500) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._ensurePeer().then(() => this._connect()).catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
+      }, 1500);
     },
+    // 連房主：可以同時有 2～3 個嘗試在跑，誰先接通就用誰（網路剛恢復時不用等上一個嘗試逾時）
     _connect() {
       return new Promise((res, rej) => {
-        if (this._connecting) return rej(new Error('busy'));
-        this._connecting = true;
-        try { this.conn && this.conn.close(); } catch (e) {}
+        if ((this._attempts || 0) >= 3) return rej(new Error('busy'));
+        if (!this.peer || this.peer.destroyed) return rej(new Error('無法連線'));
         const conn = this.peer.connect(prefix + this.pin, { reliable: true, serialization: 'json' });
-        if (!conn) { this._connecting = false; return rej(new Error('無法連線')); }
-        const to = setTimeout(() => { this._connecting = false; rej(new Error('找不到這個房間（PIN 錯誤或房主已離開）')); }, 10000);
+        if (!conn) return rej(new Error('無法連線'));
+        this._attempts = (this._attempts || 0) + 1; this._connecting = true; this._lastTry = Date.now();
+        let done = false; const fin = () => { if (done) return; done = true; this._attempts = Math.max(0, this._attempts - 1); this._connecting = this._attempts > 0; };
+        const to = setTimeout(() => { fin(); try { conn.close(); } catch (e) {} rej(new Error('找不到這個房間（PIN 錯誤或房主已離開）')); }, this.room ? 8000 : 10000);
         conn.on('open', () => {
-          clearTimeout(to); this._connecting = false;
+          clearTimeout(to); fin();
           if (this.isHost) { try { conn.close(); } catch (e) {} return res(); }
-          this.conn = conn; this._lastHost = Date.now();
+          // 已經有一條健康的連線了（別的嘗試先接通）：這條就不要了
+          if (this.conn && this.conn !== conn && this.conn.open && Date.now() - (this._lastHost || 0) < 2500) { try { conn.close(); } catch (e) {} return res(); }
+          const old = this.conn; this.conn = conn; this._lastHost = Date.now();
+          if (old && old !== conn) { try { old.close(); } catch (e) {} }
           this._hello(); this._roomAt = 0; this._viewAt = 0; this._resyncN = 0;
           this.cb.status('');
           res();
         });
-        conn.on('data', d => { this._lastHost = Date.now(); this._deliver(d); });
+        conn.on('data', d => { if (this.conn !== conn) return; const gap = Date.now() - (this._lastHost || 0); this._lastHost = Date.now(); if (gap > 3500) { this.cb.status(''); this._hello(); } this._deliver(d); }); // 卡住後又通了：重新打招呼，房主會補送最新畫面
         conn.on('close', () => {
           if (this._leaving || this.isHost || this.conn !== conn) return;
           this.cb.status('與房主斷線，重新連線中…', true);
-          setTimeout(() => this._takeover(), 1500);
-          setTimeout(() => { if (!this.isHost && !this._leaving) this._ensurePeer().then(() => this._connect()).catch(() => {}); }, 3500);
+          setTimeout(() => this._takeover(true), 5500);
+          setTimeout(() => { if (!this.isHost && !this._leaving) this._ensurePeer().then(() => this._connect()).catch(() => {}); }, 300);
         });
         conn.on('error', () => {});
       });
@@ -281,7 +298,7 @@
       this.R = R; this.pin = pin; this.members = []; this.conns = {}; this.game = null;
       clearInterval(this.timer);
       this.timer = setInterval(() => this.tick(), 200);
-      this._pingT = setInterval(() => this.ping(), 4000);
+      this._pingT = setInterval(() => this.ping(), 2000); // 每 2 秒心跳：斷線 6～8 秒內就會發現
     },
     stop() { clearInterval(this.timer); clearInterval(this._pingT); },
     restore(R, pin, snap, msg) {
@@ -319,7 +336,13 @@
     accept(conn) {
       conn.on('data', d => {
         if (d && d.t === 'hello') { conn._mcid = d.cid; this.conns[d.cid] = conn; }
-        if (conn._mcid) { const m = this.m(conn._mcid); if (m) m.seen = Date.now(); this.recv(conn._mcid, d); }
+        if (conn._mcid) {
+          const m = this.m(conn._mcid);
+          if (m) { m.seen = Date.now(); if (this.conns[conn._mcid] !== conn && conn.open) this.conns[conn._mcid] = conn;
+            // 卡住一陣子又通了（連線沒有真的斷）：直接當作回來，補送最新畫面
+            if (!m.online && d.t !== 'hello') { m.online = true; this.sysChat(`${m.name} 回來了`); this.pushRoom(); this.pushViews(); } }
+          this.recv(conn._mcid, d);
+        }
       });
       conn.on('close', () => {
         const cid = conn._mcid; if (!cid || this.conns[cid] !== conn) return;

@@ -172,11 +172,12 @@
       if (v.evId !== this._evId) {
         const evs = v.ev.slice(); this._evId = v.evId; this._backlog = (this._backlog || 0) + 1;
         // 還有後面的動畫在排隊時，不要先把棋子擺到最新位置（不然會先跳過去、再倒退重播）
-        this.queue = this.queue.then(() => this.play(evs)).then(() => { this._backlog--; return this._backlog ? null : this.holdCam(); }).then(() => { if (!this._backlog) this.syncBoard(); }).catch(e => { this._backlog = Math.max(0, this._backlog - 1); console.error(e); });
+        const gen = this._gen;
+        this.queue = this.queue.then(() => gen === this._gen ? this.play(evs) : null).then(() => { this._backlog--; return this._backlog ? null : this.holdCam(); }).then(() => { if (!this._backlog) this.syncBoard(); }).catch(e => { this._backlog = Math.max(0, this._backlog - 1); console.error(e); });
       } else if (!this.playing) this.syncBoard();
       this.queue.then(() => { if (!this._backlog) this.showPrompt(); });
     },
-    destroy() { if (this.board) this.board.dispose(); if (this._booting) this._booting.dispose(); this.board = null; this._theme = null; },
+    destroy() { this._gen = (this._gen || 0) + 1; this._backlog = 0; if (this.board) this.board.dispose(); if (this._booting) this._booting.dispose(); this.board = null; this._theme = null; },
     build(el, v) {
       if (this.board) this.board.dispose();
       this.board = null; this._theme = v.theme; this._evId = v.evId; this.queue = Promise.resolve(); this._backlog = 0; this.playing = false;
@@ -488,9 +489,9 @@
       const inv = m.querySelector('[data-inv]'); if (inv) inv.onclick = () => send({});
       m.querySelector('[data-x]').onclick = () => { m.hidden = true; };
     },
-    hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; if (this.el) this.el.querySelector('.go-btn').disabled = true; },
+    hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; const go = this.el && this.el.querySelector('.go-btn'); if (go) go.disabled = true; },
     showPrompt() {
-      const v = this.v; if (!this.el || this.playing) return;
+      const v = this.v; if (!this.el || this.playing || !this.el.querySelector('.go-btn')) return;
       if (v.phase === 'quiz' && v.pending && v.pending.quiz) this.quizUI(v.pending, null); else if (!this._revealing) { const qz = this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true; }
       if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');

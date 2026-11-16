@@ -11,7 +11,7 @@
   }
   class FakeConn extends Emitter {
     constructor(peer, remote, cid) { super(); this.peer = remote; this._p = peer; this._cid = cid; this.open = false; }
-    send(d) { this._p._bc.postMessage({ k: 'd', to: this.peer, from: this._p.id, cid: this._cid, d: JSON.parse(JSON.stringify(d)) }); }
+    send(d) { if (window.__netDown || this._p._dead || this._p.destroyed) return; this._p._bc.postMessage({ k: 'd', to: this.peer, from: this._p.id, cid: this._cid, d: JSON.parse(JSON.stringify(d)) }); }
     close() { this._p._bc.postMessage({ k: 'x', to: this.peer, from: this._p.id, cid: this._cid }); this._down(); }
     _down() { if (this.open || !this._closed) { this.open = false; this._closed = true; delete this._p._conns[this._cid]; this.emit('close'); } }
   }
@@ -23,12 +23,14 @@
       this._bc = new BroadcastChannel('fakepeer');
       this._bc.onmessage = (ev) => this._rx(ev.data);
       // 模擬真正的 PeerJS：同一個房號只能有一個人占用
+      if (window.__netDown) { this._dead = true; setTimeout(() => this.emit('error', { type: 'network' }), 300); return; }
       if (id) { this._q = Math.random().toString(36).slice(2); this._bc.postMessage({ k: 'q', id, q: this._q });
-        setTimeout(() => { if (this._taken) { this._dead = true; this.emit('error', { type: 'unavailable-id' }); } else this.emit('open', this.id); }, 150); }
+        setTimeout(() => { if (this._taken) { this._dead = true; this.emit('error', { type: 'unavailable-id' }); } else this.emit('open', this.id); }, 700); }
       else setTimeout(() => this.emit('open', this.id), 30);
       window.addEventListener('beforeunload', () => Object.values(this._conns).forEach(c => c.close()));
     }
     _rx(m) {
+      if (window.__netDown) return; // 測試用：模擬斷網
       if (m.k === 'q') { if (m.id === this.id && !this._dead && !this._q2(m.q)) this._bc.postMessage({ k: 'qr', q: m.q }); return; }
       if (m.k === 'qr') { if (m.q === this._q) this._taken = true; return; }
       if (this._dead || m.to !== this.id) return;
@@ -49,7 +51,7 @@
       return c;
     }
     call() { return null; }
-    reconnect() {} destroy() { this._dead = true; this.destroyed = true; this._bc.close(); }
+    reconnect() {} destroy() { this._dead = true; this.destroyed = true; this._bc.close(); setTimeout(() => this.emit('close'), 50); }
     get disconnected() { return false; }
   }
 
