@@ -124,6 +124,8 @@
       const w = R().autoAct(st); if (!w) return false;
       R().act(st, w.seat < 0 ? 0 : w.seat, w.a, now); return true;
     },
+    // 動畫還在播的時候，電腦／託管先不要出手（不然畫面會跟不上，角色會倒退再往前）
+    busy(st, now) { return !!st.animAt && now < st.animAt + (st.anim || 0) + 900; },
     auto(st, isAuto) {
       // 選角色階段：電腦／託管的玩家自動挑一個還沒被選走的角色
       if (st.phase === 'pick' && isAuto) {
@@ -168,15 +170,16 @@
       if (v.phase === 'pick') { this.showPrompt(); return; }
       if (!this.board || !this.board.ready) { this._pendingSync = true; return; }
       if (v.evId !== this._evId) {
-        const evs = v.ev.slice(); this._evId = v.evId;
-        this.queue = this.queue.then(() => this.play(evs)).then(() => this.holdCam()).then(() => this.syncBoard()).catch(e => console.error(e));
+        const evs = v.ev.slice(); this._evId = v.evId; this._backlog = (this._backlog || 0) + 1;
+        // 還有後面的動畫在排隊時，不要先把棋子擺到最新位置（不然會先跳過去、再倒退重播）
+        this.queue = this.queue.then(() => this.play(evs)).then(() => { this._backlog--; return this._backlog ? null : this.holdCam(); }).then(() => { if (!this._backlog) this.syncBoard(); }).catch(e => { this._backlog = Math.max(0, this._backlog - 1); console.error(e); });
       } else if (!this.playing) this.syncBoard();
-      this.queue.then(() => this.showPrompt());
+      this.queue.then(() => { if (!this._backlog) this.showPrompt(); });
     },
     destroy() { if (this.board) this.board.dispose(); if (this._booting) this._booting.dispose(); this.board = null; this._theme = null; },
     build(el, v) {
       if (this.board) this.board.dispose();
-      this.board = null; this._theme = v.theme; this._evId = v.evId; this.queue = Promise.resolve(); this.playing = false;
+      this.board = null; this._theme = v.theme; this._evId = v.evId; this.queue = Promise.resolve(); this._backlog = 0; this.playing = false;
       el.dataset.g = 'monopoly';
       const th = TH()[v.theme];
       el.innerHTML = `

@@ -119,7 +119,7 @@
     const ok = (s) => a[s] && a[s].c === key;
     const dOK = ok(pd.debtor), cOK = ok(pd.cred);
     const win = dOK && (!cOK || a[pd.debtor].t < a[pd.cred].t);
-    st.ev = []; st.anim = 0; st.evId++;
+    st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
     ev(st, { t: 'quizres', debtor: pd.debtor, cred: pd.cred, q: pd.q, lv: pd.lv, opts: pd.opts, ans: a, key, win, amt: pd.amt, tile: pd.tile, note: st.quizNote || '' }); st.anim += 7000;
     st.phase = 'roll'; const { debtor, cred, amt, tile } = pd; st.pending = null; st.quizKey = null;
     if (!win) pay(st, debtor, cred, amt, '過路費', tile);
@@ -287,7 +287,7 @@
       return st;
     },
     begin(st, now) {
-      st.ev = []; st.anim = 0; st.evId++;
+      st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
       const th = TH()[st.theme]; const used = st.players.map(p => p.char && p.char.kind === 'preset' ? p.char.i : -1);
       st.players.forEach(p => { if (!p.char) { const i = U.range(th.chars.length).find(i => !used.includes(i)); p.char = { kind: 'preset', i }; used.push(i); } });
       st.phase = 'roll'; st.turn = 0; st.first = 0; setDeadline(st, now, 15000);
@@ -319,7 +319,7 @@
       if (st.phase === 'over' || st.phase === 'pick') return 'silent';
       if (s !== st.turn) return '還沒輪到你';
       const p = st.players[s];
-      st.ev = []; st.anim = 0; st.evId++;
+      st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
       if (a.type === 'roll') {
         if (st.phase !== 'roll') return 'silent';
         const d = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];

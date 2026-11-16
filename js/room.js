@@ -337,7 +337,8 @@
       if (!this.game) return;
       const mod = G()[this.game.id];
       // 斷線超過 15 秒的人輪到時，系統代打，遊戲不會卡住
-      if (mod.auto) {
+      let busy = false; try { busy = !!(mod.busy && mod.busy(this.game.state, Date.now())); } catch (e) {}
+      if (mod.auto && !busy) {
         let w = null; try { w = mod.auto(this.game.state, (seat) => { const mm = this.m(this.game.seats[seat]); return !!(mm && (mm.auto || !mm.online)); }); } catch (e) {}
         if (w && w.seat >= 0) {
           const m = this.m(this.game.seats[w.seat]);
