@@ -479,7 +479,15 @@
       const mine = myP >= 0 ? v.players[myP] : null;
       let hand = me ? me.hand.slice() : [];
       const drawn = me && me.drawn != null ? me.drawn : null;
-      hand = hand.filter(id => id !== drawn).sort((a, b) => tt(a) - tt(b) || a - b);
+      // 手牌排序：預設自動依花色排；拖曳過就改成自己排的順序（新摸的牌接在最後）
+      const auto = (a, b) => tt(a) - tt(b) || a - b;
+      let drawnSep = drawn;
+      if (this._order && me) {
+        const has = new Set(me.hand); const ord = this._order.filter(id => has.has(id));
+        if (drawn != null && ord.includes(drawn)) drawnSep = null;
+        const rest = me.hand.filter(id => !ord.includes(id) && id !== drawnSep).sort(auto);
+        hand = ord.concat(rest).filter(id => id !== drawnSep); this._order = ord.length ? hand.slice() : null;
+      } else hand = hand.filter(id => id !== drawn).sort(auto);
       const myTurn = me && v.phase === 'discard' && v.turn === myP;
       if (this._sel != null && !(me && me.hand.includes(this._sel))) this._sel = null;
       const tips = (me && me.tips) || {};
@@ -504,11 +512,15 @@
             ${v.sitter >= 0 ? `<small>・${U.esc(v.names[v.sitter])} 這局休息</small>` : ''}
             ${me.waits && me.waits.length ? `<span class="waits">聽：${me.waits.map(t => tname(t)).join('、')}</span>` : ''}</div>
           ${mine.flowers.length || mine.melds.length ? `<div class="mj-melds">${meldHTML(mine, 'sm')}</div>` : ''}
-          <div class="mj-hand">${hand.map(id => T(id, (this._sel === id ? 'sel ' : '') + (tips[tt(id)] ? 'ting' : ''))).join('')}${drawn != null ? `<span class="gap"></span>${T(drawn, 'drawn ' + (this._sel === drawn ? 'sel ' : '') + (tips[tt(drawn)] ? 'ting' : ''))}` : ''}</div>
+          <div class="mj-hand">${hand.map(id => T(id, (this._sel === id ? 'sel ' : '') + (tips[tt(id)] ? 'ting' : ''))).join('')}${drawnSep != null ? `<span class="gap"></span>${T(drawnSep, 'drawn ' + (this._sel === drawnSep ? 'sel ' : '') + (tips[tt(drawnSep)] ? 'ting' : ''))}` : ''}</div>
+          <div class="mj-sorthint">${this._order ? '<button class="btn ghost sm" data-sort="1">↺ 恢復自動排序</button>' : '<small>按住牌拖曳可以自己排順序</small>'}</div>
           ${this._sel != null && tips[tt(this._sel)] ? `<div class="hint">打 ${tname(tt(this._sel))} 可聽：${tips[tt(this._sel)].map(tname).join('、')}</div>` : ''}
           <div class="act-row mj-acts">${this._actions(v, me, myTurn)}</div>
         </div>` : '<p class="spec-note">' + (v.sitter >= 0 && me == null && v.names[v.sitter] ? '觀戰中（5 人局每局輪一人休息）' : '觀戰中') + '</p>'}`;
+      const sb = el.querySelector('[data-sort]'); if (sb) sb.onclick = () => { this._order = null; this.render(el, v, ui); };
+      this._bindDrag(el, v, ui, hand, drawnSep);
       el.querySelectorAll('.mj-hand .mt').forEach(t => t.onclick = () => {
+        if (this._justDragged) return;
         if (!myTurn) return; const id = +t.dataset.id;
         if (this._sel === id) { ui.send({ type: 'discard', tile: id }); this._sel = null; }
         else { this._sel = id; this.render(el, v, ui); }
@@ -519,6 +531,32 @@
         else if (a === 'kong') ui.send({ type: 'kong', t: +b.dataset.t });
         else if (a === 'chi') ui.send({ type: 'chi', i: +b.dataset.i });
         else ui.send({ type: a });
+      });
+    },
+    // 拖曳手牌換位置（滑鼠與手指都可以）
+    _bindDrag(el, v, ui, hand, drawnSep) {
+      const box = el.querySelector('.mj-hand'); if (!box) return;
+      box.querySelectorAll('.mt').forEach(t => t.onpointerdown = (e) => {
+        if (e.button) return; const id = +t.dataset.id, x0 = e.clientX, y0 = e.clientY; let drag = false;
+        const others = [...box.querySelectorAll('.mt')].filter(o => o !== t);
+        const move = (ev) => {
+          const dx = ev.clientX - x0, dy = ev.clientY - y0;
+          if (!drag && Math.hypot(dx, dy) > 8) { drag = true; t.classList.add('dragging'); try { t.setPointerCapture(e.pointerId); } catch (_) {} }
+          if (drag) { ev.preventDefault(); t.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`; }
+        };
+        const upF = (ev) => {
+          window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', upF); window.removeEventListener('pointercancel', upF);
+          if (!drag) return;
+          this._justDragged = true; setTimeout(() => this._justDragged = false, 50);
+          // 找放下位置：離手指最近的那張牌，放在它前面或後面
+          let best = null, bd = 1e9; others.forEach(o => { const r = o.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, d = Math.hypot(ev.clientX - cx, (ev.clientY - cy) * 1.6); if (d < bd) { bd = d; best = { id: +o.dataset.id, after: ev.clientX > cx }; } });
+          let ord = hand.slice(); if (drawnSep != null) ord.push(drawnSep);
+          ord = ord.filter(x => x !== id);
+          if (best) { const i = ord.indexOf(best.id); ord.splice(best.after ? i + 1 : i, 0, id); } else ord.push(id);
+          if (drawnSep != null && id !== drawnSep && ord[ord.length - 1] === drawnSep) ord.pop(); // 沒動到剛摸的牌就讓它留在右邊
+          this._order = ord; this.render(el, v, ui);
+        };
+        window.addEventListener('pointermove', move, { passive: false }); window.addEventListener('pointerup', upF); window.addEventListener('pointercancel', upF);
       });
     },
     _actions(v, me, myTurn) {

@@ -548,3 +548,25 @@ body.in-room { position: fixed; inset: 0; overflow: hidden; }
   [data-g="mahjong"] .mt.rv { --w: 17px; }
   .mj-table { min-height: 0; }
 }
+
+/* 鍵盤打開時：猜題輸入列貼在鍵盤正上方；畫布上顯示正在輸入的字 */
+body.kb-open .dr-guess { position: fixed; left: 8px; right: 8px; top: calc(var(--kb-bottom) - 62px); z-index: 60; background: rgba(20,14,40,.96); padding: 5px; border-radius: 16px; box-shadow: 0 -4px 16px rgba(0,0,0,.4); }
+.dr-echo { position: absolute; left: 8px; right: 8px; top: 8px; background: rgba(20,14,40,.85); color: #fff; font-size: 18px; padding: 6px 12px; border-radius: 10px; text-align: center; pointer-events: none; z-index: 2; word-break: break-all; }
+
+[data-g="mahjong"] .mj-hand .mt { touch-action: none; }
+[data-g="mahjong"] .mj-hand .mt.dragging { z-index: 20; transition: none; box-shadow: 0 10px 18px rgba(0,0,0,.5); opacity: .92; }
+.mj-sorthint { text-align: center; margin-top: 4px; min-height: 20px; } .mj-sorthint small { color: var(--muted); font-size: 11px; }
+.mj-sorthint .btn.sm { padding: 4px 10px; font-size: 12px; min-height: 0; }
+/* 大富翁道具 */
+.mono-items { position: absolute; left: 10px; bottom: 12px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 4; }
+.mono-items .mi { display: flex; align-items: center; gap: 5px; background: rgba(15,15,25,.72); color: #fff; border: 1.5px solid rgba(255,255,255,.25); border-radius: 14px; padding: 5px 9px 5px 5px; font-size: 12px; backdrop-filter: blur(4px); }
+.mono-items .mi i { font-style: normal; font-size: 22px; width: 30px; height: 30px; display: grid; place-items: center; background: rgba(255,255,255,.12); border-radius: 10px; }
+.mono-items .mi span { max-width: 74px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mono-items .mi.ready { border-color: #ffd34d; box-shadow: 0 0 12px rgba(255,211,77,.55); }
+.mono-items .mi.passive { opacity: .8; }
+.mi-card .mi-big { font-size: 46px; line-height: 1.1; }
+.mi-targets { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; max-height: 40vh; overflow: auto; }
+.mi-targets .btn { display: flex; align-items: center; gap: 6px; justify-content: flex-start; color: #2b2116; border-color: #d8c9ad; background: #fff; }
+.mi-targets .btn small { margin-left: auto; color: #7a6a55; font-size: 11px; }
+.tile-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex: none; }
+@media (max-width: 480px) { .mono-items .mi span { display: none; } .mono-items .mi { padding: 4px; } }

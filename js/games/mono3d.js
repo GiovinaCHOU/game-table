@@ -4,10 +4,10 @@
   async function loadThree() { if (!THREE) THREE = await import(new URL('vendor/three.module.min.js', document.baseURI).href); return THREE; }
 
   const ICON = {
-    ragnarok: { start: '🏛️', jail: '💀', free: '🍷', gotojail: '⬇️', luck: '🌟', bad: '⚡', tax: '🪙', teleport: '🌈' },
-    cyber: { start: '🚉', jail: '🔒', free: '💉', gotojail: '🚨', luck: '💾', bad: '☠️', tax: '💰', teleport: '🚄' },
-    animal: { start: '🌅', jail: '🦓', free: '💧', gotojail: '🪤', luck: '🌿', bad: '🔥', tax: '🌧️', teleport: '🌪️' },
-    alien: { start: '🛸', jail: '⛓️', free: '🛰️', gotojail: '🚨', luck: '🧬', bad: '☄️', tax: '📦', teleport: '🕳️' }
+    ragnarok: { start: '🏛️', jail: '💀', free: '🍷', gotojail: '⬇️', luck: '🌟', bad: '⚡', tax: '🪙', teleport: '🌈', item: '🏺' },
+    cyber: { start: '🚉', jail: '🔒', free: '💉', gotojail: '🚨', luck: '💾', bad: '☠️', tax: '💰', teleport: '🚄', item: '🕶️' },
+    animal: { start: '🌅', jail: '🦓', free: '💧', gotojail: '🪤', luck: '🌿', bad: '🔥', tax: '🌧️', teleport: '🌪️', item: '🌰' },
+    alien: { start: '🛸', jail: '⛓️', free: '🛰️', gotojail: '🚨', luck: '🧬', bad: '☄️', tax: '📦', teleport: '🕳️', item: '🧰' }
   };
   const U = 1.5, N = 28;
   function tileXZ(i) {
@@ -227,7 +227,7 @@
           tk = this.tokens[p.seat] = { r, key, pos: -1 };
         }
         tk.color = p.color;
-        if (p.evolved && !tk.evolved) { tk.evolved = true; this.recolor(tk.r, new THREE.MeshStandardMaterial({ color: '#9aa0a8', metalness: 1, roughness: 0.22 })); }
+        if (p.evolved && !tk.evolved) { tk.evolved = true; this.metalize(tk.r); }
         if (tk.eaten) tk.r.g.visible = false;
         else if (p.alive === false && tk.r.state !== 'fall') root.MONO_CHARS.set(tk.r, 'fall');
       });
@@ -358,6 +358,33 @@
       const E = this.tokens[killer], V = this.tokens[victim];
       if (V) { V.r.g.visible = false; V.eaten = true; }
       if (E) { root.MONO_CHARS.set(E.r, 'joy', 1000); await this.sleepS(900); E.busy = false; await this.teleport(killer, home, false); }
+    }
+    // 進化：一般角色變鉻金屬；自畫立牌保留原圖，只變成灰階（不然會變成一塊黑方塊）
+    metalize(r, k = 1) {
+      const T = THREE, chrome = new T.MeshStandardMaterial({ color: '#9aa0a8', metalness: 1, roughness: 0.22 });
+      if (r.kind !== 'standee') return this.recolor(r, chrome);
+      r.g.traverse(o => { if (!o.isMesh || o.userData.tag) return;
+        if (!o.userData.mat0) o.userData.mat0 = o.material;
+        const m0 = o.userData.mat0;
+        if (m0.map && m0.map.image) {
+          if (!m0.userData.grey) { const img = m0.map.image, c = document.createElement('canvas'); c.width = img.width || 256; c.height = img.height || 256;
+            const x = c.getContext('2d'); x.filter = 'grayscale(1) contrast(1.15)'; x.drawImage(img, 0, 0, c.width, c.height);
+            if (x.filter !== 'grayscale(1) contrast(1.15)') { const d = x.getImageData(0, 0, c.width, c.height), a = d.data; for (let i = 0; i < a.length; i += 4) { const g = a[i] * .3 + a[i + 1] * .59 + a[i + 2] * .11; a[i] = a[i + 1] = a[i + 2] = g; } x.putImageData(d, 0, 0); }
+            const t = new T.CanvasTexture(c); t.colorSpace = m0.map.colorSpace; m0.userData.grey = t; }
+          const m = m0.clone(); m.map = m0.userData.grey; o.material = m;
+        } else o.material = chrome;
+      });
+    }
+    // 道具特效
+    itemFx(k, tile, seat, blocked) {
+      const T = THREE; let at;
+      if (tile != null) { const [x, z] = tileXZ(tile); at = new T.Vector3(x, 0.4, z); }
+      else { const tk = this.tokens[seat]; if (!tk) return; at = tk.r.g.position.clone().add(new T.Vector3(0, 0.6, 0)); }
+      if (blocked) { this.ring(at, '#7fd8ff', 1.2, 900); this.burst(at, { n: 24, colors: ['#ffffff', '#7fd8ff'], speed: 1.6, up: 0.6, size: 0.03, life: 0.6, add: true }); return; }
+      if (k === 'bomb') { this.ring(at, '#ff6a00', 1.8, 700); this.burst(at, { n: 46, colors: ['#ffb000', '#ff4d00', '#3a3a3a', '#777'], speed: 3.2, up: 2.4, size: 0.07, life: 1.0, box: true }); this.burst(at, { n: 30, colors: ['#fff3b0', '#ff9f1c'], speed: 2, up: 1.5, size: 0.05, life: 0.5, add: true }); }
+      else if (k === 'trap') { this.ring(at, '#b14cff', 1.0, 1000); this.burst(at, { n: 26, colors: ['#b14cff', '#e0b0ff'], speed: 1.2, up: 1.2, size: 0.04, life: 0.8, add: true }); }
+      else if (k === 'steal') { this.burst(at, { n: 30, colors: ['#ffd400', '#ffef8a'], speed: 1.8, up: 2, size: 0.05, life: 0.8, box: true }); }
+      else { this.ring(at, '#3cff9e', 1.2, 900); this.burst(at, { n: 24, colors: ['#3cff9e', '#d8ffe9'], speed: 1.4, up: 1.8, size: 0.04, life: 0.8, add: true }); }
     }
     recolor(r, mat) { r.g.traverse(o => { if (o.isMesh && !o.userData.tag) { if (!o.userData.mat0) o.userData.mat0 = o.material; o.material = mat; } }); }
     // 粒子：顏色、數量、速度、重力、壽命、大小
@@ -616,11 +643,12 @@
       const T = THREE, V = this.tokens[seat]; if (!V) return;
       this.focusSeat(seat, true); this.goal.dist = 3.4; S('charge');
       const chrome = new T.MeshStandardMaterial({ color: '#9aa0a8', metalness: 1, roughness: 0.22 });
+      if (V.r.kind === 'standee') { let lastS = 0; await this.tween(1600, k => { V.r.g.rotation.y = k * Math.PI * 4; const now = performance.now(); if (now - lastS > 140) { lastS = now; this.burst(V.r.g.position.clone().add(new T.Vector3(0, 0.6, 0)), { n: 5, colors: ['#ffffff', '#cfd6dd'], speed: 1.2, size: 0.02, life: 0.3, add: true }); } }); V.r.g.rotation.y = 0; this.metalize(V.r); V.evolved = true; return; }
       const items = []; V.r.g.traverse(o => { if (o.isMesh && !o.userData.tag) { o.material = o.material.clone(); items.push([o, o.material.color ? o.material.color.clone() : null]); } });
       let lastS = 0;
       await this.tween(2200, k => { items.forEach(([o, c]) => { if (c) o.material.color.copy(c).lerp(chrome.color, k); if (o.material.metalness != null) { o.material.metalness = k; o.material.roughness = 0.6 - k * 0.38; } if (o.material.emissiveIntensity) o.material.emissiveIntensity *= 0.97; });
         const now = performance.now(); if (now - lastS > 140) { lastS = now; this.burst(V.r.g.position.clone().add(new T.Vector3(0, 0.6, 0)), { n: 5, colors: ['#ffffff', '#cfd6dd'], speed: 1.2, size: 0.02, life: 0.3, add: true }); } });
-      this.recolor(V.r, chrome); V.evolved = true;
+      this.metalize(V.r); V.evolved = true;
     }
     // ===== 分食：大家（或債主）圍上去，各自用不同方式吃 =====
     mouth(r) { if (r.head) { const rad = (r.skull && r.skull.geometry.parameters.radius) || 0.13; return [r.head, new THREE.Vector3(0, -0.05, rad * 1.1)]; } return [r.body, new THREE.Vector3(0, 0.6, 0.25)]; }

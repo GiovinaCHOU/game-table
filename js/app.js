@@ -60,7 +60,16 @@
   })();
 
   // 鎖定版面高度＝實際可視高度（含手機鍵盤彈出時），避免畫面上下跳
-  function setVH() { const h = (window.visualViewport && window.visualViewport.height) || window.innerHeight; document.documentElement.style.setProperty('--vh', h + 'px'); if (document.body.classList.contains('in-room')) window.scrollTo(0, 0); }
+  // 鍵盤打開時（尤其舊 iPhone）不要把頁面捲回頂端，並把輸入框貼在鍵盤正上方
+  function setVH() {
+    const vv = window.visualViewport, h = (vv && vv.height) || window.innerHeight;
+    const ae = document.activeElement, typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.type !== 'range';
+    const kb = typing && vv && window.innerHeight - vv.height > 120;
+    document.body.classList.toggle('kb-open', !!kb);
+    if (kb) { document.documentElement.style.setProperty('--kb-bottom', (vv.offsetTop + vv.height) + 'px'); return; }
+    document.documentElement.style.setProperty('--vh', h + 'px'); if (document.body.classList.contains('in-room')) window.scrollTo(0, 0);
+  }
+  document.addEventListener('focusin', () => setTimeout(setVH, 50)); document.addEventListener('focusout', () => setTimeout(setVH, 80));
   setVH(); window.addEventListener('resize', setVH); if (window.visualViewport) { window.visualViewport.addEventListener('resize', setVH); window.visualViewport.addEventListener('scroll', setVH); }
   function enterRoom() {
     document.body.classList.add('in-room');

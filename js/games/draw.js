@@ -176,6 +176,10 @@
         this._canvas = el.querySelector('canvas');
         this._bindCanvas(ui);
         el.querySelector('.dr-guess').onsubmit = (e) => { e.preventDefault(); const i = e.target.querySelector('input'); if (i.value.trim()) ui.send({ type: 'guess', text: i.value }); i.value = ''; };
+        // 打字預覽：就算鍵盤擋住輸入框，畫布上方也看得到自己打了什麼
+        { const inp = el.querySelector('.dr-guess input'), echo = document.createElement('div'); echo.className = 'dr-echo'; el.querySelector('.dr-canvas-wrap').appendChild(echo);
+          const up = () => { echo.textContent = inp.value; echo.style.display = inp.value && document.activeElement === inp ? '' : 'none'; };
+          ['input', 'focus', 'blur', 'compositionupdate', 'compositionend'].forEach(ev => inp.addEventListener(ev, () => setTimeout(up, 0))); up(); }
       }
       this._v = v; this._ui2 = ui;
       el.querySelector('.dr-round').textContent = `第 ${Math.min(v.roundNo, v.rounds)}/${v.rounds} 輪`;

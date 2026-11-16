@@ -3,8 +3,8 @@
   const U = root.GUTIL;
   const TH = () => root.MONO_THEMES;
 
-  // 28 格：0 起點、7 監獄、14 休息、21 進監獄；P=地產(群組)，L=幸運，B=厄運，X=稅，T=傳送
-  const LAYOUT = ['S', 'P0', 'L', 'P0', 'X', 'P1', 'B', 'J', 'P1', 'P2', 'L', 'P2', 'P3', 'B', 'F', 'P3', 'P4', 'L', 'P4', 'T', 'P5', 'G', 'P5', 'B', 'P6', 'P6', 'P7', 'P7'];
+  // 28 格：0 起點、7 監獄、14 休息、21 進監獄；P=地產(群組)，L=幸運，B=厄運，X=稅，T=傳送，I=道具
+  const LAYOUT = ['S', 'P0', 'L', 'P0', 'X', 'P1', 'B', 'J', 'P1', 'P2', 'I', 'P2', 'P3', 'B', 'F', 'P3', 'P4', 'L', 'P4', 'T', 'P5', 'G', 'P5', 'I', 'P6', 'P6', 'P7', 'P7'];
   const GROUP_PRICE = [3000, 4000, 5000, 6000, 8000, 9000, 11000, 13000];
   const GROUP_COLOR = ['#8d6e63', '#4fc3f7', '#ec407a', '#ffa726', '#ef5350', '#ffee58', '#66bb6a', '#5c6bc0'];
   const RENT_MUL = [0.1, 0.38, 0.8, 1.4, 2.2];
@@ -13,7 +13,7 @@
   const taxOf = (st, s) => Math.max(2000, Math.round(worth(st, s) * 0.06 / 100) * 100); // 累進稅：越有錢繳越多
   const BOARD = []; { let pi = 0; LAYOUT.forEach((c, i) => {
     if (c[0] === 'P') { const g = +c[1]; BOARD.push({ i, type: 'prop', g, pi: pi++, price: GROUP_PRICE[g], up: Math.round(GROUP_PRICE[g] * 0.6), color: GROUP_COLOR[g] }); }
-    else BOARD.push({ i, type: { S: 'start', L: 'luck', B: 'bad', X: 'tax', J: 'jail', F: 'free', G: 'gotojail', T: 'teleport' }[c] });
+    else BOARD.push({ i, type: { S: 'start', L: 'luck', B: 'bad', X: 'tax', J: 'jail', F: 'free', G: 'gotojail', T: 'teleport', I: 'item' }[c] });
   }); }
   const N = BOARD.length;
 
@@ -23,6 +23,7 @@
     if (t.type === 'start') return th.corners.start; if (t.type === 'jail') return th.corners.jail;
     if (t.type === 'free') return th.corners.free; if (t.type === 'gotojail') return th.corners.gotojail;
     if (t.type === 'tax') return th.tax; if (t.type === 'teleport') return th.teleport;
+    if (t.type === 'item') return ITEMS[theme].tile;
     if (t.type === 'luck') return th.luckName; return th.badName;
   }
   // 「打到有人破產／剩一人」模式：第 8 回合後過路費每回合漲 20%（最多 6 倍），避免無限拖長
@@ -186,6 +187,25 @@
       }
     }
   }
+
+  // ===== 道具：四個主題規則一樣，只有名稱和圖示不同 =====
+  // trap 陷害（對方停一回合）、steal 偷錢（10%，最多 5,000）、invest 投資（付 3,000，3 回合後拿回 6,000）、bomb 轟炸（別人的房子降一級）、shield 防護罩（被動擋一次）
+  const ITEM_KEYS = ['trap', 'steal', 'invest', 'bomb', 'shield'], ITEM_MAX = 3;
+  const ITEMS = {
+    ragnarok: { tile: '眾神寶庫', trap: ['洛基的詭計', '🐍'], steal: ['赫密士之手', '🪽'], invest: ['諾恩織命', '🧵'], bomb: ['雷神之鎚', '🔨'], shield: ['埃癸斯之盾', '🛡️'] },
+    cyber: { tile: '地下黑市', trap: ['病毒植入', '🦠'], steal: ['駭入帳戶', '💻'], invest: ['加密貨幣', '📈'], bomb: ['無人機空襲', '🛩️'], shield: ['防火牆', '🧱'] },
+    animal: { tile: '松鼠的寶藏', trap: ['香蕉皮', '🍌'], steal: ['浣熊順手牽羊', '🦝'], invest: ['松鼠存糧', '🐿️'], bomb: ['河馬踩踏', '🦛'], shield: ['龜殼護盾', '🐢'] },
+    alien: { tile: '遺落艙', trap: ['寄生卵', '🥚'], steal: ['觸手竊取', '🦑'], invest: ['孢子培養', '🍄'], bomb: ['孢子腐蝕', '☣️'], shield: ['幾丁質護甲', '🪲'] }
+  };
+  const ITEM_DESC = { trap: '選一位玩家，讓他下回合停一輪', steal: '從一位玩家身上拿走他現金的 10%（最多 5,000）', invest: '現在付 3,000，3 回合後拿回 6,000（期間破產就拿不回來）', bomb: '選別人一塊有建築的地，建築降一級', shield: '拿在手上就生效：自動擋下下一次別人對你用的道具' };
+  root.MONO_ITEMS = { KEYS: ITEM_KEYS, MAX: ITEM_MAX, NAMES: ITEMS, DESC: ITEM_DESC };
+  function giveItem(st, s) {
+    const p = st.players[s]; p.items = p.items || [];
+    if (p.items.length >= ITEM_MAX) { ev(st, { t: 'note', seat: s, text: `道具已滿（最多 ${ITEM_MAX} 張）` }); return; }
+    const w = isLast(st, s) ? { trap: 15, steal: 15, invest: 30, bomb: 10, shield: 30 } : { trap: 22, steal: 22, invest: 18, bomb: 18, shield: 20 };
+    let r = Math.random() * 100, k = 'shield'; for (const key of ITEM_KEYS) { r -= w[key]; if (r < 0) { k = key; break; } }
+    p.items.push(k); st.anim += 1600; ev(st, { t: 'getitem', seat: s, k });
+  }
   // 停在某格之後要做的事；若需要玩家決定，設定 phase 並回傳 true
   function land(st, s, depth) {
     const p = st.players[s]; if (!p.alive || depth > 3) return false;
@@ -204,6 +224,7 @@
       return false;
     }
     if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
+    if (t.type === 'item' || t.type === 'free') { giveItem(st, s); return false; }
     if (t.type === 'tax') { pay(st, s, -1, taxOf(st, s), '稅金'); return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
@@ -223,7 +244,10 @@
       if (p.skip > 0) { p.skip--; ev(st, { t: 'skip', seat: s }); continue; }
       break;
     }
-    st.turn = s; setDeadline(st, now, 15000);
+    st.turn = s;
+    const np = st.players[s]; np.usedItem = false;
+    if (np.invest && np.invest.length) { const due = np.invest.filter(r => r <= st.round); if (due.length) { np.invest = np.invest.filter(r => r > st.round); np.cash += 6000 * due.length; ev(st, { t: 'cash', seat: s, amt: 6000 * due.length, why: '投資回收' }); } }
+    setDeadline(st, now, 15000);
   }
   function finish(st) {
     st.phase = 'over'; st.deadline = 0;
@@ -236,7 +260,7 @@
   }
 
   const R = {
-    BOARD, N, LAYOUT, GROUP_COLOR, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, buyoutOf,
+    BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
@@ -298,6 +322,25 @@
           else { if (p.cash < t.up || st.levels[t.i] >= 4) return '不能升級'; p.cash -= t.up; st.levels[t.i]++; ev(st, { t: 'up', seat: s, tile: t.i, level: st.levels[t.i], amt: t.up }); }
         }
         endTurn(st, now); return;
+      }
+      if (a.type === 'item') {
+        if (st.phase !== 'roll') return '擲骰子前才能用道具';
+        if (p.usedItem) return '每回合只能用一張道具';
+        const items = p.items || []; const i = a.i | 0, k = items[i]; if (!k) return '沒有這張道具';
+        if (k === 'shield') return '防護罩不用主動使用，被攻擊時會自動擋下';
+        let tgt = -1;
+        if (k === 'trap' || k === 'steal') { tgt = a.target | 0; if (tgt === s || !st.players[tgt] || !st.players[tgt].alive) return '請選一位還在場上的對手'; }
+        if (k === 'bomb') { const tl = a.tile | 0; if (!BOARD[tl] || BOARD[tl].type !== 'prop' || st.owners[tl] < 0 || st.owners[tl] === s || !st.players[st.owners[tl]].alive || st.levels[tl] < 1) return '請選別人有建築的地'; tgt = st.owners[tl]; }
+        if (k === 'invest' && p.cash < 3000) return '錢不夠投資（要 3,000）';
+        items.splice(i, 1); p.usedItem = true;
+        const tp = tgt >= 0 ? st.players[tgt] : null, si = tp && tp.items ? tp.items.indexOf('shield') : -1;
+        if (si >= 0) { tp.items.splice(si, 1); st.anim += 2600; ev(st, { t: 'item', seat: s, k, target: tgt, tile: a.tile, blocked: true }); setDeadline(st, now, 15000); return; }
+        st.anim += 2600;
+        if (k === 'trap') { tp.skip += 1; ev(st, { t: 'item', seat: s, k, target: tgt }); }
+        else if (k === 'steal') { const amt = Math.min(5000, Math.floor(tp.cash * 0.1 / 100) * 100); tp.cash -= amt; p.cash += amt; ev(st, { t: 'item', seat: s, k, target: tgt, amt }); }
+        else if (k === 'invest') { p.cash -= 3000; (p.invest = p.invest || []).push(st.round + 3); ev(st, { t: 'item', seat: s, k, amt: 3000, due: st.round + 3 }); }
+        else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
+        setDeadline(st, now, 15000); return;
       }
       if (a.type === 'gate') {
         if (st.phase !== 'gate') return 'silent';

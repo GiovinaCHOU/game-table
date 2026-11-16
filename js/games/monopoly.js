@@ -128,7 +128,7 @@
     view(st) {
       return {
         theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map(p => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved })),
+        players: st.players.map(p => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, items: p.items || [], invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: st.ev, evId: st.evId, pending: st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks
       };
@@ -175,7 +175,7 @@
         <div class="mono mono-${v.theme}">
           <div class="mono-hud"></div>
           <div class="mono-stage"><div class="mono-loading">${th.icon} 載入 3D 場景中…</div><div class="mono-fx"></div>
-            <div class="mono-dice"><div class="dice-faces"><span class="d6">?</span><span class="d6">?</span></div><button class="go-btn" disabled>GO</button></div>
+            <div class="mono-items"></div><div class="mono-dice"><div class="dice-faces"><span class="d6">?</span><span class="d6">?</span></div><button class="go-btn" disabled>GO</button></div>
             <div class="mono-tools"><button data-t="me" title="回到我">🎯</button><button data-t="all" title="全景">🗺️</button><button data-t="sfx" title="音效">${SFX.on ? '🔊' : '🔇'}</button><button data-t="q" title="畫質">${this.quality() === 'high' ? '高' : '低'}</button></div>
             <div class="mono-cam"><button data-c="tu" title="俯視">⤒</button><button data-c="td" title="平視">⤓</button><button data-c="zi">＋</button><button data-c="zo">－</button></div>
             <div class="mono-hint" hidden>單指拖曳移動地圖・雙指開合縮放・雙指上下滑調整角度・點玩家頭像看他在哪</div>
@@ -218,9 +218,10 @@
         <div class="mp ${s === v.turn && v.phase !== 'over' ? 'turn' : ''} ${p.alive ? '' : 'dead'}" data-s="${s}">
           ${this.faceHTML(v, s, 34)}
           <div><b>${U.esc(v.names[s])}${s === v.seat ? '（你）' : ''}</b><span class="cash" data-s="${s}">${p.alive ? (TH()[v.theme].coin || '💰') + fmt(p.cash) : '破產'}</span>${p.alive && v.assets ? `<span class="worth">總資產 ${fmt(v.assets[s].total)} ${unit}</span>` : ''}
-          <small>${p.skip ? `⏸${p.skip} ` : ''}${p.immune ? `🛡${p.immune} ` : ''}${p.jailfree ? `🎫${p.jailfree}` : ''}</small></div>
+          <small>${p.skip ? `⏸${p.skip} ` : ''}${p.immune ? `🛡${p.immune} ` : ''}${p.jailfree ? `🎫${p.jailfree} ` : ''}${p.items && p.items.length ? `🎒${p.items.length} ` : ''}${p.invest && p.invest.length ? `📈${p.invest.length}` : ''}</small></div>
         </div>`).join('');
       hud.querySelectorAll('.mp').forEach(d => d.onclick = () => this.assetInfo(+d.dataset.s));
+      this.renderItems();
       const info = this.el.querySelector('.mono-info');
       const cap = v.maxRounds || R().ROUND_CAP;
       info.innerHTML = v.phase === 'over' ? '' : `第 ${Math.min(v.round, cap)}${v.maxRounds && v.maxRounds < 900 ? '/' + v.maxRounds : ''} 回合${v.maxRounds === 0 ? '（有人破產就結束）' : ''}${v.infl > 1 ? ` · 過路費 ×${v.infl.toFixed(1)}` : ''} · 輪到 <b>${U.esc(v.names[v.turn])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span>`;
@@ -323,6 +324,19 @@
               if (!this._camFree) b.focusSeat(e.debtor, true); await sleep(1400); break;
             }
             case 'quizres': await this.quizReveal(e); break;
+            case 'getitem': { const nm = this.itemName(e.k); SFX.coin(); b.jumpJoy(e.seat); this.fx(`🎒 ${nm}`, 'gain', e.seat); this.feed(`${this.who(e.seat)} 拿到道具 <b>${U.esc(e.seat === v.seat ? nm : '？？？')}</b>`, 'good'); await sleep(900); break; }
+            case 'item': {
+              const nm = this.itemName(e.k), tg = e.target != null && e.target >= 0 ? this.who(e.target) : '';
+              this._played = true; if (!this._camFree) { if (e.tile != null) b.focusTile(e.tile); else b.focusSeat(e.target >= 0 ? e.target : e.seat, true); }
+              this.feed(`${this.who(e.seat)} 使用 <b>${U.esc(nm)}</b>${tg ? ` → ${tg}` : ''}`, 'big'); this.fx(nm, 'gain big', e.seat);
+              await sleep(700);
+              if (e.blocked) { SFX.glory(); b.itemFx(e.k, null, e.target, true); b.mood(e.target, 'joy', 1200); this.fx(`${this.itemName('shield')} 擋下了！`, 'gain big', e.target); this.feed(`${tg} 的 <b>${U.esc(this.itemName('shield'))}</b> 擋下了攻擊`, 'good'); await sleep(1300); break; }
+              if (e.k === 'bomb') { SFX.thunder(); this.vfx('doom'); b.itemFx('bomb', e.tile); b.mood(e.target, 'scared', 1400); this.syncBoard(false, true); this.fx(`建築降到 Lv${e.level}`, 'loss', null, e.tile); }
+              else if (e.k === 'trap') { SFX.hiss(); b.itemFx('trap', null, e.target); b.mood(e.target, 'scared', 1400); this.fx('⏸ 下回合停一輪', 'loss', e.target); }
+              else if (e.k === 'steal') { SFX.coin(); b.itemFx('steal', null, e.target); b.mood(e.target, 'sad', 1300); b.mood(e.seat, 'joy', 1300); this.fx(`-${$(e.amt)}`, 'loss', e.target); setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.seat), 400); }
+              else if (e.k === 'invest') { SFX.build(); b.itemFx('invest', null, e.seat); this.fx(`-${$(e.amt)}・第 ${e.due} 回合拿回 ${$(6000)}`, 'gain', e.seat); }
+              await sleep(1400); break;
+            }
             case 'immune': this.fx('🛡 抵擋了厄運！', 'gain', e.seat); SFX.glory(); this.vfx('glory'); b.mood(e.seat, 'joy', 1200); await sleep(900); break;
             case 'jailfree': this.fx('🎫 使用免罪卡！', 'gain', e.seat); await sleep(900); break;
             case 'jail': this.feed(`${this.who(e.seat)} 被送進 ${U.esc(TH()[v.theme].corners.jail)}`, 'pay'); SFX.doom(); this.vfx('doom'); this.fx(`⛓ ${TH()[v.theme].corners.jail}`, 'loss', e.seat); await b.teleport(e.seat, R().JAIL, watch(e.seat)); b.mood(e.seat, 'sad', 2000); break;
@@ -421,13 +435,41 @@
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
         each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，-${fmt(-v)} ${u}`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
     },
+    // ===== 道具 =====
+    itemName(k) { const I = root.MONO_ITEMS.NAMES[this.v.theme][k]; return I[1] + ' ' + I[0]; },
+    renderItems() {
+      const v = this.v, box = this.el && this.el.querySelector('.mono-items'); if (!box) return;
+      const p = v.seat >= 0 ? v.players[v.seat] : null;
+      if (!p || !p.alive || !p.items.length || v.phase === 'over' || v.phase === 'pick') { box.innerHTML = ''; return; }
+      const ok = this.canAct('roll') && !p.usedItem, I = root.MONO_ITEMS.NAMES[v.theme];
+      box.innerHTML = p.items.map((k, i) => `<button class="mi ${k === 'shield' ? 'passive' : ''} ${ok && k !== 'shield' ? 'ready' : ''}" data-i="${i}" title="${I[k][0]}"><i>${I[k][1]}</i><span>${I[k][0]}</span></button>`).join('');
+      box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => this.itemSheet(+b.dataset.i));
+    },
+    itemSheet(i) {
+      const v = this.v, p = v.players[v.seat], k = p.items[i]; if (!k) return;
+      const MI = root.MONO_ITEMS, I = MI.NAMES[v.theme][k], th = TH()[v.theme];
+      const ok = this.canAct('roll') && !p.usedItem && k !== 'shield';
+      const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = (e) => { if (e.target === m) m.hidden = true; };
+      let pick = '';
+      if (ok && (k === 'trap' || k === 'steal')) pick = `<div class="mi-targets">${v.players.map((q, s) => s !== v.seat && q.alive ? `<button class="btn ghost" data-tg="${s}">${this.faceHTML(v, s, 24)} ${U.esc(v.names[s])}${k === 'steal' ? `<small>可拿 ${fmt(Math.min(5000, Math.floor(q.cash * 0.1 / 100) * 100))}</small>` : ''}</button>` : '').join('')}</div>`;
+      else if (ok && k === 'bomb') { const tl = R().BOARD.filter(t => t.type === 'prop' && v.owners[t.i] >= 0 && v.owners[t.i] !== v.seat && v.players[v.owners[t.i]].alive && v.levels[t.i] > 0);
+        pick = tl.length ? `<div class="mi-targets">${tl.map(t => `<button class="btn ghost" data-tl="${t.i}"><span class="tile-dot" style="background:${t.color}"></span>${U.esc(R().tileName(v.theme, t.i))} <small>Lv${v.levels[t.i]}・${U.esc(v.names[v.owners[t.i]])}</small></button>`).join('')}</div>` : '<p class="hint">現在沒有別人蓋了建築的地，先留著吧</p>'; }
+      else if (ok && k === 'invest') pick = `<div class="act-row"><button class="btn" data-inv ${p.cash < 3000 ? 'disabled' : ''}>投資 3,000 ${th.unit}</button></div>`;
+      const why = k === 'shield' ? '' : !this.canAct('roll') ? '<p class="hint">輪到你、擲骰子之前才能用</p>' : p.usedItem ? '<p class="hint">這回合已經用過道具了</p>' : '';
+      m.innerHTML = `<div class="mm-card mi-card"><div class="mi-big">${I[1]}</div><h3>${I[0]}</h3><p>${MI.DESC[k].replace(/[0-9,]+(?=（|$| 拿| 後)/g, x => x)}</p>${why}${pick}<div class="act-row"><button class="btn ghost" data-x>${ok ? '先不用' : '關閉'}</button></div></div>`;
+      const send = (extra) => { this.ui.send(Object.assign({ type: 'item', i }, extra)); m.hidden = true; };
+      m.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => send({ target: +b.dataset.tg }));
+      m.querySelectorAll('[data-tl]').forEach(b => b.onclick = () => send({ tile: +b.dataset.tl }));
+      const inv = m.querySelector('[data-inv]'); if (inv) inv.onclick = () => send({});
+      m.querySelector('[data-x]').onclick = () => { m.hidden = true; };
+    },
     hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; if (this.el) this.el.querySelector('.go-btn').disabled = true; },
     showPrompt() {
       const v = this.v; if (!this.el || this.playing) return;
       if (v.phase === 'quiz' && v.pending && v.pending.quiz) this.quizUI(v.pending, null); else if (!this._revealing) { const qz = this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true; }
       if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
-      go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled);
+      go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
       if (m.querySelector('.pad')) return;
       const th = TH()[v.theme];
       if (v.phase === 'over') {
@@ -837,7 +879,7 @@
         const o = v.owners[i]; const lv = v.levels[i];
         body = `<p>${o >= 0 ? `地主：${this.faceHTML(v, o, 22)} ${U.esc(v.names[o])}　建築 Lv${lv}` : `空地，售價 ${fmt(t.price)} ${th.unit}`}</p>
           <p class="hint">過路費：${[0, 1, 2, 3, 4].map(k => `Lv${k} ${fmt(Math.round(t.price * R().RENT_MUL[k] * (v.infl || 1)))}`).join('、')}${v.infl > 1 ? `（已含漲價 ×${v.infl.toFixed(1)}）` : ''}<br>升級一次 ${fmt(t.up)} ${th.unit}${o >= 0 && lv < 4 ? `<br>收購價 ${fmt(R().buyoutOf({ levels: v.levels }, i))}` : ''}</p>`;
-      } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，什麼事都不會發生', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '繳總資產的 6%（最少 2,000）', teleport: '隨機傳送到任一塊地' }[t.type]}</p>`;
+      } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，順便抽一張道具', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '繳總資產的 6%（最少 2,000）', teleport: '隨機傳送到任一塊地', item: '抽一張道具（最多拿 3 張），擲骰子前可以使用' }[t.type]}</p>`;
       m.hidden = false;
       m.innerHTML = `<div class="mm-card tinfo">${t.type === 'prop' ? `<div class="tile-chip" style="background:${t.color}"></div>` : ''}<h3>${U.esc(R().tileName(v.theme, i))}</h3>${body}<button class="btn sm" data-x>關閉</button></div>`;
       m.onclick = (e) => { if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); } };
