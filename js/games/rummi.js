@@ -108,7 +108,7 @@
     // ================= 畫面 =================
     _w: null, _sort: 'color',
     tileHTML(t, cls) {
-      if (JOKER(t)) return `<span class="rt joker ${cls || ''}" data-t="${t}">☺</span>`;
+      if (JOKER(t)) return `<span class="rt joker ${cls || ''}" data-t="${t}" title="鬼牌"><img src="img/birdie.png" alt="鬼牌" draggable="false"></span>`;
       return `<span class="rt c${color(t)} ${cls || ''}" data-t="${t}">${num(t)}</span>`;
     },
     render(el, v, ui) {

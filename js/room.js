@@ -242,7 +242,7 @@
 
   // =================== 房主（裁判） ===================
   const Host = {
-    members: [], conns: {}, game: null, lobby: { gameId: 'monopoly', opts: {}, skin: 'classic' }, timer: null,
+    members: [], conns: {}, game: null, lobby: { gameId: 'monopoly', opts: {}, skin: 'nebula' }, timer: null,
     init(R, pin) {
       this.R = R; this.pin = pin; this.members = []; this.conns = {}; this.game = null;
       clearInterval(this.timer);
@@ -373,7 +373,7 @@
         case 'voice': if (m) { m.voice = d.mode === 'off' ? null : d.mode; this.pushRoom(); } break;
         case 'role': if (m && !this.game) { m.role = d.role === 'spec' ? 'spec' : 'player'; this.pushRoom(); } break;
         case 'lobby': if (isHost && !this.game) { this.lobby = { gameId: d.gameId, opts: d.opts || {}, skin: this.lobby.skin }; this.pushRoom(); } break;
-        case 'skin': if (isHost) { this.lobby.skin = ['classic', 'ragnarok', 'cyber', 'animal', 'alien'].includes(d.skin) ? d.skin : 'classic'; this.pushRoom(); } break;
+        case 'skin': if (isHost) { this.lobby.skin = ['nebula', 'classic', 'ragnarok', 'cyber', 'animal', 'alien'].includes(d.skin) ? d.skin : 'nebula'; this.pushRoom(); } break;
         case 'start': if (isHost) this.start(); break;
         case 'end': if (isHost) { this.game = null; this.pushRoom(); this.sysChat('回到大廳'); } break;
         case 'kick': if (isHost && d.cid !== this.R.cid) { this.to(d.cid, { t: 'kick' }); const i = this.members.findIndex(x => x.cid === d.cid); if (i >= 0) { const c = this.conns[d.cid]; this.members.splice(i, 1); setTimeout(() => { try { c && c.close(); } catch (e) {} }, 300); } this.pushRoom(); } break;
