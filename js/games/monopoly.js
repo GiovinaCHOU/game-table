@@ -317,7 +317,7 @@
             case 'dice': this.closeCard(); this.ungrey(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
             case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
             case 'tp': if (e.gate && this._gateShown) { this._gateShown = false; } else if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
-            case 'cash': SFX.coin(); this.fx(`+${$(e.amt)}${why(e.why)}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${$(e.amt)}</b>`, 'good'); await sleep(450); break;
+            case 'cash': if (!e.boost && window.gameLog) window.gameLog(`${this.who(e.seat)} 獲得 <b class="g">+${$(e.amt)}</b>${U.esc(why(e.why))}`); SFX.coin(); this.fx(`+${$(e.amt)}${why(e.why)}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${$(e.amt)}</b>`, 'good'); await sleep(450); break;
             case 'pay':
               SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${$(e.amt)}${why(e.why)}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
               if (e.to >= 0) setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.to), 300);
@@ -329,7 +329,7 @@
             case 'up': SFX.build(); this.fx(e.free ? '免費升級！' : `升級 Lv${e.level}`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 把 <b>${U.esc(R().tileName(v.theme, e.tile))}</b> 蓋到 Lv${e.level}`, 'good'); this.syncBoard(false, true); await sleep(600); break;
             case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(false, true); await sleep(600); break;
             case 'sell': this.fx(e.what === 'land' ? '被迫賣地' : '被迫賣房', 'loss', null, e.tile); this.feed(`${this.who(e.seat)} 錢不夠，被迫${e.what === 'land' ? '賣掉' : '拆掉'} <b>${U.esc(R().tileName(v.theme, e.tile))}</b>${e.what === 'land' ? '' : ' 的建築'}`, 'pay'); this.syncBoard(false, true); await sleep(400); break;
-            case 'card': await this.showCard(e); break;
+            case 'card': if (window.gameLog) window.gameLog(`${this.who(e.seat)} 抽到${e.deck === 'luck' ? '好運' : '厄運'}卡：${U.esc(e.text)}`); await this.showCard(e); break;
             case 'quiz': {
               this.closeCard(); SFX.doom(); this.vfx('doom'); b.mood(e.debtor, 'scared', 2500); b.mood(e.cred, 'joy', 1500);
               this.feed(`⚔️ ${this.who(e.debtor)} 付不出 ${$(e.amt)}，跟 ${this.who(e.cred)} 進入翻盤問答！`, 'big');
@@ -424,10 +424,14 @@
     cine(on) {
       this._cine = on; if (!this.el) return; this.el.classList.toggle('cine', on);
       if (on) { const box = this.el.querySelector('.mono-feed'); if (box) box.innerHTML = ''; }
-      else { const held = this._held || []; this._held = []; held.slice(-2).forEach(([h, c]) => this.feed(h, c)); }
+      else { const held = this._held || []; this._held = []; held.slice(-2).forEach(([h, c]) => this._show(h, c)); }
     },
     feed(html, cls) {
-      if (this._cine) { (this._held = this._held || []).push([html, cls]); return; }
+      if (window.gameLog) window.gameLog(html);
+      if (this._cine) { (this._held = this._held || []).push([html, cls, true]); return; }
+      this._show(html, cls);
+    },
+    _show(html, cls) {
       const box = this.el && this.el.querySelector('.mono-feed'); if (!box) return;
       const d = document.createElement('div'); d.className = 'mfeed ' + (cls || ''); d.innerHTML = html; box.prepend(d);
       while (box.children.length > 2) box.lastChild.remove();

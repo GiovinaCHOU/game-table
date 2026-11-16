@@ -726,3 +726,9 @@ body.res-open.res-peek .res-pill { display: block; }
 .gfx-msg small { font-size: 16px; color: #fff; opacity: .9; }
 .gfx-msg em { font-style: normal; font-size: 12px; color: rgba(255,255,255,.6); margin-top: 10px; }
 @keyframes gfxPop { from { transform: scale(.3); opacity: 0; } }
+
+.chat-log .glog { font-size: 12px; color: rgba(236,226,255,.78); margin: 2px 0; padding: 2px 6px; border-left: 2px solid rgba(190,170,255,.35); }
+.chat-log .glog i { font-style: normal; font-size: 10px; opacity: .55; margin-right: 6px; }
+.chat-log .glog b.r { color: #ff8a7d; } .chat-log .glog b.g { color: #7fe08d; }
+.chat-log .glog .mface { width: 15px !important; height: 15px !important; vertical-align: -2px; }
+.chat-log .glog .mface i { font-size: 9px !important; }

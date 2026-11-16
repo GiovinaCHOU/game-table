@@ -140,6 +140,15 @@
     log.appendChild(p); log.scrollTop = log.scrollHeight;
     if (!chatOpen && !m.sys) { unread++; $('#chatBadge').textContent = unread; $('#chatBadge').hidden = false; toast(`${m.from}：${m.text}`, 2500); }
   };
+  // 遊戲紀錄：寫進聊天室（只在自己畫面，不會傳給別人），通知框消失後還能回頭看
+  window.gameLog = (html) => {
+    const log = $('#chatLog'); if (!log) return;
+    const p = document.createElement('p'); p.className = 'glog';
+    const t = new Date(); p.innerHTML = `<i>${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}</i>${html}`;
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    log.appendChild(p); const gl = log.querySelectorAll('.glog'); if (gl.length > 300) gl[0].remove();
+    if (atBottom) log.scrollTop = log.scrollHeight;
+  };
   function gameUI(v) { return { send: (a) => R.act(a), toast, seat: v.seat, isSpec: v.seat < 0 }; }
 
   function tickTimers() {
