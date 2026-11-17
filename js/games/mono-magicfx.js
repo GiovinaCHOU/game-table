@@ -70,6 +70,7 @@
     for (let k = 0; k < 9; k++) feather(0, 30, Math.PI / 2 + (k - 4) * 0.09 + Math.sin(t * 2 + k) * 0.05, 200 + (4 - Math.abs(k - 4)) * 30, 9, k + 50);
     // 身體與頭
     const bg = g.createRadialGradient(0, -10, 0, 0, -10, 60); bg.addColorStop(0, 'rgba(255,255,230,1)'); bg.addColorStop(0.5, 'rgba(255,200,80,.85)'); bg.addColorStop(1, 'rgba(255,90,20,0)'); g.fillStyle = bg; g.beginPath(); g.ellipse(0, 0, 34, 60, 0, 0, 7); g.fill();
+    g.globalCompositeOperation = 'source-over';
     const hg = g.createRadialGradient(0, -72, 0, 0, -72, 26); hg.addColorStop(0, 'rgba(255,255,235,1)'); hg.addColorStop(0.6, 'rgba(255,210,90,.9)'); hg.addColorStop(1, 'rgba(255,120,30,0)'); g.fillStyle = hg; g.beginPath(); g.arc(0, -72, 26, 0, 7); g.fill();
     g.fillStyle = 'rgba(255,220,120,.85)'; g.beginPath(); g.moveTo(-12, -60); g.quadraticCurveTo(0, -40, 12, -60); g.lineTo(8, -20); g.lineTo(-8, -20); g.fill(); for (let k = 0; k < 5; k++) feather(0, -90, -Math.PI / 2 + (k - 2) * 0.3, 44, 5, k + 80);
     g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(255,236,170,1)'; g.beginPath(); g.moveTo(-14, -78); g.quadraticCurveTo(-34, -76, -40, -64); g.quadraticCurveTo(-28, -68, -14, -66); g.fill(); g.fillStyle = '#3a0a00'; g.beginPath(); g.ellipse(-6, -76, 3.5, 2.5, 0, 0, 7); g.fill();
@@ -152,7 +153,7 @@
     for (let k = 0; k < 2; k++) { o.lineWidth = (k ? 40 : 54) * U; o.beginPath(); o.moveTo(bx, by); o.bezierCurveTo(c1x, c1y, c2x, c2y, hx - Math.cos(ang) * 20 * U, hy - Math.sin(ang) * 20 * U); o.stroke(); }
     if (swallow >= 0) { const u = 1 - swallow, x = (1 - u) ** 3 * bx + 3 * (1 - u) ** 2 * u * c1x + 3 * (1 - u) * u * u * c2x + u ** 3 * hx, y = (1 - u) ** 3 * by + 3 * (1 - u) ** 2 * u * c1y + 3 * (1 - u) * u * u * c2y + u ** 3 * hy; o.beginPath(); o.ellipse(x, y, 46 * U, 38 * U, ang, 0, 7); o.fill(); }
     // 頭（以下顎鉸接點為軸）：上顎有眉骨突起、尖吻；張嘴時上下顎分開
-    o.save(); o.translate(hx, hy); o.rotate(ang); o.scale(U * 1.3, U * 1.3);
+    o.save(); o.translate(hx, hy); o.rotate(ang); o.scale(U * 1.3, U * 1.3 * (Math.cos(ang) < 0 ? -1 : 1)); // 朝左時上下翻回來，頭頂永遠朝上
     o.beginPath(); o.ellipse(-36, 2, 24, 22, 0, 0, 7); o.fill(); // 後腦（毒腺）
     o.save(); o.translate(-18, 4); o.rotate(-jaw * 0.7); o.translate(18, -4);
     o.beginPath(); o.moveTo(-50, -18); o.quadraticCurveTo(-30, -36, -6, -32); o.lineTo(2, -40); o.lineTo(8, -30); o.quadraticCurveTo(28, -26, 48, -14); o.quadraticCurveTo(60, -8, 56, 0); o.lineTo(-18, 4); o.lineTo(-50, 16); o.closePath(); o.fill(); o.restore();
@@ -162,7 +163,7 @@
   }
   // 蛇眼、毒牙、嘴裡：畫在剪影上面
   function serpentFace(g, hx, hy, ang, U, jaw, dpr) {
-    g.save(); g.translate(hx, hy); g.rotate(ang); g.scale(U * 1.3, U * 1.3);
+    g.save(); g.translate(hx, hy); g.rotate(ang); g.scale(U * 1.3, U * 1.3 * (Math.cos(ang) < 0 ? -1 : 1));
     if (jaw > 0.2) { g.fillStyle = '#4a0612'; g.beginPath(); g.moveTo(-18, 4); const a1 = -jaw * 0.7, a2 = jaw * 0.7; g.lineTo(-18 + Math.cos(a1) * 70, 4 + Math.sin(a1) * 70); g.lineTo(-18 + Math.cos(a2) * 64, 4 + Math.sin(a2) * 64); g.closePath(); g.fill();
       g.save(); g.translate(-18, 4); g.rotate(-jaw * 0.7); g.translate(18, -4); g.fillStyle = '#f2efe6'; [[38, 26], [26, 14]].forEach(([x, l]) => { g.beginPath(); g.moveTo(x - 3, 2); g.quadraticCurveTo(x, 2 + l * 0.7, x + 1, 2 + l); g.lineTo(x + 4, 2); g.fill(); }); g.restore();
       g.save(); g.translate(-18, 4); g.rotate(jaw * 0.7); g.translate(18, -4); g.strokeStyle = '#c0283a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(20, 10); g.lineTo(52, 8 + Math.sin(performance.now() / 60) * 4); g.lineTo(60, 2); g.moveTo(52, 8); g.lineTo(60, 14); g.stroke(); g.restore(); }
@@ -244,7 +245,7 @@
           if (kind === 3) rim(g, W, Hh, dpr, 'rgba(255,140,60,.6)', 18, o => { o.save(); o.translate(W * 0.78, gy); o.scale(-U * 1.15, U * 1.15); o.beginPath(); o.ellipse(0, -60, 60, 36, -0.1, 0, 7); o.fill(); limb(o, -30, -40, -36, 0, 12, 10); limb(o, 30, -40, 34, 0, 12, 10); o.beginPath(); o.moveTo(40, -80); o.quadraticCurveTo(70, -130, 100, -120); o.lineTo(130, -110); o.lineTo(100, -96); o.quadraticCurveTo(80, -90, 60, -60); o.fill();
             o.beginPath(); o.moveTo(-50, -60); o.quadraticCurveTo(-120, -50, -150, -90); o.lineTo(-140, -70); o.quadraticCurveTo(-110, -40, -50, -40); o.fill(); [-1, 1].forEach(sd => { o.save(); o.translate(-6, -86); o.rotate(sd * 0.25 + Math.sin(t * 8 + sd) * 0.25); o.beginPath(); o.moveTo(0, 0); o.lineTo(-30, -110); o.lineTo(-90, -120); o.quadraticCurveTo(-70, -90, -84, -66); o.quadraticCurveTo(-60, -60, -64, -34); o.quadraticCurveTo(-40, -30, -36, -6); o.closePath(); o.fill(); o.restore(); });
             [0, 10].forEach(d => { o.beginPath(); o.moveTo(76 + d, -124); o.lineTo(70 + d, -152); o.lineTo(86 + d, -122); o.fill(); }); o.restore(); });
-          else fireBird(g, W * 0.8 - ease(t / 1.1) * W * 0.35, Hh * 0.12 + ease(t / 1.1) * Hh * 0.5, U * 0.55, t, Math.min(1, t * 2), Math.sin(t * 7));
+          else fireBird(g, W * 0.82 - ease(t / 1.1) * W * 0.3, Hh * 0.1 + ease(t / 1.1) * Hh * 0.4, U * 0.55, t, Math.min(1, t * 2), Math.sin(t * 7));
           if (fire > 0 && t < 3.1) { const sx = kind === 3 ? W * 0.78 - 130 * U * 1.15 : vx + 60 * U, sy = kind === 3 ? gy - 112 * U * 1.15 : gy - 200 * U; g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 80; q++) { const ph = (t * 1.8 + q / 80) % 1, x = sx + (vx - sx) * ph * fire, y = sy + (gy - 110 * U - sy) * ph + Math.sin(q * 3 + t * 20) * 30 * U * ph, r = (6 + ph * 34) * U; const fg = g.createRadialGradient(x, y, 0, x, y, r); fg.addColorStop(0, 'rgba(255,250,200,.85)'); fg.addColorStop(0.4, 'rgba(255,150,40,.55)'); fg.addColorStop(1, 'rgba(255,40,0,0)'); g.fillStyle = fg; g.fillRect(x - r, y - r, r * 2, r * 2); } g.restore(); }
           if (char > 0.6) H.flames(g, vx - 40 * U, vx + 40 * U, gy, 220 * U * (1 - crumble), t, 8 * U, 7, 0.85);
           if (crumble > 0) { for (let q = 0; q < 90; q++) { const k = crumble, x = vx + Math.sin(q * 7.1) * 40 * U + Math.sin(q) * k * 60 * U, y = gy - (q % 26) * 10 * U * (1 - k) - 4 * U; g.fillStyle = q % 3 ? 'rgba(60,50,46,.9)' : 'rgba(255,120,40,.8)'; g.fillRect(x, y, 3 * dpr, 3 * dpr); } g.fillStyle = '#2a2420'; g.beginPath(); g.ellipse(vx, gy, 50 * U * crumble, 10 * U, 0, Math.PI, 0); g.fill(); } });
