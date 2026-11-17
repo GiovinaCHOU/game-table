@@ -218,7 +218,13 @@
     const emb = H.embers(110), paper = Array.from({ length: 16 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0, 6), v: rnd(0.1, 0.35) }));
     const sky1 = H.smoke('sky1b', [230, 80, 30], 0.3, 11), sky2 = H.smoke('sky2', [40, 4, 4], 0.35, 23), fog = H.smoke('fog', [70, 20, 18], 0.45, 5);
     let ready = false;
-    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+    const snd = () => { if (!SFX) return; const T = (f, d, o) => SFX.tone(f, d, o), N = (d, o) => SFX.noise(d, o); // 注意：要綁定 this，不然整段沒聲音
+      const K = root.MONO_SCORE && root.MONO_SCORE.kit(SFX); if (K) { try {
+        K.wind(0, 5.3, 0.07); K.drone(0, 5.3, [36.7, 55, 77.8], { lp: 220, vol: 0.11, sweep: 700, a: 0.8 }); K.heart(0.2, 8, 56, 0.42, 0.88); K.bell(0.15, 98, 4.5, 0.13, true); K.bell(1.2, 92.5, 3.5, 0.08, true);
+        K.whisper(0.4, 2.2, 0.05, 10); K.creak(1.3, 1.1, 0.3); K.sweep(1.5, 0.9, 250, 5000, { rev: true, vol: 0.16 }); K.boom(2.4, 70, 28, 2.2, 0.65); K.growl(1.9, 1.8, 52, 0.24);
+        K.choir(1.8, 3.4, [146.8, 155.6, 207.7, 220], { v: 'oo', vol: 0.11, bend: 0.93 }); for (let i = 0; i < 10; i++) K.scream(2.6 + i * 0.17, rnd(0.7, 1.4), rnd(380, 760), 0.075, rnd(-1, 1));
+        K.riser(2.6, 1.7, 160, 900, 0.05); K.whisper(2.6, 1.7, 0.08, 16); K.stinger(4.3, 0.3); K.scream(4.3, 1.0, 560, 0.2, 0);
+      } catch (e) { console.warn(e); } }
       // 低頻：兩個差一點點的音互相拍頻，聽起來像在呼吸
       T(36.7, 5.2, { type: 'sawtooth', vol: 0.07, lp: 160, attack: 0.6 }); T(38.1, 5.2, { type: 'sawtooth', vol: 0.06, lp: 160, attack: 0.6 }); T(73.4, 4.2, { type: 'sine', vol: 0.05, attack: 1.2 });
       // 遠處走音的廟鐘
@@ -364,7 +370,14 @@
     const flock = Array.from({ length: 34 }, (_, i) => ({ a: i / 34 * 6.283 + rnd(0, 0.3), r: rnd(0.36, 0.5), s: rnd(0.5, 1.1), p: rnd(0, 6), v: rnd(0.25, 0.45) }));
     const rush = Array.from({ length: 26 }, () => ({ y: rnd(0.05, 0.95), d: rnd(0, 0.5), s: rnd(2.5, 6), p: rnd(0, 6) }));
     const order = EYES.map((e, i) => i).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : EYES[a][1] - EYES[b][1]));
-    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+    const snd = () => { if (!SFX) return; const T = (f, d, o) => SFX.tone(f, d, o), N = (d, o) => SFX.noise(d, o); // 注意：要綁定 this，不然整段沒聲音
+      const K = root.MONO_SCORE && root.MONO_SCORE.kit(SFX); if (K) { try {
+        K.wind(0, 6, 0.06); K.drone(0, 6.1, [41, 61.7, 43.6], { lp: 200, vol: 0.1 }); K.heart(0.4, 10, 62, 0.36, 0.92); K.whisper(0.5, 2.4, 0.04, 8);
+        for (let i = 0; i < 9; i++) K.scream(0.3 + i * 0.3 + rnd(0, 0.15), 0.22, rnd(560, 760), 0.045, rnd(-1, 1)); // 烏鴉叫
+        K.riser(1.9, 1.3, 200, 820, 0.045); K.whoosh(2.8, 0.45, false, 0.28); K.stinger(3.25, 0.26); K.scream(3.25, 0.7, 640, 0.14, 0);
+        K.choir(3.4, 2.7, [466, 494, 523], { v: 'oo', vol: 0.07, a: 1 }); for (let i = 0; i < 16; i++) K.sweep(3.4 + i * 0.1, 0.09, 280, 1300, { q: 4, vol: 0.07, a: 0.02, pan: rnd(-1, 1) }); // 眼睛一顆顆睜開的濕黏聲
+        K.drone(3.4, 2.7, [3400, 3470], { type: 'sine', lp: 8000, vol: 0.012, a: 1.2, wet: 0.2 }); K.boom(5.0, 60, 24, 1.2, 0.45); K.whisper(5.0, 1.0, 0.09, 6);
+      } catch (e) { console.warn(e); } }
       T(41, 4.8, { type: 'sawtooth', vol: 0.06, lp: 180, attack: 0.5 }); T(43.2, 4.8, { type: 'sawtooth', vol: 0.05, lp: 180, attack: 0.5 });
       for (let i = 0; i < 10; i++) { const d = 0.2 + i * 0.32 + Math.random() * 0.2, f = 700 + Math.random() * 500; T(f, 0.22, { type: 'sawtooth', glide: f * 0.7, vol: 0.02 + Math.random() * 0.02, lp: 1800, delay: d }); N(0.1, { f: 1500, type: 'bandpass', q: 3, vol: 0.02, delay: d }); }
       for (let i = 0; i < 24; i++) N(0.06, { f: 400, vol: 0.05, delay: 0.1 + i * 0.16 });
@@ -401,7 +414,7 @@
       H.vignette(g, W, Hh, 0.9); H.grain(g, W, Hh, 0.1);
       const tt = (txt, y, px, col, a) => { g.save(); g.globalAlpha = a; g.font = `900 ${Math.round(px * dpr)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#000'; g.shadowBlur = 14 * dpr; g.fillStyle = col; g.fillText(txt, W / 2, y); g.restore(); };
       tt('多 眼 鳥 夜 啼', Hh * 0.1, 36, '#f0c8a0', ease(t / 0.8) * (t > 3.2 ? Math.max(0, 1 - (t - 3.2) * 3) : 1));
-      if (t > 5.0) tt('被盯上了：接下來 3 次過路費加倍', Hh * 0.5, 22, '#ffb890', clamp((t - 5.0) * 3));
+      if (t > 5.0) { g.save(); g.globalAlpha = clamp((t - 5.0) * 2.5); g.font = `900 ${Math.round(Math.min(W / dpr / 6, 54) * dpr)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#600'; g.shadowBlur = 24 * dpr; g.fillStyle = '#ff5a4a'; g.keepText('被盯上了', W / 2, Hh * 0.5); g.restore(); }
     }, snd);
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -439,7 +452,14 @@
     const bursts = Array.from({ length: 22 }, () => ({ t: rnd(1.0, 3.6), x: rnd(0.05, 0.95), y: rnd(0.7, 0.98), n: Array.from({ length: 26 }, () => [rnd(0, 6.283), rnd(0.4, 1)]) }));
     const shreds = Array.from({ length: 60 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0, 6), v: rnd(0.15, 0.4) }));
     const lanterns = Array.from({ length: 12 }, (_, i) => ({ x: (i + 0.5) / 12 + rnd(-0.03, 0.03), y: rnd(0.08, 0.3), s: rnd(0.6, 1.4) }));
-    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+    const snd = () => { if (!SFX) return; const T = (f, d, o) => SFX.tone(f, d, o), N = (d, o) => SFX.noise(d, o); // 注意：要綁定 this，不然整段沒聲音
+      const K = root.MONO_SCORE && root.MONO_SCORE.kit(SFX); if (K) { try {
+        const beats = []; for (let i = 0; i < 34; i++) beats.push(i < 8 ? i * 0.26 : 2.08 + (i - 8) * 0.075);
+        beats.forEach((d, i) => { K.drum(d, i % 2 ? 62 : 50, 0.5); if (i % 2) K.snare(d + 0.03, 0.08); });
+        [0.05, 1.6, 3.3].forEach(d => K.gong(d, 128, 3, 0.13)); K.choir(0.4, 3.8, [98, 146.8], { v: 'oo', vol: 0.09 });
+        K.suona(1.0, [587, 659, 784, 659, 880, 784, 659, 587, 659, 784, 880, 988, 880, 784], 0.2, 0.06); bursts.forEach(b => K.crackers(b.t, 7, 0.22));
+        K.growl(2.3, 1.4, 68, 0.17); K.cymbal(3.9, 1.3, 0.12); K.boom(3.9, 80, 30, 1.2, 0.45);
+      } catch (e) { console.warn(e); } }
       // 北管大鼓＋小鼓越打越快
       for (let i = 0; i < 34; i++) { const d = i < 8 ? i * 0.26 : 2.08 + (i - 8) * 0.075; T(i % 2 ? 98 : 72, 0.14, { type: 'triangle', glide: 45, vol: 0.13, wet: false, delay: d }); N(0.04, { f: 1800, type: 'bandpass', vol: 0.03, delay: d }); }
       // 大鑼：低頻＋金屬泛音
@@ -586,7 +606,17 @@
     const drops = [];
     const addBlood = (x, y, n, sp, t0) => { for (let i = 0; i < n; i++) drops.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.3, sp * 0.2), r: rnd(1.5, 5), t: t0 + rnd(0, 0.25) }); };
     const byName = info && info.byName, vName = info && info.vName;
-    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+    const snd = () => { if (!SFX) return; const T = (f, d, o) => SFX.tone(f, d, o), N = (d, o) => SFX.noise(d, o); // 注意：要綁定 this，不然整段沒聲音
+      const K = root.MONO_SCORE && root.MONO_SCORE.kit(SFX); if (K) { try {
+        K.drone(0, 8.3, [32.7, 49, 51.9], { lp: 180, vol: 0.12, sweep: 420 }); K.gong(0.1, 98, 4, 0.16); K.choir(0.3, 2.7, [65.4, 98, 103.8], { v: 'oo', vol: 0.11 });
+        K.growl(0.8, 0.5, 70, 0.28); K.growl(1.05, 0.6, 58, 0.28); K.whoosh(1.3, 1.2, false, 0.3); K.boom(2.5, 60, 22, 2.2, 0.75); K.gong(2.9, 92, 4.5, 0.15);
+        K.fire(2.9, 5.4, 0.2); for (let i = 0; i < 15; i++) K.scream(3.0 + i * 0.35, rnd(0.6, 1.3), rnd(330, 820), 0.055, rnd(-1, 1)); K.choir(3.0, 5.3, [130.8, 138.6, 185], { v: 'oo', vol: 0.08, bend: 0.95 });
+        K.whisper(3.0, 5.0, 0.045, 14); K.heart(3.0, 11, 72, 0.32);
+        if (kind === 0) for (let i = 0; i < 8; i++) K.bell(3.4 + i * 0.6, rnd(600, 900), 0.6, 0.05, true); // 刀刃碰撞
+        if (kind === 1) { K.hiss(3.4, 4.6, 0.1); for (let i = 0; i < 30; i++) K.sweep(3.4 + i * 0.15, 0.07, 200, 700, { q: 6, vol: 0.06, a: 0.01 }); } // 滾油冒泡
+        if (kind === 2) for (let i = 0; i < 5; i++) { K.scream(3.6 + i * 0.85, 0.7, 700, 0.09); K.tear(3.65 + i * 0.85, 0.25, 0.12); }
+        if (kind === 3) for (let i = 0; i < 5; i++) K.sweep(3.4 + i * 0.9, 0.8, 120, 260, { type: 'lowpass', q: 4, vol: 0.2 }); // 石磨轉動
+      } catch (e) { console.warn(e); } }
       T(33, 8.5, { type: 'sawtooth', vol: 0.07, lp: 150, attack: 0.4 }); T(34.6, 8.5, { type: 'sawtooth', vol: 0.06, lp: 150, attack: 0.4 });
       [0.1, 2.9].forEach(d => { T(98, 3.5, { vol: 0.09, detune: -30, delay: d }); T(103.5, 3.5, { vol: 0.07, delay: d }); T(392, 2.4, { vol: 0.02, detune: 25, delay: d }); N(1.0, { f: 2400, type: 'bandpass', q: 2, vol: 0.07, delay: d }); });
       // 判官大喝（低沉的嗓音）＋墜落的風聲＋落地撞擊

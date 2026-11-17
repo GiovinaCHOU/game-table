@@ -78,7 +78,12 @@
   }
   M.phoenix = function (ui, SFX, e) {
     const emb = H.embers(120), ash = Array.from({ length: 160 }, () => ({ x: rnd(-1, 1), y: rnd(-1, 1), v: rnd(0.3, 1) }));
-    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+    const snd = () => { if (!SFX) return; const T = (f, d, o) => SFX.tone(f, d, o), N = (d, o) => SFX.noise(d, o); // 注意：要綁定 this，不然整段沒聲音
+      const K = root.MONO_SCORE && root.MONO_SCORE.kit(SFX); if (K) { try {
+        K.pad(0, 2.7, [220, 261.6, 329.6], 0.035, 900); K.cry(0.1, 0.6, 700, 0.04); K.cry(0.6, 0.7, 560, 0.035); K.fire(0.7, 2.1, 0.16); K.heart(1.7, 2, 48, 0.32);
+        K.sweep(2.0, 0.75, 200, 6000, { rev: true, vol: 0.18 }); K.boom(2.75, 90, 30, 2, 0.55); K.cry(2.8, 1.8, 900, 0.1); K.harp(2.9, [523, 659, 784, 1047, 1319, 1568, 2093], 0.07, 0.07);
+        K.pad(2.9, 3.4, [261.6, 329.6, 392, 523], 0.05, 2600); K.shimmer(2.9, 3.2, 1600, 0.03); K.choir(3.0, 3.3, [523, 659, 784], { v: 'ah', vol: 0.07 });
+      } catch (e) { console.warn(e); } }
       T(330, 0.5, { vol: 0.03, glide: 300, delay: 0.1 }); T(280, 0.7, { vol: 0.03, glide: 230, delay: 0.5 }); // 虛弱的鳥叫
       N(1.4, { f: 1800, type: 'bandpass', q: 0.6, vol: 0.07, attack: 0.5, delay: 0.7 }); for (let i = 0; i < 26; i++) N(0.05, { f: 2000 + Math.random() * 3000, type: 'bandpass', q: 3, vol: 0.05, delay: 0.8 + i * 0.05 });
       T(55, 1.0, { vol: 0.08, delay: 1.7 }); [2.0, 2.4].forEach(d => T(70, 0.15, { vol: 0.12, wet: false, delay: d }));
@@ -182,7 +187,19 @@
     const paper = Array.from({ length: 40 }, () => ({ vx: rnd(-6, 6), vy: rnd(-8, -2), r: rnd(0, 6) }));
     let lastShk = 0, zoomF = null; const T0 = 5.4, persist = {};
     const stoneTex = H.smoke('stone', [150, 146, 140], 0.0, 53);
-    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+    const snd = () => { if (!SFX) return; const T = (f, d, o) => SFX.tone(f, d, o), N = (d, o) => SFX.noise(d, o); // 注意：要綁定 this，不然整段沒聲音
+      const K = root.MONO_SCORE && root.MONO_SCORE.kit(SFX); if (K) { try {
+        K.pad(0, T0 - 0.2, [110, 130.8, 155.6], 0.035, 700); K.harp(0.1, [440, 523, 622, 740, 622, 523], 0.14, 0.035);
+        if (kind === -1) { for (let i = 0; i < 14; i++) K.drum(0.3 + i * 0.17, 60, 0.4, 0.12); K.growl(0.8, 1.3, 90, 0.22); K.growl(2.5, 1.6, 120, 0.28); for (let i = 0; i < 10; i++) K.tear(2.6 + i * 0.13, 0.12, 0.28); }
+        if (kind === 0) { K.shimmer(0.6, 0.7, 2400, 0.04); K.whoosh(1.3, 0.4, true, 0.18); K.sweep(1.4, 1.8, 900, 180, { type: 'lowpass', vol: 0.14 }); K.crack(1.5, 1.7, 0.16); K.crack(3.2, 0.6, 0.32); }
+        if (kind === 1) { K.hiss(0.4, 1.5, 0.13); K.growl(1.3, 0.6, 80, 0.16); K.boom(1.95, 70, 35, 0.8, 0.55); K.scream(2.0, 0.6, 500, 0.07); K.hiss(2.6, 1.3, 0.09); }
+        if (kind === 2) { for (let i = 0; i < 9; i++) K.hoot(0.3 + i * 0.38, rnd(330, 430), 0.08, rnd(-0.8, 0.8)); for (let i = 0; i < 14; i++) K.sweep(0.3 + i * 0.2, 0.12, 600, 1700, { vol: 0.07, a: 0.04, pan: rnd(-1, 1) }); }
+        if (kind === 3 || kind === 5) { K.growl(0.6, 1.1, 58, 0.3); K.whoosh(1.0, 0.6, true, 0.25); K.fire(1.0, 2.6, 0.32); K.scream(1.6, 0.8, 520, 0.07); }
+        if (kind === 4) { K.hooves(0.2, 10, 0.14, 0.28); K.howl(1.3, 0.6, 520, 0.06); K.boom(1.6, 80, 30, 1, 0.55); K.shimmer(1.6, 1.0, 2000, 0.04); }
+        if (kind === 6) { K.hooves(0.1, 5, 0.18, 0.2); K.creak(0.5, 0.9, 0.16); K.whoosh(1.6, 0.35, false, 0.22); K.boom(2.4, 100, 40, 0.8, 0.45); }
+        if (kind === 7) { K.howl(0.3, 1.9, 240, 0.13); K.growl(2.2, 0.6, 70, 0.32); K.boom(2.55, 80, 30, 0.8, 0.55); for (let i = 0; i < 12; i++) K.sweep(2.7 + i * 0.12, 0.09, 5000, 1400, { q: 2, vol: 0.16, a: 0.01, pan: rnd(-0.8, 0.8) }); }
+        K.boom(T0 - 0.9, 50, 24, 1, 0.3);
+      } catch (e) { console.warn(e); } }
       T(49, 5, { type: 'sawtooth', vol: 0.05, lp: 220, attack: 0.4 }); T(147, 2.5, { vol: 0.04, detune: -20, delay: 0.1 }); T(156, 2.5, { vol: 0.03, delay: 0.1 });
       if (kind === -1) { for (let i = 0; i < 14; i++) { N(0.08, { f: 300, vol: 0.12, delay: 0.3 + i * 0.17 }); T(90, 0.08, { vol: 0.08, wet: false, delay: 0.3 + i * 0.17 }); } T(180, 0.5, { type: 'sawtooth', glide: 90, vol: 0.06, lp: 900, delay: 0.8 }); for (let i = 0; i < 10; i++) { N(0.12, { f: 2500, type: 'bandpass', vol: 0.08, delay: 2.6 + i * 0.13 }); N(0.1, { f: 400, vol: 0.12, delay: 2.65 + i * 0.13 }); } T(1300, 0.8, { type: 'sawtooth', glide: 600, vol: 0.05, lp: 3000, delay: 2.55 }); }
       if (kind === 0) { for (let i = 0; i < 8; i++) T(800 + i * 100, 0.15, { type: 'triangle', vol: 0.03, delay: 0.6 + i * 0.05 }); T(220, 1.5, { type: 'square', glide: 110, vol: 0.03, lp: 700, delay: 1.3 }); for (let i = 0; i < 14; i++) N(0.04, { f: 3000, type: 'bandpass', vol: 0.06, delay: 1.5 + i * 0.12 }); N(0.9, { f: 1500, vol: 0.18, delay: 3.2 }); for (let i = 0; i < 16; i++) T(3000 + Math.random() * 2000, 0.1, { type: 'square', vol: 0.02, lp: 7000, delay: 3.2 + Math.random() * 0.6 }); }

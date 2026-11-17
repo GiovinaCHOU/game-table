@@ -112,7 +112,8 @@
   R.cb.left = () => { location.href = location.pathname + (window.Net.LOCAL ? '?local=1' : ''); };
   $('#pilotBtn').onclick = () => { const me = R.room && R.room.members.find(m => m.cid === R.cid); const on = !(me && me.auto); R.send({ t: 'autopilot', on }); toast(on ? '已開啟託管：系統會幫你出牌，再按一次取消' : '已取消託管'); };
   R.cb.room = (room) => {
-    document.body.dataset.skin = (room.lobby && room.lobby.skin) || 'nebula';
+    // 桌面風格：平常都是星雲霓虹；大富翁開局後跟著選的主題（不用另外選）
+    { const th = room.game && room.game.id === 'monopoly' && room.game.opts && room.game.opts.theme; document.body.dataset.skin = ['ragnarok', 'cyber', 'animal', 'buddha', 'magic', 'alien'].includes(th) ? th : 'nebula'; }
     { const me = room.members.find(m => m.cid === R.cid); const seated = room.game && me && room.game.seats.includes(me.cid);
       $('#pilotBtn').hidden = !seated; $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
     renderMembers(room);
@@ -275,7 +276,6 @@
           : `<label class="opt"><span>${o.label}</span><span class="hint">${String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
-        <label class="opt"><span>桌面風格（所有遊戲）</span><select id="skinSel" ${host ? '' : 'disabled'}>${[['nebula', '🌈 星雲霓虹'], ['classic', '🟢 經典綠桌'], ['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['alien', '🌌 深空異種']].map(([v, l]) => `<option value="${v}" ${(lobby.skin || 'nebula') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         ${room.test && host ? `<div class="testbox"><b>🧪 測試房</b><span>電腦玩家會自動出牌，用來測試遊戲流程</span>
           <div class="act-row"><button class="btn sm" id="addBot" ${players.length >= mod.max ? 'disabled' : ''}>＋ 加電腦玩家</button><button class="btn ghost sm" id="fillBot" ${players.length >= mod.max ? 'disabled' : ''}>補滿到 ${mod.max} 人</button><button class="btn ghost sm" id="clearBot" ${room.members.some(m => m.bot) ? '' : 'disabled'}>移除全部電腦</button></div></div>` : ''}
         <p class="pcount ${countOk ? '' : 'bad'}">玩家 ${players.length} 人（${mod.min}–${mod.max} 人）${countOk ? '' : ' — 人數不符'}</p>
@@ -296,7 +296,6 @@
     });
     $('#myRole').onclick = () => R.send({ t: 'role', role: me && me.role === 'spec' ? 'player' : 'spec' });
     if (host) $('#startBtn').onclick = () => R.send({ t: 'start' });
-    $('#skinSel').onchange = (e) => R.send({ t: 'skin', skin: e.target.value });
     $('#inviteBtn').onclick = copyInvite;
     if ($('#addBot')) {
       $('#addBot').onclick = () => R.send({ t: 'addbot' });
