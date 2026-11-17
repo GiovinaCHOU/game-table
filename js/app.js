@@ -195,16 +195,44 @@
         <span class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</span>
         ${m.cid === room.hostCid ? '👑' : ''}${U.esc(m.name)}${m.cid === R.cid ? '（你）' : ''}
         <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.bot ? '<small>🤖電腦</small>' : m.auto ? '<small>🤖託管</small>' : ''}${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
+        ${meHost && m.cid !== R.cid && m.online && !m.bot ? `<button class="crown" data-hand="${U.esc(m.cid)}" title="把房主交給他">👑</button>` : ''}
         ${meHost && m.cid !== R.cid ? `<button class="kick" data-kick="${U.esc(m.cid)}" title="請出房間">×</button>` : ''}
       </div>`).join('');
+    $('#members').querySelectorAll('[data-hand]').forEach(b => b.onclick = (e) => {
+      e.stopPropagation(); const m = room.members.find(x => x.cid === b.dataset.hand);
+      if (m && confirm(`把房主交給 ${m.name}？\n交出去後換他選遊戲、開始和設定，你會用玩家身分自動重新加入（約 3 秒）。`)) R.send({ t: 'handover', cid: m.cid });
+    });
     $('#members').querySelectorAll('[data-kick]').forEach(b => b.onclick = (e) => {
       e.stopPropagation(); const m = room.members.find(x => x.cid === b.dataset.kick);
       if (m && (m.bot || confirm(`把 ${m.name} 請出房間？`))) R.send({ t: 'kick', cid: m.cid });
     });
   }
 
+  // 大富翁主題預覽：每個主題 3 張遊戲畫面＋拉霸隨機
+  function themeGrid(mod, opts, host) {
+    const o = mod.options.find(x => x.key === 'theme');
+    return `<div class="theme-pick"><div class="tp-head"><span>主題</span>${host ? '<button class="btn sm" id="spinBtn">🎰 隨機選</button>' : ''}</div>
+      <div class="tp-grid">${o.choices.map(([v, l]) => `<button class="tp-card ${String(opts.theme) === v ? 'on' : ''}" data-theme="${v}" ${host ? '' : 'disabled'}>
+        <div class="tp-shots">${[0, 1, 2].map(k => `<img src="img/themes/${v}-${k}.jpg" alt="" loading="lazy" style="animation-delay:${k * -3}s">`).join('')}</div>
+        <b>${l}</b></button>`).join('')}</div></div>`;
+  }
+  let spinSeen = null, spinning = false;
+  function runSpin(spin, done) {
+    const cards = [...$('#lobby').querySelectorAll('.tp-card')]; if (!cards.length) return done();
+    spinning = true; const target = cards.findIndex(c => c.dataset.theme === String(spin.to));
+    const total = cards.length * 4 + ((target - 0 + cards.length) % cards.length); let i = 0;
+    cards.forEach(c => c.classList.remove('on'));
+    const step = () => {
+      cards.forEach(c => c.classList.remove('spin')); const c = cards[i % cards.length]; c.classList.add('spin');
+      try { window.GFX && GFX.S.tick(); } catch (e) {}
+      if (i >= total) { c.classList.remove('spin'); c.classList.add('on', 'won'); try { GFX.S.ding(); GFX.S.pop(); } catch (e) {} setTimeout(() => { spinning = false; done(); }, 1100); return; }
+      const left = total - i; i++; setTimeout(step, left < 6 ? 120 + (6 - left) * 90 : 70);
+    };
+    step();
+  }
   function renderLobby(room) {
     const ae = document.activeElement; if (ae && ae.tagName === 'TEXTAREA' && $('#lobby').contains(ae)) { ae.onblur = () => { ae.dispatchEvent(new Event('change')); setTimeout(() => renderLobby(R.room), 50); }; return; }
+    if (spinning) return;
     const host = R.isHost; const lobby = room.lobby; const sel = lobby.gameId;
     const mod = window.GAMES[sel];
     const players = room.members.filter(m => m.online && m.role === 'player');
@@ -219,7 +247,8 @@
           <span class="gi">${g.icon}</span><b>${g.name}</b><small>${g.min === g.max ? g.min : g.min + '–' + g.max} 人</small></button>`; }).join('')}</div>
       <div class="lobby-detail">
         <p class="gdesc">${U.esc(mod.desc)}</p>
-        ${(mod.options || []).map(o => o.type === 'text' ? (host ? `<label class="opt col"><span>${o.label}</span>
+        ${sel === 'monopoly' ? themeGrid(mod, opts, host) : ''}
+        ${(mod.options || []).filter(o => !(sel === 'monopoly' && o.key === 'theme')).map(o => o.type === 'text' ? (host ? `<label class="opt col"><span>${o.label}</span>
           <textarea data-opt="${o.key}" rows="2" maxlength="1500" placeholder="${U.esc(o.placeholder || '')}">${U.esc(opts[o.key] || '')}</textarea><small class="hint">其他人看不到內容，只會看到題目數量</small></label>`
           : `<label class="opt"><span>${o.label}</span><span class="hint">${String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
@@ -235,6 +264,10 @@
         <div class="invite"><p>邀請朋友：把 PIN <b>${R.pin}</b> 告訴他們，或</p><button class="btn sm" id="inviteBtn">複製邀請連結</button></div>
       </div>`;
     $('#lobby').querySelectorAll('[data-g]').forEach(b => b.onclick = () => R.send({ t: 'lobby', gameId: b.dataset.g, opts: {} }));
+    $('#lobby').querySelectorAll('[data-theme]').forEach(b => b.onclick = () => { if (!host) return; R.send({ t: 'lobby', gameId: sel, opts: Object.assign({}, lobby.opts, { theme: b.dataset.theme }) }); });
+    if ($('#spinBtn')) $('#spinBtn').onclick = () => R.send({ t: 'spin', key: 'theme' });
+    if (lobby.spin && lobby.spin.id !== spinSeen) { const first = spinSeen === null && !R._spinReady; spinSeen = lobby.spin.id; if (!first) runSpin(lobby.spin, () => renderLobby(R.room)); }
+    R._spinReady = true;
     $('#lobby').querySelectorAll('[data-opt]').forEach(s => s.onchange = () => {
       const o = Object.assign({}, lobby.opts); o[s.dataset.opt] = s.tagName === 'TEXTAREA' || isNaN(+s.value) || s.value === '' ? s.value : +s.value;
       R.send({ t: 'lobby', gameId: sel, opts: o });

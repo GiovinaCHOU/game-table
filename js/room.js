@@ -94,6 +94,7 @@
         case 'err': this.cb.status(msg.msg, true); break;
         case 'ping': this.clockOffset = msg.now - Date.now(); this._lastHost = Date.now(); this.send({ t: 'pong', now: msg.now, dev: devName(), pd: this.diagPd || null }); break;
         case 'kick': this.cb.status('你被房主請出房間', true); this.leave(); break;
+        case 'handover': this._snap = msg.s; this.saveSnap(msg.s); this._claimHost(); break;
         case 'snap': this._snap = msg.s; this._snapAt = Date.now(); this.saveSnap(msg.s); break;
       }
     },
@@ -189,7 +190,7 @@
         if (!this.peer) { this.peer = await this._openPeer(null); Voice.attach(this.peer); this._watchPeer(this.peer); }
         this._connecting = false; await this._connect(); return 'joined';
       } catch (e) {
-        if (this.hasSnap(this.pin)) {
+        if (this.hasSnap(this.pin) && !(this._noRevive > Date.now())) {
           try { await this.revive(this.pin, this.name); return 'revived'; }
           catch (e2) { if (/unavailable/.test(String(e2 && e2.message))) { await new Promise(r => setTimeout(r, 1500)); this._connecting = false; await this._connect(); return 'joined'; } throw e2; }
         }
@@ -197,6 +198,35 @@
       }
     },
     // ================= 接手房主 =================
+    _becomeHost(hp) {
+      this.hostPeer = hp; this.isHost = true; clearInterval(this._watch);
+      const c = this.conn; this.conn = null; try { c && c.close(); } catch (e) {}
+      Host.restore(this, this.pin, this._snap);
+      hp.on('connection', c2 => Host.accept(c2));
+      this._hostPeerEvents(hp);
+    },
+    // 房主把位置交給我：舊房主會放掉房號，我接過來
+    async _claimHost() {
+      if (this.isHost || this._takingOver) return; this._takingOver = true;
+      this.cb.status('房主把位置交給你，接手中…', true);
+      for (let i = 0; i < 20 && !this._leaving; i++) {
+        try { const hp = await this._openPeer(prefix + this.pin); this._becomeHost(hp); this._takingOver = false; this.cb.status(''); return; }
+        catch (e) { await new Promise(r => setTimeout(r, 700)); }
+      }
+      this._takingOver = false; this.cb.status('接手失敗，房間維持原狀', true);
+    },
+    // 我把房主交出去：放掉房號，改用玩家身分重新加入
+    async _stepDown(toName) {
+      Host.stop(); this.isHost = false; clearInterval(this._sigT); this._noRevive = Date.now() + 90000; // 交出房主後不要用暫存把房間「救回」（會變成兩個房間）
+      if (this.hostPeer) { try { this.hostPeer.destroy(); } catch (e) {} this.hostPeer = null; }
+      else { try { this.peer && this.peer.destroy(); } catch (e) {} this.peer = null; try { Voice.stop(); } catch (e) {} }
+      this.cb.status(`已把房主交給 ${toName}，重新以玩家身分加入…`, true);
+      await new Promise(r => setTimeout(r, 2000));
+      for (let i = 0; i < 8 && !this._leaving; i++) {
+        try { await this.join(this.pin, this.name, false); this.cb.status(''); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
+      }
+      this.cb.status('重新加入失敗，請重新整理後用同一個 PIN 加入', true);
+    },
     async _takeover(force) {
       if (this._takingOver || this.isHost || this._leaving) return;
       // 只是收不到心跳（可能是自己網路不好或房主短暫切出去）：等久一點才接手；連線明確被關掉才立刻接手
@@ -214,12 +244,7 @@
         if (this.conn && this.conn.open && Date.now() - (this._lastHost || 0) < 5000) { this._takingOver = false; return; }
         try {
           const hp = await this._openPeer(prefix + this.pin);
-          this.hostPeer = hp; this.isHost = true; clearInterval(this._watch);
-          try { this.conn && this.conn.close(); } catch (e) {}
-          this.conn = null;
-          Host.restore(this, this.pin, this._snap);
-          hp.on('connection', c => Host.accept(c));
-          this._hostPeerEvents(hp);
+          this._becomeHost(hp);
           this._takingOver = false;
           this.cb.status('');
           return;
@@ -254,7 +279,7 @@
       try { await this._connect(); }
       catch (e) {
         // 房間不在了，但這台裝置有暫存 → 直接救回
-        if (this.hasSnap(pin)) { try { await this.revive(pin, name); return 'revived'; } catch (e2) { if (!/unavailable/.test(String(e2 && e2.message))) throw e2; this._connecting = false; await this._connect(); } }
+        if (this.hasSnap(pin) && !(this._noRevive > Date.now())) { try { await this.revive(pin, name); return 'revived'; } catch (e2) { if (!/unavailable/.test(String(e2 && e2.message))) throw e2; this._connecting = false; await this._connect(); } }
         else throw e;
       }
       clearInterval(this._watch);
@@ -262,7 +287,7 @@
         if (this._leaving) return;
         if (this.isHost) return;
         this._resync();
-        if (Date.now() - (this._lastHost || 0) > 6500 && (this._attempts || 0) < 2 && Date.now() - (this._lastTry || 0) > 2500) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._ensurePeer().then(() => this._connect()).catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin)) this.revive(this.pin, this.name).catch(() => {}); }); }
+        if (Date.now() - (this._lastHost || 0) > 6500 && (this._attempts || 0) < 2 && Date.now() - (this._lastTry || 0) > 2500) { this.cb.status('與房主斷線，重新連線中…', true); this._takeover(); this._ensurePeer().then(() => this._connect()).catch(() => { if (Date.now() - (this._lastHost || 0) > 30000 && this.hasSnap(this.pin) && !(this._noRevive > Date.now())) this.revive(this.pin, this.name).catch(() => {}); }); }
       }, 1500);
     },
     // 連房主：可以同時有 2～3 個嘗試在跑，誰先接通就用誰（網路剛恢復時不用等上一個嘗試逾時）
@@ -459,6 +484,22 @@
         case 'voice': if (m) { m.voice = d.mode === 'off' ? null : d.mode; this.pushRoom(); } break;
         case 'role': if (m && !this.game) { m.role = d.role === 'spec' ? 'spec' : 'player'; this.pushRoom(); } break;
         case 'lobby': if (isHost && !this.game) { this.lobby = { gameId: d.gameId, opts: d.opts || {}, skin: this.lobby.skin }; this.pushRoom(); } break;
+        // 拉霸隨機選主題：房主按，大家一起看輪播，最後停在同一個
+        case 'spin': if (isHost && !this.game) {
+          const mod = G()[this.lobby.gameId], o = mod && (mod.options || []).find(x => x.key === d.key); if (!o || !o.choices) break;
+          const cur = (this.lobby.opts || {})[d.key], pool = o.choices.map(c => c[0]).filter(v => String(v) !== String(cur));
+          const to = pool[Math.floor(Math.random() * pool.length)];
+          this.lobby = Object.assign({}, this.lobby, { opts: Object.assign({}, this.lobby.opts, { [d.key]: to }), spin: { key: d.key, to, id: Date.now() + Math.random() } });
+          this.pushRoom();
+        } break;
+        case 'handover': if (isHost) {
+          const t = this.m(d.cid); if (!t || t.bot || !t.online || t.cid === this.R.cid || !this.conns[t.cid]) break;
+          const members = this.members.map(x => ({ cid: x.cid, name: x.name, role: x.role, peerId: x.peerId, avatar: x.avatar || null, bot: !!x.bot }));
+          this.sysChat(`👑 房主交給 ${t.name}`);
+          this.to(t.cid, { t: 'handover', s: { lobby: this.lobby, game: this.game, members } });
+          setTimeout(() => this.R._stepDown(t.name), 400);
+          break;
+        }
         case 'skin': if (isHost) { this.lobby.skin = ['nebula', 'classic', 'ragnarok', 'cyber', 'animal', 'alien'].includes(d.skin) ? d.skin : 'nebula'; this.pushRoom(); } break;
         case 'addbot': if (isHost && this.pin === TEST_PIN && !this.game) {
           const used = new Set(this.members.filter(x => x.bot).map(x => x.name)); let k = 1; while (used.has('電腦' + k)) k++;

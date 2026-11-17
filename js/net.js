@@ -73,7 +73,7 @@
   async function makePeer(id) {
     if (LOCAL) return new FakePeer(id);
     // 測試用：?peerhost=主機:埠 改連自架的配對伺服器（真的 WebRTC，但不走公用伺服器）
-    const ph = new URLSearchParams(location.search).get('peerhost');
+    let ph = new URLSearchParams(location.search).get('peerhost'); try { if (ph) sessionStorage.setItem('peerhost', ph); else ph = sessionStorage.getItem('peerhost'); } catch (e) {}
     if (ph) { const [host, port] = ph.split(':'); const o = { host, port: +port || 9000, path: '/', secure: false, config: { iceServers: [] }, debug: 1 }; return id ? new Peer(id, o) : new Peer(o); }
     const iceServers = await getIce();
     const opts = { config: { iceServers }, debug: 1 };
