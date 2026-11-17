@@ -237,8 +237,7 @@
       hud.querySelectorAll('.mp').forEach(d => d.onclick = () => this.assetInfo(+d.dataset.s));
       this.renderItems();
       const info = this.el.querySelector('.mono-info');
-      const cap = v.maxRounds || R().ROUND_CAP;
-      info.innerHTML = v.phase === 'over' ? '' : `第 ${Math.min(v.round, cap)}${v.maxRounds && v.maxRounds < 900 ? '/' + v.maxRounds : ''} 回合${v.maxRounds === 0 ? '（有人破產就結束）' : ''}${v.infl > 1 ? ` · 過路費 ×${v.infl.toFixed(1)}` : ''} · 輪到 <b>${U.esc(v.names[v.turn])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span>`;
+      info.innerHTML = v.phase === 'over' ? '' : `第 ${v.round}${v.maxRounds && v.maxRounds < 900 ? '/' + v.maxRounds : ''} 回合${v.maxRounds === 0 ? '（有人破產就結束）' : ''}${v.infl > 1 ? ` · 過路費 ×${v.infl.toFixed(1)}` : ''} · 輪到 <b>${U.esc(v.names[v.turn])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span>`;
     },
     renderPick() {
       const v = this.v, box = this.el.querySelector('.mono-pick');

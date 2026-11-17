@@ -8,7 +8,7 @@
   const GROUP_PRICE = [3000, 4000, 5000, 6000, 8000, 9000, 11000, 13000];
   const GROUP_COLOR = ['#8d6e63', '#4fc3f7', '#ec407a', '#ffa726', '#ef5350', '#ffee58', '#66bb6a', '#5c6bc0'];
   const RENT_MUL = [0.092, 0.35, 0.74, 1.29, 2.02]; // 過路費比原本少約 8%
-  const BUYOUT_MUL = 1.4, ROUND_CAP = 60;
+  const BUYOUT_MUL = 1.4, ROUND_CAP = 40, SAFETY_CAP = 300; // ROUND_CAP 只給「打到剩一人」以外的舊設定用；破產模式不強制結算
   const START_BONUS = 5000, BOOST = 3000, JAIL = 7;
   // 稅金＝財產稅（總資產分段累進）＋房屋稅（每蓋一級 500，地標一塊 3,000），最少 1,000
   const TAX_BRACKETS = [[50000, 0.02], [100000, 0.05], [200000, 0.08], [Infinity, 0.11]], HOUSE_TAX = 500, LANDMARK_TAX = 3000;
@@ -36,8 +36,9 @@
     if (t.type === 'luck') return th.luckName; return th.badName;
   }
   // 「打到有人破產／剩一人」模式：第 8 回合後過路費每回合漲 20%（最多 6 倍），避免無限拖長
-  // 通膨：第 8 回合起每回合 +20%；第 30 回合後進入「末日通膨」每回合再 +60%，人少時也會有人破產，不會拖到上限才結束
-  function inflation(st) { if (!st.inflate) return 1; const r = st.round; return r <= 30 ? Math.min(5.4, 1 + Math.max(0, r - 8) * 0.2) : Math.min(20, 5.4 + (r - 30) * 0.6); }
+  // 通膨：第 8 回合起每回合 +20%，最多 6 倍（跟原本一樣）；撐到第 51 回合還沒人破產才進入「末日通膨」每回合再 +60%
+  const DOOM_ROUND = 51;
+  function inflation(st) { if (!st.inflate) return 1; const r = st.round; return r < DOOM_ROUND ? Math.min(6, 1 + Math.max(0, r - 8) * 0.2) : Math.min(20, 6 + (r - DOOM_ROUND + 1) * 0.6); }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
     if (lv === 0) { const same = BOARD.filter(b => b.type === 'prop' && b.g === t.g); if (same.every(b => st.owners[b.i] === st.owners[i])) r *= 2; }
@@ -257,7 +258,11 @@
     let s = st.turn;
     for (let guard = 0; guard < st.n * 4; guard++) {
       s = (s + 1) % st.n;
-      if (s === st.first) { st.round++; if (st.round > (st.maxRounds || ROUND_CAP)) return finish(st, st.maxRounds ? 'rounds' : 'cap'); if (st.inflate && st.round === 31) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' }); const cap = st.maxRounds || ROUND_CAP; if (cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` }); }
+      if (s === st.first) { st.round++; const cap = st.maxRounds === 0 || st.maxRounds >= 900 ? SAFETY_CAP : st.maxRounds;
+        if (st.round > cap) return finish(st, cap === SAFETY_CAP ? 'cap' : 'rounds');
+        if (st.inflate && st.round === DOOM_ROUND - 3) ev(st, { t: 'alert', text: `⚠️ 3 回合後（第 ${DOOM_ROUND} 回合）末日通膨，過路費會開始暴漲` });
+        if (st.inflate && st.round === DOOM_ROUND) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' });
+        if (cap !== SAFETY_CAP && cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` }); }
       const p = st.players[s]; if (!p.alive) continue;
       if (p.skip > 0) { p.skip--; ev(st, { t: 'skip', seat: s }); continue; }
       break;
@@ -270,7 +275,7 @@
   function finish(st, why) {
     st.phase = 'over'; st.deadline = 0;
     const dead = st.players.map((p, i) => p.alive ? -1 : i).filter(i => i >= 0);
-    st.endWhy = { why: why || 'cap', dead, round: Math.min(st.round, st.maxRounds || ROUND_CAP) };
+    st.endWhy = { why: why || 'cap', dead, round: Math.min(st.round, st.maxRounds && st.maxRounds < 900 ? st.maxRounds : SAFETY_CAP) };
     const ranks = U.range(st.n).map(s => { const a = assets(st, s); return { s, w: st.players[s].alive ? a.total : -1, cash: a.cash, land: a.land, bld: a.bld }; }).sort((a, b) => b.w - a.w);
     st.winner = ranks[0].s; st.ranks = ranks;
   }
