@@ -196,7 +196,7 @@
           const b = root.MONO_ART.building(T, { theme: this.theme, level: levels[i], color: inf.color || '#fff', name: this.R.tileName(this.theme, i), ownerChar: inf.charIdx || 0 }, this.upd);
           b.position.set(0.15, 0, -0.15); grp.add(b);
           b.traverse(m => { if (m.isMesh) m.castShadow = this.q.high; });
-          const s0 = 1.25; b.scale.setScalar(0.01); this.tween(650, k => b.scale.setScalar(s0 * Math.max(0.01, 1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.15)));
+          const s0 = 1.25 * (b.userData.s || 1); b.scale.setScalar(0.01); this.tween(650, k => b.scale.setScalar(s0 * Math.max(0.01, 1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.15)));
         }
         this.scene.add(grp); this.bld[i] = { key, obj: grp };
       }
