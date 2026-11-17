@@ -135,7 +135,8 @@
     }, () => S.trance(SFX));
   };
   // 鬼門開：廟門緩緩打開，綠光裡湧出好兄弟，冥紙亂飛
-  E.ghost = function (SFX) {
+  E.ghost = function (SFX) { if (root.MONO_HORROR) return root.MONO_HORROR.ghostGate(this, SFX); return E._ghostOld.call(this, SFX); };
+  E._ghostOld = function (SFX) {
     const gh = Array.from({ length: 26 }, () => ({ x: rnd(-0.5, 0.5), d: rnd(0, 1), s: rnd(0.7, 1.3), w: rnd(0, 6) }));
     const paper = Array.from({ length: 50 }, () => ({ x: Math.random(), y: Math.random(), r: rnd(0, 6), v: rnd(0.1, 0.4) }));
     return this.overlay(4400, (g, W, H, dpr, t) => {

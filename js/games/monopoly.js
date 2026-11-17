@@ -212,6 +212,8 @@
       const b = new root.MonoBoard3D();
       b.init(stage, v.theme, R()).then(() => {
         b.ready = true; this.board = b; try { const an = Math.min(8, b.renderer.capabilities.getMaxAnisotropy()); b.scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (m.map) { m.map.anisotropy = an; m.map.needsUpdate = true; } }); }); } catch (e) {} /* 斜看的格子文字比較不糊 */ stage.querySelector('.mono-loading').remove();
+        // 測試房預覽彩蛋：網址加 &egg=ghost（或 sync、trance、birds、hell…）進遊戲 3 秒後播放一次
+        try { const ek = new URLSearchParams(location.search).get('egg'), rm = root.Room && root.Room.room; if (ek && rm && rm.test && root.MONO_EGGS && root.MONO_EGGS[ek] && !this._eggPreviewed) { this._eggPreviewed = true; setTimeout(() => root.MONO_EGGS[ek].call(this, SFX, { eff: ek + ':30000', mul: 1, seat: Math.max(0, this.v.seat), by: -1 }), 3000); } } catch (e) {}
         b.onPan = () => { this._camFree = true; };
         b.onLost = () => { if (this.board !== b || !this.v || !this.ui) return; try { this.destroy(); } catch (e) {} const host = this.el; if (host) { host.dataset.g = ''; this.render(host, this.v, this.ui); } };
         b.onTap = (h) => { if (h.tile != null && this.canAct('gate')) this.pickGate(h.tile); else if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };

@@ -1,0 +1,259 @@
+// 大富翁：恐怖系動畫的共用工具（煙霧雲層、底片顆粒、暗角、預先畫好的尖叫鬼臉）＋重做的「鬼門開」
+// 做法：重的東西（雲、鬼臉）只在第一次畫進離屏 canvas，每一格只負責移動、縮放、疊色，手機也跑得動
+(function (root) {
+  const H = {};
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const cvs = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h || w; return [c, c.getContext('2d')]; };
+  const ease = k => k < 0 ? 0 : k > 1 ? 1 : k * k * (3 - 2 * k);
+  const clamp = (k) => k < 0 ? 0 : k > 1 ? 1 : k;
+  H.ease = ease; H.clamp = clamp; H.rnd = rnd; H.cvs = cvs;
+
+  // ---------- 值雜訊（可無縫拼接）→ 雲／煙霧貼圖 ----------
+  function fbm(size, oct, seed) {
+    const out = new Float32Array(size * size); let s = seed || 1; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    for (let o = 0; o < oct; o++) {
+      const cells = 4 << o, grid = new Float32Array(cells * cells); for (let i = 0; i < grid.length; i++) grid[i] = R();
+      const amp = Math.pow(0.55, o);
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const fx = x / size * cells, fy = y / size * cells, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+        const a = grid[(y0 % cells) * cells + x0 % cells], b = grid[(y0 % cells) * cells + (x0 + 1) % cells], c = grid[((y0 + 1) % cells) * cells + x0 % cells], d = grid[((y0 + 1) % cells) * cells + (x0 + 1) % cells];
+        const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+        out[y * size + x] += ((a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy) * amp;
+      }
+    }
+    let mn = 9, mx = -9; for (const v of out) { mn = Math.min(mn, v); mx = Math.max(mx, v); } for (let i = 0; i < out.length; i++) out[i] = (out[i] - mn) / (mx - mn);
+    return out;
+  }
+  const cache = {};
+  // 煙霧：顏色 [r,g,b]、門檻 th（越高越稀疏）
+  H.smoke = function (key, rgb, th, seed) {
+    if (cache[key]) return cache[key];
+    const N = 256, n = fbm(N, 5, seed || 7), [c, g] = cvs(N), im = g.createImageData(N, N);
+    for (let i = 0; i < N * N; i++) { const v = Math.max(0, (n[i] - th) / (1 - th)); im.data[i * 4] = rgb[0] * (0.6 + v * 0.6); im.data[i * 4 + 1] = rgb[1] * (0.6 + v * 0.6); im.data[i * 4 + 2] = rgb[2] * (0.6 + v * 0.6); im.data[i * 4 + 3] = Math.min(255, v * 300); }
+    g.putImageData(im, 0, 0); return (cache[key] = c);
+  };
+  // 一層會漂移的雲：平鋪貼圖並捲動
+  H.cloudLayer = function (g, tex, W, Hh, scale, ox, oy, alpha, op) {
+    const s = tex.width * scale; g.save(); g.globalAlpha = alpha; if (op) g.globalCompositeOperation = op;
+    const x0 = ((ox % s) + s) % s - s, y0 = ((oy % s) + s) % s - s;
+    for (let y = y0; y < Hh; y += s) for (let x = x0; x < W; x += s) g.drawImage(tex, x, y, s + 1, s + 1);
+    g.restore();
+  };
+  // 底片顆粒＋暗角＋偶爾的閃爍，最後疊上去讓畫面像電影
+  H.grain = function (g, W, Hh, amt) {
+    if (!cache.grain) { const [c, gg] = cvs(160), im = gg.createImageData(160, 160); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } gg.putImageData(im, 0, 0); cache.grain = c; }
+    g.save(); g.globalAlpha = amt || 0.08; g.globalCompositeOperation = 'overlay'; const ox = Math.random() * 160, oy = Math.random() * 160;
+    for (let y = -oy; y < Hh; y += 320) for (let x = -ox; x < W; x += 320) g.drawImage(cache.grain, x, y, 320, 320);
+    g.restore();
+  };
+  H.vignette = function (g, W, Hh, strength, col) {
+    const r = Math.hypot(W, Hh) / 2, gr = g.createRadialGradient(W / 2, Hh / 2, r * 0.35, W / 2, Hh / 2, r);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, col || `rgba(0,0,0,${strength || 0.85})`); g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
+  };
+  // 光芒：從一點往外放射的光束（加亮混合）
+  H.rays = function (g, x, y, len, n, t, col, alpha, spread, dir) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) { const a = (dir == null ? -Math.PI / 2 : dir) + (i / (n - 1) - 0.5) * (spread || 2.2) + Math.sin(t * 0.7 + i * 1.7) * 0.03, w = 0.02 + (Math.sin(i * 12.9) * 0.5 + 0.5) * 0.05;
+      const gr = g.createLinearGradient(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len); gr.addColorStop(0, col.replace('A', alpha * (0.6 + 0.4 * Math.sin(t * 2 + i)))); gr.addColorStop(1, col.replace('A', 0));
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a - w) * len, y + Math.sin(a - w) * len); g.lineTo(x + Math.cos(a + w) * len, y + Math.sin(a + w) * len); g.fill(); }
+    g.restore();
+  };
+  // 火星／灰燼粒子
+  H.embers = function (n) { return Array.from({ length: n }, () => ({ x: Math.random(), y: Math.random(), v: rnd(0.05, 0.25), s: rnd(0.6, 2.2), w: rnd(0, 6.28) })); };
+  H.drawEmbers = function (g, list, W, Hh, t, dpr, col, up) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    list.forEach(p => { const y = ((p.y - t * p.v * (up || 1)) % 1 + 1) % 1, x = p.x * W + Math.sin(t * 1.3 + p.w) * 30 * dpr, a = 0.4 + 0.6 * Math.abs(Math.sin(t * 3 + p.w));
+      g.fillStyle = col.replace('A', a); g.beginPath(); g.arc(x, y * Hh, p.s * dpr, 0, 7); g.fill(); });
+    g.restore();
+  };
+
+  // ---------- 預先畫好的尖叫鬼臉（像融化的頭骨，紅色系，參考動畫裡的牆面） ----------
+  // 用很多半透明筆觸疊出來，看起來比較像手繪；回傳離屏 canvas
+  H.face = function (v, size, hue) {
+    const key = 'face' + v + ':' + size + ':' + (hue || 0); if (cache[key]) return cache[key];
+    const S = size, [c, g] = cvs(S, Math.round(S * 1.6)); let sd = v * 97 + 3; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const cx = S / 2, top = S * 0.1, tilt = (R() - 0.5) * 0.25, stretch = 1.05 + R() * 0.35, jaw = 0.6 + R() * 0.5, droop = 0.15 + R() * 0.25, asym = (R() - 0.5) * 0.12;
+    const col = (l, a) => `hsla(${hue || 0},${85 - l * 0.25}%,${l}%,${a})`;
+    g.translate(cx, top + S * 0.6); g.rotate(tilt); g.translate(-cx, -(top + S * 0.6));
+    const L = (y) => top + y * S * stretch; // 垂直位置（會被拉長）
+    // 頭形：額頭圓、兩頰凹陷、下巴被嘴巴撐開往下拉
+    const head = new Path2D(); head.moveTo(cx, top);
+    head.bezierCurveTo(cx + S * 0.44, top, cx + S * 0.47, L(0.42), cx + S * 0.36, L(0.62)); head.bezierCurveTo(cx + S * 0.3, L(0.74), cx + S * 0.27, L(0.95), cx + S * 0.14, L(1.12));
+    head.bezierCurveTo(cx + S * 0.06, L(1.2), cx - S * 0.06, L(1.2), cx - S * 0.14, L(1.12)); head.bezierCurveTo(cx - S * 0.27, L(0.95), cx - S * 0.3, L(0.74), cx - S * 0.36, L(0.62));
+    head.bezierCurveTo(cx - S * 0.47, L(0.42), cx - S * 0.44, top, cx, top);
+    const gr = g.createRadialGradient(cx - S * 0.08, L(0.3), S * 0.04, cx, L(0.6), S * 0.8); gr.addColorStop(0, col(42, 1)); gr.addColorStop(0.45, col(24, 1)); gr.addColorStop(1, col(5, 1));
+    g.fillStyle = gr; g.fill(head);
+    g.save(); g.clip(head);
+    // 底層：往下流的暗色筆觸
+    g.lineCap = 'round';
+    for (let i = 0; i < 90; i++) { const x = cx + (R() - 0.5) * S * 0.95, y = top + R() * S * 1.3 * stretch, l = S * (0.1 + R() * 0.35); g.strokeStyle = col(3 + R() * 10, 0.28); g.lineWidth = S * (0.012 + R() * 0.03); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + (R() - 0.5) * S * 0.06, y + l / 2, x + (R() - 0.5) * S * 0.04, y + l); g.stroke(); }
+    // 骨頭的稜線用亮紅筆觸勾出來（眉骨、顴骨、下顎、太陽穴）
+    const ridge = (pts, w, l, a) => { g.strokeStyle = col(l, a * 0.55); g.lineWidth = S * w * (0.4 + R() * 0.4); g.setLineDash([S * (0.03 + R() * 0.08), S * (0.01 + R() * 0.04)]); g.lineDashOffset = R() * S; g.beginPath(); const o = () => (R() - 0.5) * 0.025; g.moveTo(cx + (pts[0] + o()) * S, L(pts[1] + o())); for (let k = 2; k < pts.length; k += 4) g.quadraticCurveTo(cx + (pts[k] + o()) * S, L(pts[k + 1] + o()), cx + (pts[k + 2] + o()) * S, L(pts[k + 3] + o())); g.stroke(); g.setLineDash([]); };
+    for (let rep = 0; rep < 5; rep++) { const j = () => (R() - 0.5) * 0.02;
+      ridge([-0.3 + j(), 0.12, -0.1, 0.02, 0.12 + j(), 0.1], 0.03, 58 + rep * 8, 0.45);                       // 額頭
+      [-1, 1].forEach(sx => {
+        ridge([sx * 0.04, 0.27, sx * 0.17, 0.2 + j(), sx * 0.32, 0.3], 0.028, 60 + rep * 7, 0.55);          // 眉骨
+        ridge([sx * 0.33, 0.47, sx * 0.3, 0.6, sx * 0.2, 0.66 + j()], 0.032, 55 + rep * 8, 0.5);           // 顴骨
+        ridge([sx * 0.27, 0.78, sx * 0.24, 0.98, sx * 0.1, 1.1], 0.022, 50 + rep * 8, 0.45);               // 下顎
+        ridge([sx * 0.4, 0.2, sx * 0.43, 0.35, sx * 0.39, 0.5], 0.02, 45, 0.4);                             // 太陽穴
+      }); }
+    g.restore();
+    // 眼窩：往外下垂的淚滴形黑洞（痛苦的表情），邊緣暈開
+    [-1, 1].forEach(sx => { const ex = cx + sx * S * 0.16 + asym * S, ey = L(0.38);
+      const p = new Path2D(); p.moveTo(ex - sx * S * 0.09, ey - S * 0.03); p.bezierCurveTo(ex - sx * S * 0.02, ey - S * 0.12, ex + sx * S * 0.12, ey - S * 0.06, ex + sx * S * 0.1, ey + S * (0.07 + droop * 0.2));
+      p.bezierCurveTo(ex + sx * S * 0.09, ey + S * (0.17 + droop * 0.3), ex - sx * S * 0.05, ey + S * 0.14, ex - sx * S * 0.09, ey - S * 0.03);
+      g.save(); g.shadowColor = 'rgba(0,0,0,1)'; g.shadowBlur = S * 0.08; g.fillStyle = '#000'; g.fill(p); g.fill(p); g.restore();
+      g.strokeStyle = col(62, 0.35); g.lineWidth = S * 0.012; g.stroke(p); });
+    // 鼻子：兩道細縫
+    g.fillStyle = 'rgba(0,0,0,.95)'; [-1, 1].forEach(sx => { g.beginPath(); g.ellipse(cx + sx * S * 0.03, L(0.6), S * 0.013, S * 0.04, sx * 0.4, 0, 7); g.fill(); });
+    // 嘴：又長又歪的黑洞，嘴唇有一圈亮紅筆觸
+    const my = L(0.86), mh = S * (0.15 + jaw * 0.12), mw = S * (0.08 + jaw * 0.03);
+    const m = new Path2D(); m.moveTo(cx - mw + asym * S, my - mh * 0.55); m.bezierCurveTo(cx - mw * 0.3, my - mh * 0.85, cx + mw * 0.6, my - mh * 0.7, cx + mw + asym * S, my - mh * 0.4);
+    m.bezierCurveTo(cx + mw * 1.2, my + mh * 0.4, cx + mw * 0.3, my + mh * 0.9, cx - mw * 0.2, my + mh * 0.85); m.bezierCurveTo(cx - mw * 1.1, my + mh * 0.6, cx - mw * 1.25, my, cx - mw + asym * S, my - mh * 0.55);
+    g.save(); g.shadowColor = '#000'; g.shadowBlur = S * 0.06; g.fillStyle = '#000'; g.fill(m); g.fill(m); g.restore();
+    g.strokeStyle = col(58, 0.45); g.lineWidth = S * 0.02; g.stroke(m);
+    // 下巴往下融化滴落
+    for (let i = 0; i < 9; i++) { const x = cx + (R() - 0.5) * S * 0.3, y0 = L(1.05); g.strokeStyle = col(8 + R() * 14, 0.7); g.lineWidth = S * (0.015 + R() * 0.025); g.beginPath(); g.moveTo(x, y0); g.lineTo(x + (R() - 0.5) * S * 0.03, y0 + S * (0.08 + R() * 0.3)); g.stroke(); }
+    return (cache[key] = c);
+  };
+
+  // ---------- 中式城門剪影（牌樓＋燕尾屋頂＋門板，門可以打開） ----------
+  H.gate = function (g, cx, base, w, open, t, glow, U) {
+    const h = w * 1.05, dw = w * 0.36, dh = h * 0.56;
+    // 門洞裡的光
+    if (open > 0) { const gr = g.createRadialGradient(cx, base - dh * 0.4, 0, cx, base - dh * 0.4, dw * 2.4); gr.addColorStop(0, `rgba(255,236,190,${glow})`); gr.addColorStop(0.25, `rgba(255,120,40,${glow * 0.85})`); gr.addColorStop(1, 'rgba(120,0,0,0)');
+      g.fillStyle = gr; g.fillRect(cx - dw * 2.4, base - dh * 2.5, dw * 4.8, dh * 2.5); }
+    g.fillStyle = '#070303';
+    // 主體牆與柱
+    g.fillRect(cx - w / 2, base - h * 0.66, w, h * 0.66);
+    // 兩層屋頂，屋簷兩端往上翹
+    const roof = (y, rw, rh) => { g.beginPath(); g.moveTo(cx - rw / 2 - rw * 0.08, y - rh * 0.55); g.quadraticCurveTo(cx - rw * 0.35, y + rh * 0.05, cx - rw * 0.3, y); g.lineTo(cx + rw * 0.3, y); g.quadraticCurveTo(cx + rw * 0.35, y + rh * 0.05, cx + rw / 2 + rw * 0.08, y - rh * 0.55);
+      g.quadraticCurveTo(cx + rw * 0.3, y - rh * 0.3, cx + rw * 0.18, y - rh); g.lineTo(cx - rw * 0.18, y - rh); g.quadraticCurveTo(cx - rw * 0.3, y - rh * 0.3, cx - rw / 2 - rw * 0.08, y - rh * 0.55); g.fill();
+      for (let k = -1; k <= 1; k += 2) { g.beginPath(); g.moveTo(cx + k * rw * 0.18, y - rh); g.quadraticCurveTo(cx + k * rw * 0.26, y - rh * 1.3, cx + k * rw * 0.3, y - rh * 1.55); g.lineTo(cx + k * rw * 0.22, y - rh * 1.05); g.fill(); } };
+    roof(base - h * 0.64, w * 1.25, h * 0.16); g.fillRect(cx - w * 0.36, base - h * 0.95, w * 0.72, h * 0.18); roof(base - h * 0.93, w * 0.85, h * 0.14);
+    // 匾額「鬼門關」
+    g.fillStyle = '#1a0606'; g.fillRect(cx - w * 0.17, base - h * 0.86, w * 0.34, h * 0.075);
+    g.font = `900 ${Math.round(h * 0.052)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = `rgba(220,160,70,${0.35 + glow * 0.5})`; g.fillText('鬼　門　關', cx, base - h * 0.822);
+    // 門洞（打開時是亮的）＋兩扇門板往內轉
+    g.save(); g.beginPath(); g.rect(cx - dw, base - dh, dw * 2, dh); g.clip();
+    if (open > 0) { const lg = g.createRadialGradient(cx, base - dh * 0.35, 0, cx, base - dh * 0.35, dh * 0.9); lg.addColorStop(0, `rgba(255,248,220,${glow})`); lg.addColorStop(0.35, `rgba(255,170,70,${glow})`); lg.addColorStop(1, `rgba(150,20,5,${glow})`); g.fillStyle = lg; g.fillRect(cx - dw, base - dh, dw * 2, dh);
+      g.globalCompositeOperation = 'multiply'; H.cloudLayer(g, H.smoke('fog', [70, 20, 18], 0.45, 5), cx + dw, base, 1.2, cx - dw - t * 40, base - dh + t * -30, 0.55 * glow, 'multiply'); g.globalCompositeOperation = 'source-over'; }
+    [-1, 1].forEach(sd => { const ang = open * 1.35, ww = dw * Math.cos(ang); g.fillStyle = '#1c0505'; const x0 = sd < 0 ? cx - dw : cx + dw - ww; g.fillRect(x0, base - dh, ww, dh);
+      g.fillStyle = `rgba(200,140,50,${0.25 + (1 - open) * 0.3})`; for (let r = 0; r < 8; r++) for (let q = 0; q < 4; q++) { g.beginPath(); g.arc(x0 + (q + 0.5) / 4 * ww, base - dh + (r + 0.6) / 8.4 * dh, Math.max(0.5, dw * 0.03 * Math.cos(ang)), 0, 7); g.fill(); }
+      // 門上的封條符咒
+      if (open < 0.3) { g.fillStyle = `rgba(230,200,90,${0.9 - open * 3})`; g.fillRect(cx - dw * 0.08 + sd * dw * 0.04, base - dh * 0.8, dw * 0.08, dh * 0.5); g.fillStyle = `rgba(150,0,0,${0.9 - open * 3})`; g.fillRect(cx - dw * 0.06 + sd * dw * 0.04, base - dh * 0.7, dw * 0.04, dh * 0.3); } });
+    g.restore();
+    // 兩側石獅剪影＋燈籠
+    [-1, 1].forEach(sd => { g.fillStyle = '#060202'; const lx = cx + sd * w * 0.62; g.beginPath(); g.ellipse(lx, base - h * 0.08, w * 0.07, h * 0.08, 0, 0, 7); g.fill(); g.fillRect(lx - w * 0.06, base - h * 0.05, w * 0.12, h * 0.05);
+      const fl = 0.6 + Math.sin(t * 13 + sd) * 0.15 + Math.sin(t * 31) * 0.1; const lgx = cx + sd * w * 0.44, lgy = base - h * 0.52;
+      const lgr = g.createRadialGradient(lgx, lgy, 0, lgx, lgy, w * 0.16); lgr.addColorStop(0, `rgba(255,90,40,${0.55 * fl})`); lgr.addColorStop(1, 'rgba(255,40,0,0)'); g.fillStyle = lgr; g.fillRect(lgx - w * 0.2, lgy - w * 0.2, w * 0.4, w * 0.4);
+      g.fillStyle = `rgba(200,30,20,${0.8 * fl + 0.2})`; g.beginPath(); g.ellipse(lgx, lgy, w * 0.035, w * 0.045, 0, 0, 7); g.fill(); });
+    return { doorX: cx, doorY: base - dh * 0.45, dw, dh };
+  };
+
+  // 天空中的巨大牛角惡鬼剪影（從煙裡浮出來，眼睛發紅光）
+  H.horned = function (g, cx, cy, s, a, t) {
+    if (a <= 0) return; g.save(); g.globalAlpha = a; g.translate(cx, cy); g.scale(s, s);
+    g.shadowColor = 'rgba(255,110,30,.75)'; g.shadowBlur = 45;
+    const body = new Path2D(); body.moveTo(-90, 40); body.bezierCurveTo(-170, 120, -260, 240, -330, 420); body.lineTo(330, 420); body.bezierCurveTo(260, 240, 170, 120, 90, 40); body.closePath();
+    g.fillStyle = 'rgba(22,3,3,.96)'; g.fill(body);
+    const head = new Path2D(); head.moveTo(0, -95); head.bezierCurveTo(70, -95, 95, -40, 80, 20); head.bezierCurveTo(70, 70, 30, 105, 0, 112); head.bezierCurveTo(-30, 105, -70, 70, -80, 20); head.bezierCurveTo(-95, -40, -70, -95, 0, -95);
+    g.fill(head);
+    // 毛髮的鋸齒邊
+    g.beginPath(); for (let i = 0; i <= 30; i++) { const ang = Math.PI + i / 30 * Math.PI, r = 100 + (i % 2 ? 22 : 0); g.lineTo(Math.cos(ang) * r * 1.05, -10 + Math.sin(ang) * r * 0.9); } g.fill();
+    // 大彎角
+    [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 55, -70); g.bezierCurveTo(sd * 140, -150, sd * 260, -140, sd * 300, -40); g.bezierCurveTo(sd * 310, 0, sd * 290, 20, sd * 270, 30); g.bezierCurveTo(sd * 280, -40, sd * 220, -90, sd * 150, -80); g.bezierCurveTo(sd * 110, -75, sd * 80, -50, sd * 70, -40); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(sd * 80, -20); g.bezierCurveTo(sd * 130, -10, sd * 160, 10, sd * 180, 40); g.lineTo(sd * 120, 10); g.closePath(); g.fill(); });
+    g.shadowBlur = 0;
+    // 發光的眼睛
+    const eo = 0.6 + Math.sin(t * 5) * 0.2;
+    [-1, 1].forEach(sd => { const gr = g.createRadialGradient(sd * 32, 5, 0, sd * 32, 5, 40); gr.addColorStop(0, `rgba(255,240,180,${eo})`); gr.addColorStop(0.2, `rgba(255,80,20,${eo})`); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.fillRect(sd * 32 - 40, -35, 80, 80); g.globalCompositeOperation = 'source-over';
+      g.fillStyle = `rgba(255,220,150,${eo})`; g.beginPath(); g.moveTo(sd * 14, 2); g.quadraticCurveTo(sd * 32, -6, sd * 48, 6); g.quadraticCurveTo(sd * 32, 10, sd * 14, 2); g.fill(); });
+    g.restore();
+  };
+
+  // ======================= 鬼門開（重做） =======================
+  // 0~1.3 秒：紅黑色的天、城門剪影、一個小小的人站在門前；鏡頭慢慢推進
+  // 1.3~2.6 秒：符咒剝落、門往內打開，光爆出來；天上的牛角惡鬼從煙裡浮現
+  // 2.6~4.3 秒：一整片尖叫的鬼臉從門裡湧出來衝向鏡頭，畫面被紅色臉牆淹沒
+  // 4.3~5.2 秒：一張臉直接撲到眼前＋尖叫，閃白，字幕
+  H.ghostGate = function (ui, SFX, opt) {
+    const faces = Array.from({ length: 8 }, (_, i) => i);
+    const torrent = Array.from({ length: 70 }, (_, i) => ({ f: i % 8, a: rnd(-1, 1), d: rnd(0, 1), s: rnd(0.7, 1.3), r: rnd(-0.4, 0.4), w: rnd(0, 6) }));
+    const wall = Array.from({ length: 46 }, (_, i) => ({ f: i % 8, x: rnd(-0.1, 1.1), y: rnd(-0.1, 1.1), s: rnd(0.8, 1.4), r: rnd(-0.5, 0.5), w: rnd(0, 6) }));
+    const emb = H.embers(110), paper = Array.from({ length: 16 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0, 6), v: rnd(0.1, 0.35) }));
+    const sky1 = H.smoke('sky1b', [230, 80, 30], 0.3, 11), sky2 = H.smoke('sky2', [40, 4, 4], 0.35, 23), fog = H.smoke('fog', [70, 20, 18], 0.45, 5);
+    let ready = false;
+    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+      // 低頻：兩個差一點點的音互相拍頻，聽起來像在呼吸
+      T(36.7, 5.2, { type: 'sawtooth', vol: 0.07, lp: 160, attack: 0.6 }); T(38.1, 5.2, { type: 'sawtooth', vol: 0.06, lp: 160, attack: 0.6 }); T(73.4, 4.2, { type: 'sine', vol: 0.05, attack: 1.2 });
+      // 遠處走音的廟鐘
+      [0.15, 1.15].forEach((d, i) => { T(196 - i * 9, 3.2, { type: 'sine', vol: 0.05, detune: -35, delay: d }); T(523 - i * 20, 2.4, { type: 'sine', vol: 0.025, detune: 18, delay: d }); });
+      // 人群的耳語（很多窄頻雜訊）
+      for (let i = 0; i < 40; i++) N(0.25 + Math.random() * 0.4, { f: 700 + Math.random() * 2600, type: 'bandpass', q: 14, vol: 0.035 + i * 0.0012, delay: 0.3 + i * 0.07 });
+      // 門板吱嘎：好幾段鋸齒音忽高忽低
+      for (let i = 0; i < 9; i++) T(110 + Math.random() * 90, 0.18, { type: 'sawtooth', glide: 70 + Math.random() * 60, vol: 0.05, lp: 1300, delay: 1.3 + i * 0.13 });
+      N(0.5, { f: 180, vol: 0.12, delay: 2.5 });
+      // 不和諧的合唱慢慢變大
+      [311, 329.6, 349, 466, 493.9].forEach((f, i) => T(f, 2.6, { type: 'sine', vol: 0.022, attack: 1.4, delay: 1.6 + i * 0.05 }));
+      // 鬼臉湧出：一層一層的哀嚎
+      for (let i = 0; i < 18; i++) { const f = 500 + Math.random() * 900; T(f, 0.7 + Math.random() * 0.6, { type: i % 2 ? 'sawtooth' : 'square', glide: f * (0.55 + Math.random() * 0.3), vol: 0.018 + i * 0.002, lp: 2600, delay: 2.5 + i * 0.1 }); }
+      N(1.8, { f: 1800, type: 'bandpass', q: 1, vol: 0.06, attack: 1.0, delay: 2.6 });
+      // 撲臉尖叫
+      [1300, 1390, 1820, 2260].forEach((f, i) => T(f, 0.9, { type: i % 2 ? 'square' : 'sawtooth', glide: f * 1.25, vol: 0.06, lp: 6000, attack: 0.01, delay: 4.32 }));
+      N(0.8, { f: 2500, type: 'highpass', vol: 0.12, delay: 4.32 }); T(55, 0.6, { glide: 30, vol: 0.2, wet: false, delay: 4.32 });
+    };
+    return ui.overlay(5400, (g, W, Hh, dpr, t) => {
+      if (!ready) { faces.forEach(f => H.face(f, 180, 0)); ready = true; }
+      const U = Math.min(W, Hh) / 420, cx = W / 2;
+      const push = 1 + ease(t / 2.6) * 0.18 + (t > 2.6 ? (t - 2.6) * 0.05 : 0), shakeA = t > 1.3 && t < 1.7 ? 6 : t > 2.6 && t < 4.3 ? 3 + (t - 2.6) * 3 : t > 4.3 && t < 4.7 ? 18 : 0;
+      g.fillStyle = '#050101'; g.fillRect(0, 0, W, Hh);
+      g.save(); g.translate(W / 2 + rnd(-shakeA, shakeA) * dpr, Hh * 0.62 + rnd(-shakeA, shakeA) * dpr); g.scale(push, push); g.translate(-W / 2, -Hh * 0.62);
+      // 天空：兩層雲往不同方向漂
+      const sg = g.createLinearGradient(0, 0, 0, Hh); sg.addColorStop(0, '#2a0404'); sg.addColorStop(0.18, '#8a1d0c'); sg.addColorStop(0.32, '#e0581c'); sg.addColorStop(0.5, '#9a2a10'); sg.addColorStop(0.75, '#c2401a'); sg.addColorStop(1, '#2a0505'); g.fillStyle = sg; g.fillRect(-W * 0.2, -Hh * 0.2, W * 1.4, Hh * 1.4);
+      H.cloudLayer(g, sky1, W * 1.3, Hh, 3.2 * U, -W * 0.15 + t * 22 * U, t * -6 * U, 0.9);
+      H.cloudLayer(g, sky2, W * 1.3, Hh, 2.2 * U, -W * 0.15 - t * 35 * U, t * 4 * U, 0.5);
+      // 牛角惡鬼
+      H.horned(g, cx, Hh * 0.3, 0.85 * U * (1 + ease((t - 1.2) / 3) * 0.12), ease((t - 1.0) / 1.6) * 0.95, t);
+      H.cloudLayer(g, sky2, W * 1.3, Hh, 1.6 * U, -W * 0.15 + t * 50 * U, 0, 0.22);
+      // 遠景的城牆與塔剪影
+      g.fillStyle = '#0b0202'; g.beginPath(); g.moveTo(-W * 0.2, Hh); for (let i = 0; i <= 14; i++) { const x = -W * 0.2 + i / 14 * W * 1.4, h2 = Hh * (0.28 + ((i * 37) % 7) / 40 + (i === 3 || i === 11 ? 0.12 : 0)); g.lineTo(x, Hh - h2); g.lineTo(x + W * 0.05, Hh - h2); } g.lineTo(W * 1.2, Hh); g.fill();
+      // 城門
+      const open = ease((t - 1.3) / 1.3), glow = Math.min(1, open * 1.3) * (0.85 + Math.sin(t * 9) * 0.1);
+      const gw = W * 0.62, base = Hh * 0.9; const gp = H.gate(g, cx, base, gw, open, t, glow, U);
+      if (open > 0.05) H.rays(g, gp.doorX, gp.doorY, Hh * 0.9, 13, t, 'rgba(255,170,90,A)', 0.35 * open, 1.9, -Math.PI / 2);
+      // 站在門前的小人影（玩家）
+      g.fillStyle = '#020000'; const px = cx, py = base; g.beginPath(); g.ellipse(px, py - 46 * U, 7 * U, 8 * U, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(px - 10 * U, py - 38 * U); g.lineTo(px + 10 * U, py - 38 * U); g.lineTo(px + 13 * U, py); g.lineTo(px - 13 * U, py); g.fill();
+      // 鬼臉湧出：從門洞中心往鏡頭衝
+      if (t > 2.4) { const k = t - 2.4; torrent.forEach(p => { const z = (k * 0.42 + p.d) % 1.0001; if (k * 0.42 + p.d < 1 && k < 0.2 + p.d * 2) return;
+        const sc = (0.05 + z * z * 1.6) * p.s * U, x = gp.doorX + p.a * z * z * W * 0.9 + Math.sin(t * 3 + p.w) * 12 * U * z, y = gp.doorY - z * z * Hh * 0.35;
+        const im = H.face(p.f, 180, 0); g.save(); g.globalAlpha = Math.min(1, z * 3) * (z > 0.92 ? (1 - z) * 12 : 1); g.translate(x, y); g.rotate(p.r + Math.sin(t * 2 + p.w) * 0.15); g.drawImage(im, -im.width * sc / 2, -im.height * sc / 2, im.width * sc, im.height * sc); g.restore(); }); }
+      // 地面的霧
+      H.cloudLayer(g, fog, W * 1.3, Hh * 1.1, 2.4 * U, -W * 0.15 + t * 30 * U, Hh * 0.62, 0.5);
+      H.drawEmbers(g, emb, W, Hh, t, dpr, 'rgba(255,150,60,A)', 1);
+      // 冥紙
+      if (t > 1.5) paper.forEach(p => { const y = ((p.y - (t - 1.5) * p.v) % 1 + 1) % 1; g.save(); g.translate(p.x * W + Math.sin(t * 2 + p.r) * 30 * U, y * Hh); g.rotate(t * 3 + p.r); g.scale(1, Math.sin(t * 5 + p.r)); g.fillStyle = 'rgba(160,120,60,.6)'; g.fillRect(-7 * U, -5 * U, 14 * U, 10 * U); g.fillStyle = 'rgba(120,60,20,.7)'; g.fillRect(-3 * U, -2 * U, 6 * U, 4 * U); g.restore(); });
+      g.restore();
+      // 臉牆淹沒整個畫面
+      if (t > 3.3) { const k = ease((t - 3.3) / 1.0); wall.forEach(p => { const im = H.face(p.f, 180, 0), sc = p.s * U * 1.25 * (0.6 + k * 0.6) * (1 + Math.sin(t * 4 + p.w) * 0.04);
+        g.save(); g.globalAlpha = k * 0.95; g.translate(p.x * W + Math.sin(t * 1.5 + p.w) * 10 * U, p.y * Hh + Math.cos(t * 1.2 + p.w) * 10 * U); g.rotate(p.r); g.drawImage(im, -im.width * sc / 2, -im.height * sc / 2, im.width * sc, im.height * sc); g.restore(); });
+        g.fillStyle = `rgba(90,0,0,${k * 0.25})`; g.globalCompositeOperation = 'multiply'; g.fillRect(0, 0, W, Hh); g.globalCompositeOperation = 'source-over'; }
+      // 撲臉
+      if (t > 4.3) { const k = clamp((t - 4.3) / 0.35), im = H.face(3, 180, 0), sc = (0.6 + ease(k) * 5) * U * 1.6;
+        g.save(); g.translate(W / 2 + rnd(-8, 8) * dpr, Hh * 0.5); g.drawImage(im, -im.width * sc / 2, -im.height * sc * 0.55, im.width * sc, im.height * sc);
+        [-1, 1].forEach(sx => { const ex = sx * 0.16 * 180 * sc, ey = (0.1 * 180 + 0.38 * 180 * 1.1) * sc - im.height * sc * 0.55 + 4 * sc; g.fillStyle = 'rgba(255,240,220,.95)'; g.shadowColor = '#ff3a1a'; g.shadowBlur = 20 * dpr; g.beginPath(); g.arc(ex, ey, 2.2 * sc, 0, 7); g.fill(); });
+        g.restore();
+        if (t > 4.55 && t < 4.72) { g.fillStyle = 'rgba(255,240,235,.92)'; g.fillRect(0, 0, W, Hh); } }
+      H.vignette(g, W, Hh, 0.9);
+      H.grain(g, W, Hh, 0.12);
+      if (Math.random() < 0.04) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 0, W, Hh); }
+      // 字
+      const tt = (txt, y, px, col, a) => { g.save(); g.globalAlpha = a; g.font = `900 ${Math.round(px * dpr)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#000'; g.shadowBlur = 14 * dpr; g.fillStyle = col; g.fillText(txt, W / 2, y); g.restore(); };
+      tt('鬼　門　開', Hh * 0.1, 40, '#e8d0b0', ease(t / 0.8) * (t > 4.2 ? Math.max(0, 1 - (t - 4.2) * 4) : 1));
+      if (t > 4.75) { g.fillStyle = `rgba(0,0,0,${clamp((t - 4.75) * 3) * 0.75})`; g.fillRect(0, 0, W, Hh); tt('好兄弟湧進你家，搬走三成功德', Hh * 0.5, 22, '#ffb8a0', clamp((t - 4.8) * 4)); }
+    }, snd);
+  };
+
+  root.MONO_HORROR = H;
+})(typeof window !== 'undefined' ? window : globalThis);
