@@ -598,8 +598,8 @@
     // 神明附身：自己選這次要走幾步，選了會在地圖上標出會停在哪
     diceBar(on) {
       const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.dice-bar');
-      if (!on) { if (bar) bar.remove(); if (this.board) this.board.clearMarks(); return; }
-      if (bar) return; const v = this.v, b = this.board, me = v.players[v.seat];
+      if (!on) { if (bar) bar.remove(); st.classList.remove('picking'); if (this.board) this.board.clearMarks(); return; }
+      if (bar) return; const v = this.v, b = this.board, me = v.players[v.seat]; st.classList.add('picking');
       if (b) { this._camFree = true; b.overview(); }
       bar = document.createElement('div'); bar.className = 'gate-bar dice-bar';
       bar.innerHTML = `<b>🔥 神明附身：這次要走幾步？</b><span class="gb-tip">點數字，地圖上會標出會停在哪一格</span>
@@ -611,7 +611,10 @@
         const to = (me.pos + pick) % R().N, t = R().BOARD[to];
         const own = v.owners[to] === v.seat ? '（你的地）' : v.owners[to] >= 0 ? `（${U.esc(v.names[v.owners[to]])} 的地，要付過路費）` : t.type === 'prop' ? '（空地，可以買）' : '';
         bar.querySelector('.gb-sel').innerHTML = `停在 <b>${U.esc(R().tileName(v.theme, to))}</b>${own}`; bar.querySelector('[data-go]').disabled = false;
-        if (b) { b.markTiles([to], v.owners[to] === v.seat ? [to] : [], to); b.focusTile(to); }
+        if (b) { b.markTiles([to], v.owners[to] === v.seat ? [to] : [], to); b.focusTile(to);
+          // 把那一格推到畫面上半部，避免被下面的選單擋住：鏡頭焦點往鏡頭方向挪一點
+          const cp = b.cam.position, tg = b.goal.target, dx = cp.x - tg.x, dz = cp.z - tg.z, L = Math.hypot(dx, dz) || 1; tg.x += dx / L * 2.2; tg.z += dz / L * 2.2; b.goal.dist = Math.min(b.goal.dist || 14, 14); b.clampGoal && b.clampGoal(); }
+        bar.querySelector('.gb-tip').hidden = true;
       });
       bar.querySelector('[data-go]').onclick = () => { if (!pick) return; this._camFree = false; this.ui.send({ type: 'roll', pick }); this.diceBar(false); const g = this.el.querySelector('.go-btn'); if (g) g.disabled = true; SFX.dice(); };
     },
