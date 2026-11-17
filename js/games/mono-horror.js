@@ -171,29 +171,35 @@
     // 吻部：從臉往下變窄，像羊或牛的長臉
     const sn = new Path2D(); sn.moveTo(-52, 20); sn.bezierCurveTo(-50, 70, -30, 120, -14, 150); sn.quadraticCurveTo(0, 162, 14, 150); sn.bezierCurveTo(30, 120, 50, 70, 52, 20); sn.closePath();
     // 角：漸細、往外再往上彎
-    const horn = (sd) => { const h = new Path2D(); h.moveTo(sd * 40, -70); h.bezierCurveTo(sd * 110, -150, sd * 230, -170, sd * 300, -110); h.bezierCurveTo(sd * 345, -70, sd * 345, -10, sd * 318, 20);
-      h.bezierCurveTo(sd * 330, -40, sd * 300, -95, sd * 240, -115); h.bezierCurveTo(sd * 170, -132, sd * 110, -100, sd * 70, -40); h.closePath(); return h; };
+    const horn = (sd) => { const h = new Path2D(); h.moveTo(sd * 15, -55); h.bezierCurveTo(sd * 90, -175, sd * 240, -195, sd * 312, -112); h.bezierCurveTo(sd * 350, -62, sd * 340, -2, sd * 305, 30); h.bezierCurveTo(sd * 312, -28, sd * 292, -66, sd * 245, -88); h.bezierCurveTo(sd * 175, -112, sd * 112, -66, sd * 85, -5); h.closePath(); return h; };
     // 垂下的長毛
     const hair = []; let sd = 77; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
     for (let k = 0; k < 26; k++) { const x0 = (R() - 0.5) * 130, y0 = -40 + R() * 70, len = 80 + R() * 170, dx = (x0 > 0 ? 1 : -1) * (40 + R() * 160); hair.push([x0, y0, dx, len, 2 + R() * 6]); }
     demonPath = { P, sn, hl: horn(-1), hr: horn(1), hair };
   }
+  // 整隻先畫進一張不透明的離屏圖（避免各部位半透明重疊出深淺不一），每格再整張淡入
+  let demonImg = null;
+  function demonSprite() {
+    if (demonImg) return demonImg; if (!demonPath) buildDemon(); const D = demonPath, parts = [D.hl, D.hr, D.P, D.sn];
+    const SC = 1.2, Wd = Math.round(800 * SC), Hd = Math.round(680 * SC), base = (g) => g.setTransform(SC, 0, 0, SC, 400 * SC, 210 * SC);
+    // 1. 細節層：實心剪影＋毛流＋角的環紋＋吻部亮面，最後用剪影遮罩切乾淨
+    const [dc, d] = cvs(Wd, Hd); base(d); d.fillStyle = '#140303'; parts.forEach(p => d.fill(p));
+    let sd = 9; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; d.lineCap = 'round';
+    for (let k = 0; k < 900; k++) { const x = (R() - 0.5) * 720, y = -90 + R() * 540, l = 8 + R() * 16, dir = x > 0 ? 0.35 : -0.35; d.strokeStyle = R() < 0.5 ? 'rgba(42,10,8,.55)' : 'rgba(6,1,1,.6)'; d.lineWidth = 1.2 + R() * 1.6; d.beginPath(); d.moveTo(x, y); d.lineTo(x + dir * l, y + l); d.stroke(); }
+    [D.hl, D.hr].forEach((hp, h) => { const q = h ? 1 : -1; d.save(); d.clip(hp); d.fillStyle = '#1e0605'; d.fill(hp); d.strokeStyle = 'rgba(0,0,0,.6)'; d.lineWidth = 3; for (let k = 0; k < 16; k++) { const u = k / 16; d.beginPath(); d.arc(q * (50 + u * 270), -70 - Math.sin(u * Math.PI) * 85 + u * 60, 52 - u * 30, 0, 7); d.stroke(); } d.restore(); });
+    const sg = d.createLinearGradient(-50, 40, 50, 40); sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(0.5, 'rgba(95,26,14,.6)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); d.fillStyle = sg; d.fill(D.sn);
+    d.fillStyle = 'rgba(255,90,30,.35)'; [-1, 1].forEach(q => { d.beginPath(); d.ellipse(q * 9, 140, 4, 6, q * 0.3, 0, 7); d.fill(); });
+    const [mc, m] = cvs(Wd, Hd); base(m); m.fillStyle = '#000'; parts.forEach(p => m.fill(p));
+    d.setTransform(1, 0, 0, 1, 0, 0); d.globalCompositeOperation = 'destination-in'; d.drawImage(mc, 0, 0); d.globalCompositeOperation = 'source-over';
+    // 2. 成品：先畫一次外緣火光（只用陰影），再把細節層蓋上去
+    const [c, g] = cvs(Wd, Hd); g.shadowColor = 'rgba(255,110,30,.85)'; g.shadowBlur = 40; g.drawImage(mc, 0, 0); g.shadowBlur = 0; g.drawImage(dc, 0, 0);
+    return (demonImg = { c, SC });
+  }
   H.horned = function (g, cx, cy, s, a, t) {
-    if (a <= 0) return; if (!demonPath) buildDemon(); const D = demonPath;
-    g.save(); g.globalAlpha = a; g.translate(cx, cy + Math.sin(t * 0.8) * 4 * s); g.scale(s * (1 + Math.sin(t * 0.8) * 0.006), s);
-    g.shadowColor = 'rgba(255,110,30,.7)'; g.shadowBlur = 40; g.fillStyle = 'rgba(20,3,3,.97)';
-    g.fill(D.hl); g.fill(D.hr); g.fill(D.P); g.fill(D.sn);
-    g.shadowBlur = 0;
-    // 角上的環紋＋上緣的亮邊
-    [[-1, D.hl], [1, D.hr]].forEach(([sd, hp]) => { g.save(); g.clip(hp); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; for (let k = 0; k < 14; k++) { const u = k / 14, x = sd * (60 + u * 250), y = -80 - Math.sin(u * Math.PI) * 70 + u * 30; g.beginPath(); g.arc(x, y, 30 - u * 14, 0, 7); g.stroke(); } g.restore();
-      g.strokeStyle = 'rgba(255,140,60,.35)'; g.lineWidth = 3; g.beginPath(); g.moveTo(sd * 60, -80); g.bezierCurveTo(sd * 120, -150, sd * 230, -165, sd * 295, -108); g.stroke(); });
-    // 長毛垂下來，會微微飄
-    g.strokeStyle = 'rgba(14,2,2,.75)'; g.lineCap = 'round';
-    D.hair.forEach(([x0, y0, dx, len, w], k) => { const sw = Math.sin(t * 1.2 + k) * 10; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo(x0 + dx * 0.3, y0 + len * 0.3, x0 + dx * 0.8 + sw, y0 + len * 0.7, x0 + dx + sw * 1.5, y0 + len); g.stroke(); });
-    // 鼻孔與眼睛
-    g.fillStyle = 'rgba(255,90,30,.35)'; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 9, 140, 4, 6, sd * 0.3, 0, 7); g.fill(); });
-    const eo = 0.65 + Math.sin(t * 5) * 0.2;
-    g.globalCompositeOperation = 'lighter';
+    if (a <= 0) return; const { c, SC } = demonSprite();
+    g.save(); g.translate(cx, cy + Math.sin(t * 0.8) * 4 * s); g.scale(s * (1 + Math.sin(t * 0.8) * 0.006), s);
+    g.globalAlpha = a; g.drawImage(c, -400, -210, c.width / SC, c.height / SC);
+    const eo = (0.65 + Math.sin(t * 5) * 0.2) * a; g.globalAlpha = 1; g.globalCompositeOperation = 'lighter';
     [-1, 1].forEach(sd => { const gr = g.createRadialGradient(sd * 30, 8, 0, sd * 30, 8, 46); gr.addColorStop(0, `rgba(255,240,180,${eo})`); gr.addColorStop(0.2, `rgba(255,80,20,${eo * 0.9})`); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = gr; g.fillRect(sd * 30 - 46, -38, 92, 92);
       g.fillStyle = `rgba(255,225,160,${eo})`; g.beginPath(); g.moveTo(sd * 12, 4); g.quadraticCurveTo(sd * 30, -8, sd * 48, 2); g.quadraticCurveTo(sd * 30, 12, sd * 12, 4); g.fill(); });
     g.restore();
