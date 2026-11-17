@@ -704,8 +704,8 @@
         const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
         const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
         const t0 = performance.now();
-        const frame = () => { const ms = performance.now() - t0; g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.setTransform(1, 0, 0, 1, 0, 0); draw(g, W, H, dpr, ms / 1000, ms / T); cv.style.opacity = String(Math.min(1, ms / 250, (T - ms) / 300));
-          if (ms < T) requestAnimationFrame(frame); else { cv.remove(); if (this.board) this.board.paused = false; res(); } };
+        const frame = () => { const ms = performance.now() - t0; g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.setTransform(1, 0, 0, 1, 0, 0); draw(g, W, H, dpr, ms / 1000, ms / T); if (ms > T - 700) { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.fillStyle = `rgba(0,0,0,${Math.min(1, (ms - (T - 700)) / 650)})`; g.fillRect(0, 0, W, H); } cv.style.opacity = String(Math.min(1, ms / 250, (T - ms) / 300));
+          if (ms < T) requestAnimationFrame(frame); else { cv.style.transition = 'opacity .6s'; cv.style.opacity = '0'; setTimeout(() => cv.remove(), 650); if (this.board) this.board.paused = false; res(); } };
         requestAnimationFrame(frame);
       });
     },

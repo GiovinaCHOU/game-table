@@ -52,8 +52,7 @@
   const finish = (g, W, Hh, dpr, t, T, U, title, sub) => {
     H.vignette(g, W, Hh, 0.88); H.grain(g, W, Hh, 0.09);
     tt(g, W, dpr, title, Hh * 0.08, 30, '#f0dcb0', ease(t / 0.6));
-    if (sub && t > T - 1.6) tt(g, W, dpr, sub, Hh * 0.93, 20, '#ffd0b0', clamp((t - (T - 1.6)) * 3));
-    if (t > T - 0.5) { g.fillStyle = `rgba(0,0,0,${(t - (T - 0.5)) * 2})`; g.fillRect(0, 0, W, Hh); }
+    if (sub && t > T - 2.6) tt(g, W, dpr, sub, Hh * 0.9, 24, '#ffe0c0', clamp((t - (T - 2.6)) * 3));
   };
   const blood = [];
   function spray(x, y, n, sp, t0, col) { for (let i = 0; i < n; i++) blood.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.4, sp * 0.3), r: rnd(1.5, 5), t: t0 + rnd(0, 0.2), c: col || '#8a0008' }); }
@@ -86,7 +85,7 @@
       T(1568, 0.6, { type: 'triangle', glide: 2093, vol: 0.04, delay: 3.1 });
     };
     const amt = (() => { const th = root.MONO_THEMES[ui.v.theme]; return th ? th.unit : ''; })();
-    return ui.overlay(4800, (g, W, Hh, dpr, t) => {
+    return ui.overlay(6400, (g, W, Hh, dpr, t) => {
       const U = Math.min(W, Hh) / 420, cx = W / 2, gy = Hh * 0.7;
       hall(g, W, Hh, t, U, { moon: true });
       g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 0, W, Hh);
@@ -114,7 +113,7 @@
         if (k > 1.0) { const fk = (k - 1.0) / 1.1, fx = cx + Math.sin(fk * 6) * 50 * U, fy2 = Hh * 0.3 + fk * Hh * 0.4; g.save(); g.translate(fx, fy2); g.rotate(Math.sin(fk * 6) * 0.6); g.globalCompositeOperation = 'lighter'; const fg = g.createLinearGradient(0, -40 * U, 0, 40 * U); fg.addColorStop(0, 'rgba(255,250,200,.95)'); fg.addColorStop(1, 'rgba(255,80,20,.2)'); g.fillStyle = fg; g.beginPath(); g.ellipse(0, 0, 9 * U, 40 * U, 0, 0, 7); g.fill(); g.restore(); }
       }
       H.drawEmbers(g, emb, W, Hh, t, dpr, 'rgba(255,170,70,A)', 1.4);
-      finish(g, W, Hh, dpr, t, 4.8, U, '鳳 凰 重 生', `你的錢包也跟著重生了`);
+      finish(g, W, Hh, dpr, t, 6.4, U, '鳳 凰 重 生', `你的錢包也跟著重生了`);
     }, snd);
   };
 
@@ -123,118 +122,183 @@
   const NAMES = ['被石化咒變成石像，碎了一地', '被大巨蛇一口吞下', '被貓頭鷹群叼走了', '被小火龍燒成焦炭', '被獨角獸一角頂飛', '被鳳凰之火吞沒', '被人馬一箭射穿', '被狼人撲倒撕碎'];
   function owl(g, x, y, s, ph) { g.save(); g.translate(x, y); g.scale(s, s); g.beginPath(); g.ellipse(0, 0, 18, 22, 0, 0, 7); g.fill(); [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 6, -18); g.lineTo(sd * 14, -30); g.lineTo(sd * 16, -14); g.fill();
       g.save(); g.scale(sd, 1); g.rotate(Math.sin(ph) * 0.9); g.beginPath(); g.moveTo(10, -6); g.quadraticCurveTo(50, -30, 70, -10); g.lineTo(56, -4); g.lineTo(62, 4); g.lineTo(46, 4); g.lineTo(50, 12); g.quadraticCurveTo(26, 10, 10, 8); g.fill(); g.restore(); }); g.restore(); }
+  // 狼人剪影：駝背、長吻、尖耳、肌肉手臂、利爪、反關節腿；pose: howl / crouch / leap / maul
+  function werewolf(o, x, y, s, pose, t, flip) {
+    o.save(); o.translate(x, y); o.scale(s * (flip ? -1 : 1), s);
+    const P = { howl: { lean: -0.15, head: -1.0, la: -2.0, ra: -1.1, crouch: 0 }, crouch: { lean: 0.5, head: 0.1, la: 0.9, ra: 0.6, crouch: 1 }, leap: { lean: 0.9, head: 0.3, la: -0.2, ra: 0.2, crouch: 0.3 }, maul: { lean: 0.6, head: 0.5, la: -0.4 + Math.sin(t * 18) * 1.2, ra: 0.6 - Math.sin(t * 18 + 1.5) * 1.2, crouch: 0.6 } }[pose];
+    const hipY = -110 + P.crouch * 35;
+    // 反關節腿
+    [-1, 1].forEach(sd => { limb(o, sd * 14, hipY, sd * 22 + 24, hipY + 50, 18, 13); limb(o, sd * 22 + 24, hipY + 50, sd * 14 - 4, -12, 12, 8); limb(o, sd * 14 - 4, -12, sd * 14 + 22, 0, 8, 5); });
+    o.save(); o.translate(0, hipY); o.rotate(P.lean);
+    // 軀幹：寬肩窄腰，背上一排毛
+    const fur = H.furOutline([[-26, 0], [-40, -60], [-58, -120], [-30, -150], [30, -150], [52, -110], [36, -50], [26, 0]], 21, 13); o.beginPath(); o.moveTo(-26, 0); fur.forEach(([fx, fy]) => o.lineTo(fx, fy)); o.closePath(); o.fill();
+    // 手臂＋爪
+    [[P.la, -1], [P.ra, 1]].forEach(([a, sd]) => { const sx = sd * 40, sy = -132, ex = sx + Math.cos(a + (sd < 0 ? Math.PI : 0)) * 0 + Math.sin(a) * 60 * sd, ey = sy + Math.cos(a) * 60; limb(o, sx, sy, ex, ey, 17, 13); const hx = ex + Math.sin(a + 0.4 * sd) * 58 * sd, hy = ey + Math.cos(a + 0.4 * sd) * 58; limb(o, ex, ey, hx, hy, 13, 10);
+      for (let k = -1; k <= 1; k++) { o.beginPath(); o.moveTo(hx + k * 6, hy); o.quadraticCurveTo(hx + k * 9 + Math.sin(a) * 18 * sd, hy + 16, hx + k * 8 + Math.sin(a) * 30 * sd, hy + 26); o.lineTo(hx + k * 6 + 3, hy + 2); o.fill(); } });
+    // 頭：長吻、尖耳、張嘴
+    o.save(); o.translate(10, -160); o.rotate(P.head); o.beginPath(); o.ellipse(0, 0, 28, 24, 0, 0, 7); o.fill();
+    const jaw = pose === 'howl' ? 0.35 : pose === 'maul' ? 0.25 + Math.abs(Math.sin(t * 9)) * 0.2 : 0.15;
+    o.beginPath(); o.moveTo(10, -14); o.lineTo(72, -6); o.lineTo(70, 4); o.lineTo(14, 6); o.fill();
+    o.save(); o.translate(14, 6); o.rotate(jaw); o.beginPath(); o.moveTo(0, 0); o.lineTo(54, 2); o.lineTo(50, 10); o.lineTo(0, 12); o.fill(); o.restore();
+    [[-14, 0], [6, 1]].forEach(([ex]) => { o.beginPath(); o.moveTo(ex - 10, -18); o.lineTo(ex - 2, -56); o.lineTo(ex + 10, -16); o.fill(); });
+    o.restore(); o.restore(); o.restore();
+    return { eye: [x + (flip ? -1 : 1) * s * 26, y + s * (hipY - 168)], head: [x + (flip ? -1 : 1) * s * 40, y + s * (hipY - 160)] };
+  }
+  // 大巨蛇：身體是一條連續的粗曲線，頭接在曲線末端、沿著方向轉
+  function serpent(o, base, head, ctrl, U, jaw, swallow) {
+    const [bx, by] = base, [hx, hy] = head, [c1x, c1y, c2x, c2y] = ctrl, ang = Math.atan2(hy - c2y, hx - c2x);
+    o.lineCap = 'round'; o.lineJoin = 'round';
+    for (let k = 0; k < 2; k++) { o.lineWidth = (k ? 40 : 54) * U; o.beginPath(); o.moveTo(bx, by); o.bezierCurveTo(c1x, c1y, c2x, c2y, hx - Math.cos(ang) * 20 * U, hy - Math.sin(ang) * 20 * U); o.stroke(); }
+    if (swallow >= 0) { const u = 1 - swallow, x = (1 - u) ** 3 * bx + 3 * (1 - u) ** 2 * u * c1x + 3 * (1 - u) * u * u * c2x + u ** 3 * hx, y = (1 - u) ** 3 * by + 3 * (1 - u) ** 2 * u * c1y + 3 * (1 - u) * u * u * c2y + u ** 3 * hy; o.beginPath(); o.ellipse(x, y, 46 * U, 38 * U, ang, 0, 7); o.fill(); }
+    o.save(); o.translate(hx, hy); o.rotate(ang);
+    // 頭：後腦寬（毒腺）往前收成圓鈍的吻部，上下顎張開時是很寬的圓角楔形
+    o.beginPath(); o.moveTo(-36 * U, -24 * U); o.quadraticCurveTo(-6 * U, -46 * U, 22 * U, -30 * U); o.lineTo(22 * U, 30 * U); o.quadraticCurveTo(-6 * U, 46 * U, -36 * U, 24 * U); o.closePath(); o.fill();
+    o.save(); o.translate(16 * U, -6 * U); o.rotate(-jaw * 0.75); o.beginPath(); o.moveTo(0, -22 * U); o.quadraticCurveTo(40 * U, -24 * U, 62 * U, -10 * U); o.quadraticCurveTo(70 * U, 0, 60 * U, 6 * U); o.lineTo(0, 8 * U); o.closePath(); o.fill(); o.restore();
+    o.save(); o.translate(16 * U, 8 * U); o.rotate(jaw * 0.75); o.beginPath(); o.moveTo(0, -6 * U); o.lineTo(54 * U, -4 * U); o.quadraticCurveTo(62 * U, 4 * U, 52 * U, 12 * U); o.quadraticCurveTo(30 * U, 20 * U, 0, 18 * U); o.closePath(); o.fill(); o.restore();
+    o.restore(); return ang;
+  }
   M.death = function (ui, SFX, e) {
-    const v = ui.v, th = root.MONO_THEMES[v.theme], by = e.by, kind = by >= 0 && v.players[by] && v.players[by].char && v.players[by].char.kind !== 'custom' ? v.players[by].char.i % 8 : by >= 0 ? 0 : -1;
+    const v = ui.v, by = e.by, kind = by >= 0 && v.players[by] && v.players[by].char && v.players[by].char.kind !== 'custom' ? v.players[by].char.i % 8 : by >= 0 ? 0 : -1;
     blood.length = 0; const emb = H.embers(70);
-    const shards = Array.from({ length: 40 }, () => ({ x: rnd(-22, 22), y: rnd(-240, 0), vx: rnd(-3, 3), vy: rnd(-5, -1), r: rnd(0, 6), s: rnd(6, 16) }));
-    const owls = Array.from({ length: 18 }, (_, i) => ({ a: rnd(0, 6.28), d: rnd(0.3, 0.9), p: rnd(0, 6), o: rnd(-60, 60), q: rnd(-30, 20) }));
+    let sd0 = 77; const R0 = () => (sd0 = (sd0 * 16807) % 2147483647) / 2147483647;
+    const shards = Array.from({ length: 46 }, () => ({ x: R0() * 44 - 22, y: -R0() * 240, vx: R0() * 8 - 4, vy: -R0() * 6 - 1, r: R0() * 6, s: 6 + R0() * 14, c: 70 + R0() * 40 }));
+    const owls = Array.from({ length: 22 }, (_, i) => ({ a: rnd(0, 6.28), d: rnd(0.2, 1.0), p: rnd(0, 6), o: rnd(-70, 70), q: rnd(-40, 30), front: i % 2 }));
     const paper = Array.from({ length: 40 }, () => ({ vx: rnd(-6, 6), vy: rnd(-8, -2), r: rnd(0, 6) }));
-    let lastShk = 0; const T0 = 5.0, vName = v.names && v.names[e.seat] || '', title = kind < 0 ? '被怪獸書追到了' : NAMES[kind];
+    let lastShk = 0, zoomF = null; const T0 = 5.4;
+    const stoneTex = H.smoke('stone', [150, 146, 140], 0.0, 53);
     const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
-      T(49, 5, { type: 'sawtooth', vol: 0.05, lp: 220, attack: 0.4 }); [0.1].forEach(d => { T(147, 2.5, { vol: 0.04, detune: -20, delay: d }); T(156, 2.5, { vol: 0.03, delay: d }); });
+      T(49, 5, { type: 'sawtooth', vol: 0.05, lp: 220, attack: 0.4 }); T(147, 2.5, { vol: 0.04, detune: -20, delay: 0.1 }); T(156, 2.5, { vol: 0.03, delay: 0.1 });
       if (kind === -1) { for (let i = 0; i < 14; i++) { N(0.08, { f: 300, vol: 0.12, delay: 0.3 + i * 0.17 }); T(90, 0.08, { vol: 0.08, wet: false, delay: 0.3 + i * 0.17 }); } T(180, 0.5, { type: 'sawtooth', glide: 90, vol: 0.06, lp: 900, delay: 0.8 }); for (let i = 0; i < 10; i++) { N(0.12, { f: 2500, type: 'bandpass', vol: 0.08, delay: 2.6 + i * 0.13 }); N(0.1, { f: 400, vol: 0.12, delay: 2.65 + i * 0.13 }); } T(1300, 0.8, { type: 'sawtooth', glide: 600, vol: 0.05, lp: 3000, delay: 2.55 }); }
-      if (kind === 0) { for (let i = 0; i < 8; i++) T(800 + i * 100, 0.15, { type: 'triangle', vol: 0.03, delay: 0.6 + i * 0.05 }); T(220, 1.5, { type: 'square', glide: 110, vol: 0.03, lp: 700, delay: 1.3 }); for (let i = 0; i < 12; i++) N(0.04, { f: 3000, type: 'bandpass', vol: 0.06, delay: 1.5 + i * 0.1 }); N(0.9, { f: 1500, vol: 0.18, delay: 3.0 }); for (let i = 0; i < 16; i++) T(3000 + Math.random() * 2000, 0.1, { type: 'square', vol: 0.02, lp: 7000, delay: 3.0 + Math.random() * 0.6 }); }
-      if (kind === 1) { N(1.4, { f: 4000, type: 'highpass', vol: 0.05, delay: 0.4 }); N(0.4, { f: 600, vol: 0.2, delay: 1.9 }); T(70, 0.6, { glide: 35, vol: 0.2, delay: 1.95 }); T(55, 1.2, { glide: 40, vol: 0.12, delay: 2.5 }); }
-      if (kind === 2) { for (let i = 0; i < 20; i++) { T(420 + Math.random() * 120, 0.3, { glide: 350, vol: 0.025, delay: 0.4 + i * 0.15 }); N(0.06, { f: 500, vol: 0.06, delay: 0.4 + i * 0.12 }); } }
+      if (kind === 0) { for (let i = 0; i < 8; i++) T(800 + i * 100, 0.15, { type: 'triangle', vol: 0.03, delay: 0.6 + i * 0.05 }); T(220, 1.5, { type: 'square', glide: 110, vol: 0.03, lp: 700, delay: 1.3 }); for (let i = 0; i < 14; i++) N(0.04, { f: 3000, type: 'bandpass', vol: 0.06, delay: 1.5 + i * 0.12 }); N(0.9, { f: 1500, vol: 0.18, delay: 3.2 }); for (let i = 0; i < 16; i++) T(3000 + Math.random() * 2000, 0.1, { type: 'square', vol: 0.02, lp: 7000, delay: 3.2 + Math.random() * 0.6 }); }
+      if (kind === 1) { N(1.4, { f: 4000, type: 'highpass', vol: 0.05, delay: 0.4 }); T(300, 0.8, { type: 'sawtooth', glide: 120, vol: 0.05, lp: 1200, delay: 1.3 }); N(0.4, { f: 600, vol: 0.2, delay: 1.95 }); T(70, 0.6, { glide: 35, vol: 0.2, delay: 2.0 }); T(55, 1.2, { glide: 40, vol: 0.12, delay: 2.6 }); }
+      if (kind === 2) { for (let i = 0; i < 22; i++) { T(420 + Math.random() * 120, 0.3, { glide: 350, vol: 0.025, delay: 0.3 + i * 0.15 }); N(0.06, { f: 500, vol: 0.06, delay: 0.3 + i * 0.12 }); } }
       if (kind === 3 || kind === 5) { N(2.2, { f: 700, vol: 0.14, attack: 0.2, delay: 1.0 }); T(120, 2, { type: 'sawtooth', glide: 60, vol: 0.05, lp: 500, delay: 1.0 }); T(1200, 1.0, { type: 'sawtooth', glide: 400, vol: 0.05, lp: 3000, delay: 1.4 }); }
-      if (kind === 4) { for (let i = 0; i < 8; i++) N(0.06, { f: 250, vol: 0.14, delay: 0.3 + i * 0.16 }); T(1800, 0.8, { glide: 2600, vol: 0.04, delay: 1.5 }); N(0.3, { f: 500, vol: 0.2, delay: 1.6 }); }
-      if (kind === 6) { T(240, 0.6, { type: 'sawtooth', glide: 300, vol: 0.03, lp: 900, delay: 0.6 }); N(0.4, { f: 3000, type: 'bandpass', vol: 0.1, delay: 1.6 }); N(0.15, { f: 700, vol: 0.22, delay: 2.2 }); T(900, 0.7, { type: 'sawtooth', glide: 400, vol: 0.05, lp: 2600, delay: 2.25 }); }
-      if (kind === 7) { T(250, 2.0, { type: 'sawtooth', glide: 520, vol: 0.06, lp: 1600, delay: 0.3 }); T(260, 2.0, { type: 'square', glide: 540, vol: 0.02, lp: 1600, delay: 0.3 }); N(0.4, { f: 800, vol: 0.2, delay: 2.4 }); [2.5, 2.62, 2.74].forEach(d => N(0.12, { f: 2500, type: 'highpass', vol: 0.12, delay: d })); }
+      if (kind === 4) { for (let i = 0; i < 10; i++) N(0.06, { f: 250, vol: 0.14, delay: 0.2 + i * 0.14 }); T(1800, 0.8, { glide: 2600, vol: 0.04, delay: 1.5 }); N(0.3, { f: 500, vol: 0.22, delay: 1.6 }); T(900, 0.9, { type: 'sawtooth', glide: 1500, vol: 0.04, lp: 3000, delay: 1.65 }); }
+      if (kind === 6) { T(240, 0.8, { type: 'sawtooth', glide: 300, vol: 0.03, lp: 900, delay: 0.5 }); N(0.5, { f: 3000, type: 'bandpass', vol: 0.1, delay: 1.6 }); N(0.15, { f: 700, vol: 0.22, delay: 2.4 }); T(900, 0.7, { type: 'sawtooth', glide: 400, vol: 0.05, lp: 2600, delay: 2.45 }); }
+      if (kind === 7) { T(250, 2.0, { type: 'sawtooth', glide: 520, vol: 0.06, lp: 1600, delay: 0.3 }); T(260, 2.0, { type: 'square', glide: 540, vol: 0.02, lp: 1600, delay: 0.3 }); T(90, 0.5, { type: 'sawtooth', vol: 0.08, lp: 600, delay: 2.2 }); N(0.4, { f: 800, vol: 0.2, delay: 2.55 }); for (let i = 0; i < 7; i++) N(0.12, { f: 2500, type: 'highpass', vol: 0.1, delay: 2.7 + i * 0.16 }); [3.9, 4.0, 4.1].forEach(d => N(0.12, { f: 3000, type: 'highpass', vol: 0.14, delay: d })); }
     };
     return ui.overlay(T0 * 1000, (g, W, Hh, dpr, t) => {
-      const U = Math.min(W, Hh) / 420, gy = Hh * 0.86, vx0 = W * 0.66; let shk = 0;
-      g.save(); g.translate(rnd(-lastShk, lastShk) * dpr, rnd(-lastShk, lastShk) * dpr);
-      hall(g, W, Hh, t, U, { moon: kind === 7 || kind === 2 });
+      const U = Math.min(W, Hh) / 420, gy = Hh * 0.86, vx = W * 0.38; let shk = 0; zoomF = null; let zoom = 1;
+      // 鏡頭：撞擊時往焦點推近一點
+      const cam = (fx, fy, z) => { zoomF = [fx, fy]; zoom = z; };
       const S = U * 0.95;
-      if (kind === -1) { // ===== 怪獸書：追、撲、咬爛 =====
-        const run = t < 2.5, vx = run ? W * (0.9 - t * 0.2) : W * 0.4, bx = run ? W * (1.25 - t * 0.33) : W * 0.42, hop = Math.abs(Math.sin(t * 9)) * 40 * U;
-        const caught = t >= 2.5; if (caught && t < 2.7) shk = 14;
-        if (!caught) rim(g, W, Hh, dpr, 'rgba(160,180,255,.6)', 14, o => student(o, vx, gy, S, { run: 1, lean: -0.25, arms: -0.9, scarf: '#9a2020' }, t));
-        // 書：毛邊封面、上下兩片一開一合、利牙、一顆眼睛
-        const open = caught ? (t < 3.8 ? 0.15 + Math.abs(Math.sin(t * 12)) * 0.35 : 0.1) : 0.35 + Math.abs(Math.sin(t * 9)) * 0.55, bs = caught ? 1.6 : 1.1;
-        rim(g, W, Hh, dpr, 'rgba(120,255,140,.35)', 16, o => { o.save(); o.translate(bx + (caught ? Math.sin(t * 40) * 10 * U : 0), gy - 60 * U * bs - (caught ? 0 : hop)); o.scale(U * bs, U * bs); o.rotate(caught ? Math.sin(t * 17) * 0.15 : -0.1);
-          const cover = (sd) => { const fur = H.furOutline([[-70, 0], [-70, -sd * 10], [-50, -sd * 50], [50, -sd * 50], [70, -sd * 10], [70, 0]], sd > 0 ? 3 : 9, 9); o.beginPath(); o.moveTo(-70, 0); fur.forEach(([x, y]) => o.lineTo(x, y)); o.closePath(); o.fill(); };
-          o.save(); o.rotate(-open * 0.6); cover(1); o.restore(); o.save(); o.rotate(open * 0.25); o.scale(1, -1); cover(1); o.restore(); o.restore(); });
-        g.save(); g.translate(bx + (caught ? Math.sin(t * 40) * 10 * U : 0), gy - 60 * U * bs - (caught ? 0 : hop)); g.scale(U * bs, U * bs); g.rotate(caught ? Math.sin(t * 17) * 0.15 : -0.1);
-        g.save(); g.rotate(-open * 0.6); g.fillStyle = '#efe6d0'; for (let k = 0; k < 10; k++) { g.beginPath(); g.moveTo(-60 + k * 12, -2); g.lineTo(-54 + k * 12, 14); g.lineTo(-48 + k * 12, -2); g.fill(); } g.restore();
-        g.save(); g.rotate(open * 0.25); g.fillStyle = '#efe6d0'; for (let k = 0; k < 10; k++) { g.beginPath(); g.moveTo(-60 + k * 12, 2); g.lineTo(-54 + k * 12, -12); g.lineTo(-48 + k * 12, 2); g.fill(); } g.fillStyle = '#7a1018'; g.beginPath(); g.ellipse(-10, 6, 36, 6, 0, 0, Math.PI); g.fill(); g.restore();
-        g.save(); g.rotate(-open * 0.6); g.globalCompositeOperation = 'lighter'; const eg = g.createRadialGradient(20, -30, 0, 20, -30, 14); eg.addColorStop(0, 'rgba(255,255,160,1)'); eg.addColorStop(0.4, 'rgba(160,255,80,.8)'); eg.addColorStop(1, 'rgba(0,255,0,0)'); g.fillStyle = eg; g.fillRect(6, -44, 28, 28); g.restore(); g.restore();
-        if (caught) { if (t < 3.9 && Math.random() < 0.7) spray(bx, gy - 90 * U, 3, 4, t); const k2 = t - 2.5; paper.forEach(p => { if (k2 > 2) return; g.save(); g.translate(bx + p.vx * k2 * 40 * U, gy - 90 * U + (p.vy * k2 * 40 + k2 * k2 * 120) * U); g.rotate(p.r + k2 * 6); g.fillStyle = 'rgba(230,220,200,.9)'; g.fillRect(-7 * U, -9 * U, 14 * U, 18 * U); g.restore(); });
-          if (t > 4.0) { const hk = t - 4.0; g.save(); g.translate(bx - 40 * U - hk * 60 * U, gy - 120 * U - hk * 120 * U + hk * hk * 300 * U); g.rotate(hk * 5); g.fillStyle = '#0a0812'; g.beginPath(); g.moveTo(-20 * U, 0); g.quadraticCurveTo(-4 * U, -40 * U, 16 * U, -54 * U); g.quadraticCurveTo(6 * U, -30 * U, 18 * U, 0); g.fill(); g.restore(); } }
-      } else if (kind === 0) { // ===== 石化咒：光束打中→從腳開始變石頭→裂開→碎掉 =====
-        const wand = rim(g, W, Hh, dpr, 'rgba(160,190,255,.6)', 16, o => student(o, W * 0.2, gy, S * 1.05, { arms: -0.35 - Math.min(1, t) * 0.25, wand: true, scarf: '#5a3aa0' }, t));
-        const hit = 1.3, stone = clamp((t - hit) / 1.2), shat = t > 3.0 ? t - 3.0 : 0;
-        if (t > 0.7 && t < hit + 0.4) { const k = clamp((t - 0.7) / 0.6), tx = wand[0] + (vx0 - wand[0]) * k, ty = wand[1] + (gy - 120 * S - wand[1]) * k; g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(220,230,255,.9)'; g.lineWidth = 4 * dpr; g.shadowColor = '#a0b8ff'; g.shadowBlur = 20 * dpr; g.beginPath(); g.moveTo(wand[0], wand[1]); for (let q = 1; q <= 10; q++) g.lineTo(wand[0] + (tx - wand[0]) * q / 10 + rnd(-6, 6) * U, wand[1] + (ty - wand[1]) * q / 10 + rnd(-6, 6) * U); g.stroke(); g.restore(); }
-        if (!shat) { rim(g, W, Hh, dpr, stone > 0 ? 'rgba(200,210,230,.5)' : 'rgba(160,180,255,.5)', 12, o => student(o, vx0, gy, S, { arms: stone > 0 ? -2.3 : -0.4, lean: stone > 0 ? -0.05 : 0, scarf: '#9a2020', flip: true }, stone > 0 ? hit : t));
-          if (stone > 0) { g.save(); g.beginPath(); g.rect(0, gy - stone * 260 * S, W, Hh); g.clip(); rim(g, W, Hh, dpr, null, 0, o => { o.fillStyle = '#5c5a58'; student(o, vx0, gy, S, { arms: -2.3, lean: -0.05, hat: true, flip: true }, hit); }); g.restore();
-            if (stone > 0.6) { g.strokeStyle = 'rgba(20,20,26,.9)'; g.lineWidth = 2 * dpr; for (let q = 0; q < 6; q++) { g.beginPath(); let x = vx0 + (q - 3) * 8 * U, y = gy - 40 * U - q * 30 * U; g.moveTo(x, y); for (let z = 0; z < 5; z++) { x += rnd(-10, 10) * U * stone; y -= rnd(4, 14) * U; g.lineTo(x, y); } g.stroke(); } } } }
-        else { shk = shat < 0.3 ? 10 : 0; shards.forEach(p => { const k = shat; g.save(); g.translate(vx0 + (p.x + p.vx * k * 50) * S, gy + (p.y + p.vy * k * 40 + k * k * 260) * S); g.rotate(p.r + k * 4); g.fillStyle = '#7a7a82'; g.beginPath(); g.moveTo(-p.s * S, 0); g.lineTo(0, -p.s * S * 0.8); g.lineTo(p.s * S * 0.7, p.s * S * 0.3); g.fill(); g.restore(); });
-          g.fillStyle = 'rgba(160,160,170,.4)'; g.beginPath(); g.ellipse(vx0, gy, 60 * U * Math.min(1, shat * 2), 12 * U, 0, 0, 7); g.fill(); }
-      } else if (kind === 1) { // ===== 大巨蛇：從暗處升起、張嘴、撲咬、吞下 =====
-        const rise = ease(t / 1.2), strike = clamp((t - 1.6) / 0.25), back = clamp((t - 2.0) / 0.8), gone = t > 1.85;
-        if (!gone) rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, o => student(o, vx0, gy, S, { arms: t > 1.2 ? -2.4 : -0.4, flip: true, lean: t > 1.2 ? 0.1 : 0, scarf: '#9a2020' }, t)); else if (t < 2.1) spray(vx0, gy - 120 * U, 4, 5, t);
-        rim(g, W, Hh, dpr, 'rgba(120,255,160,.35)', 22, o => { const hx = W * 0.22 + strike * (vx0 - W * 0.2) * (1 - back * 0.7), hy = gy - 60 * U - rise * 210 * U + strike * 80 * U; o.lineCap = 'round';
-          o.lineWidth = 46 * U; o.beginPath(); o.moveTo(-W * 0.1, gy + 40 * U); o.bezierCurveTo(W * 0.3, gy + 20 * U, W * 0.02, gy - 120 * U * rise, hx - 40 * U, hy + 40 * U); o.stroke();
-          const bulge = t > 2.1 ? clamp((t - 2.1) / 1.8) : -1; if (bulge >= 0) { o.beginPath(); o.ellipse(-W * 0.1 + (hx - 40 * U + W * 0.1) * (1 - bulge), gy + 30 * U - (1 - bulge) * 100 * U, 40 * U, 30 * U, 0, 0, 7); o.fill(); }
-          const jaw = t < 1.4 ? 0.1 : t < 1.85 ? 0.9 : t < 2.2 ? 0.2 : 0.05; o.save(); o.translate(hx, hy); o.rotate(-0.3 + strike * 0.3); o.beginPath(); o.moveTo(-40 * U, -24 * U); o.quadraticCurveTo(10 * U, -34 * U, 40 * U, -16 * U); o.lineTo(40 * U, 16 * U); o.quadraticCurveTo(10 * U, 30 * U, -40 * U, 24 * U); o.closePath(); o.fill();
-          o.save(); o.translate(30 * U, 0); o.rotate(-jaw * 0.55); o.beginPath(); o.moveTo(0, -16 * U); o.quadraticCurveTo(40 * U, -18 * U, 70 * U, -6 * U); o.quadraticCurveTo(60 * U, 4 * U, 0, 4 * U); o.fill(); o.restore(); o.save(); o.translate(30 * U, 0); o.rotate(jaw * 0.55); o.beginPath(); o.moveTo(0, 2 * U); o.quadraticCurveTo(40 * U, 4 * U, 64 * U, 8 * U); o.quadraticCurveTo(50 * U, 16 * U, 0, 16 * U); o.fill(); o.restore(); o.restore(); return [hx, hy, jaw]; });
-        const hx = W * 0.22 + strike * (vx0 - W * 0.2) * (1 - back * 0.7), hy = gy - 60 * U - rise * 210 * U + strike * 80 * U, jaw = t < 1.4 ? 0.1 : t < 1.85 ? 0.9 : t < 2.2 ? 0.2 : 0.05;
-        g.save(); g.translate(hx, hy); g.rotate(-0.3 + strike * 0.3); g.globalCompositeOperation = 'lighter'; const eg = g.createRadialGradient(10 * U, -14 * U, 0, 10 * U, -14 * U, 18 * U); eg.addColorStop(0, 'rgba(255,255,150,1)'); eg.addColorStop(0.3, 'rgba(230,220,0,.8)'); eg.addColorStop(1, 'rgba(200,200,0,0)'); g.fillStyle = eg; g.fillRect(-8 * U, -32 * U, 36 * U, 36 * U); g.globalCompositeOperation = 'source-over';
-        if (jaw > 0.5) { g.fillStyle = '#f0f0e8'; g.save(); g.translate(30 * U, 0); g.rotate(-jaw * 0.55); [16, 50].forEach(x => { g.beginPath(); g.moveTo(x * U, 0); g.lineTo((x + 4) * U, 26 * U); g.lineTo((x + 9) * U, 0); g.fill(); }); g.restore(); } g.restore();
-        if (t > 1.6 && t < 1.95) shk = 10;
-      } else if (kind === 2) { // ===== 貓頭鷹群：從四面八方撲下來，把人叼上月亮 =====
-        const lift = ease((t - 2.0) / 2.2), vy = gy - lift * Hh * 0.7;
-        rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, o => { student(o, vx0 - lift * W * 0.2, vy, S * (1 - lift * 0.5), { arms: -2.6 + Math.sin(t * 12) * 0.3, flip: true, run: lift > 0 ? 0.6 : 0, scarf: '#9a2020' }, t);
-          owls.forEach(p => { const k = clamp((t - p.d) / 1.2), ox = vx0 - lift * W * 0.2 + p.o * U * (1 - lift * 0.5), oy = vy - 200 * S * (1 - lift * 0.5) + p.q * U, sx = ox + Math.cos(p.a) * (1 - k) * W, sy = oy - Math.abs(Math.sin(p.a)) * (1 - k) * Hh; owl(o, sx, sy, U * 0.9 * (1 - lift * 0.4), t * 16 + p.p); }); });
-        g.fillStyle = 'rgba(200,190,170,.6)'; for (let q = 0; q < 14; q++) { const fk = ((t * 0.3 + q / 14) % 1); g.save(); g.translate((q * 0.07 + 0.1) * W + Math.sin(t * 2 + q) * 20 * U, fk * Hh); g.rotate(Math.sin(t * 3 + q)); g.beginPath(); g.ellipse(0, 0, 3 * U, 9 * U, 0, 0, 7); g.fill(); g.restore(); }
-      } else if (kind === 3 || kind === 5) { // ===== 小火龍噴火／鳳凰撲下：燒成焦炭再化成灰 =====
-        const fire = clamp((t - 0.9) / 0.3), char = clamp((t - 1.4) / 1.0), crumble = clamp((t - 2.8) / 1.2);
-        if (kind === 3) rim(g, W, Hh, dpr, 'rgba(255,140,60,.6)', 18, o => { o.save(); o.translate(W * 0.2, gy); o.scale(U, U); o.beginPath(); o.ellipse(0, -60, 60, 36, -0.1, 0, 7); o.fill(); limb(o, -30, -40, -36, 0, 12, 10); limb(o, 30, -40, 34, 0, 12, 10); o.beginPath(); o.moveTo(40, -80); o.quadraticCurveTo(70, -130, 100, -120); o.lineTo(130, -110); o.lineTo(100, -96); o.quadraticCurveTo(80, -90, 60, -60); o.fill();
-          o.beginPath(); o.moveTo(-50, -60); o.quadraticCurveTo(-120, -50, -150, -90); o.lineTo(-140, -70); o.quadraticCurveTo(-110, -40, -50, -40); o.fill(); [-1, 1].forEach(sd => { o.save(); o.translate(-6, -86); o.rotate(sd * 0.25 + Math.sin(t * 8 + sd) * 0.25); o.beginPath(); o.moveTo(0, 0); o.lineTo(-30, -110); o.lineTo(-90, -120); o.quadraticCurveTo(-70, -90, -84, -66); o.quadraticCurveTo(-60, -60, -64, -34); o.quadraticCurveTo(-40, -30, -36, -6); o.closePath(); o.fill(); o.restore(); }); [0, 10].forEach(d => { o.beginPath(); o.moveTo(76 + d, -124); o.lineTo(70 + d, -152); o.lineTo(86 + d, -122); o.fill(); }); o.restore(); });
-        else fireBird(g, W * 0.3 + ease(t / 1.2) * W * 0.3, Hh * 0.15 + ease(t / 1.2) * Hh * 0.45, U * 0.5, t, Math.min(1, t * 2), Math.sin(t * 7));
-        if (fire > 0 && t < 3.0) { const sx = kind === 3 ? W * 0.2 + 130 * U : vx0, sy = kind === 3 ? gy - 112 * U : gy - 200 * U; g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 70; q++) { const ph = (t * 1.8 + q / 70) % 1, x = sx + (vx0 - sx) * ph * fire, y = sy + (gy - 100 * U - sy) * ph + Math.sin(q * 3 + t * 20) * 26 * U * ph, r = (6 + ph * 30) * U; const fg = g.createRadialGradient(x, y, 0, x, y, r); fg.addColorStop(0, 'rgba(255,250,200,.85)'); fg.addColorStop(0.4, 'rgba(255,150,40,.55)'); fg.addColorStop(1, 'rgba(255,40,0,0)'); g.fillStyle = fg; g.fillRect(x - r, y - r, r * 2, r * 2); } g.restore(); }
-        if (crumble < 1) { g.save(); if (crumble > 0) { g.beginPath(); g.rect(0, gy - (1 - crumble) * 260 * S, W, Hh); g.clip(); } rim(g, W, Hh, dpr, char > 0 ? `rgba(255,${120 - char * 60},40,${0.9})` : 'rgba(160,180,255,.5)', 12 + char * 20, o => { if (char > 0.5) o.fillStyle = '#140806'; student(o, vx0, gy, S, { arms: -2.4 + Math.sin(t * 15) * (1 - char) * 0.6, flip: true, scarf: char > 0.3 ? null : '#9a2020' }, char > 0.8 ? 1.4 : t); }); g.restore(); }
-        if (char > 0.6) H.flames(g, vx0 - 40 * U, vx0 + 40 * U, gy, 200 * U * (1 - crumble), t, 8 * U, 7, 0.85);
-        if (crumble > 0) { for (let q = 0; q < 80; q++) { const k = crumble, x = vx0 + Math.sin(q * 7.1) * 40 * U + Math.sin(q) * k * 60 * U, y = gy - (q % 26) * 10 * U * (1 - k) - 4 * U; g.fillStyle = q % 3 ? 'rgba(60,50,46,.9)' : 'rgba(255,120,40,.8)'; g.fillRect(x, y, 3 * dpr, 3 * dpr); } g.fillStyle = '#2a2420'; g.beginPath(); g.ellipse(vx0, gy, 50 * U * crumble, 10 * U, 0, Math.PI, 0); g.fill(); }
-      } else if (kind === 4) { // ===== 獨角獸：衝刺、角發光、把人頂上天 =====
-        const ux = W * (-0.2 + Math.min(1, t / 1.5) * 0.75), hit = t > 1.5, fly = hit ? t - 1.5 : 0;
-        rim(g, W, Hh, dpr, 'rgba(230,230,255,.7)', 24, o => { o.save(); o.translate(ux, gy); o.scale(U, U); const gal = t * 16; o.beginPath(); o.ellipse(0, -80, 70, 30, 0, 0, 7); o.fill();
-          [[-45, 0], [-30, 1], [35, 2], [50, 3]].forEach(([lx, q]) => { const a = Math.sin(gal + q * 1.6) * (hit ? 0.2 : 0.7); limb(o, lx, -70, lx + Math.sin(a) * 40, -30, 9, 7); limb(o, lx + Math.sin(a) * 40, -30, lx + Math.sin(a) * 30 + Math.sin(a * 1.3) * 10, 0, 7, 6); });
-          o.beginPath(); o.moveTo(40, -104); o.quadraticCurveTo(62, -150, 84, -164); o.quadraticCurveTo(100, -172, 112, -160); o.lineTo(140, -128); o.quadraticCurveTo(144, -116, 132, -114); o.lineTo(104, -124); o.quadraticCurveTo(90, -100, 70, -66); o.fill();
-          o.beginPath(); o.moveTo(90, -170); o.lineTo(96, -186); o.lineTo(100, -168); o.fill();
-          for (let q = 0; q < 9; q++) { const mx2 = 84 - q * 6, my2 = -168 + q * 9, sw2 = Math.sin(gal * 0.6 + q) * 8; o.beginPath(); o.moveTo(mx2, my2); o.quadraticCurveTo(mx2 - 26, my2 + 4 + sw2, mx2 - 40 + sw2, my2 + 18); o.lineTo(mx2 - 4, my2 + 10); o.fill(); }
+      // 先把每一種要的參數算好，再一次畫（攻擊者畫在破產者「前面」）
+      const draws = []; let victim = { show: true, x: vx, y: gy, rot: 0, pose: { arms: -0.4, scarf: '#9a2020' }, glow: 'rgba(160,180,255,.55)', fill: null };
+      if (kind === -1) { // 怪獸書：從右邊跳著追過來，學生往左逃，撲上去狂咬
+        const run = t < 2.5, bx = run ? W * (1.3 - t * 0.34) : W * 0.42, hop = run ? Math.abs(Math.sin(t * 9)) * 40 * U : 0, caught = !run;
+        victim.x = run ? W * (0.62 - t * 0.12) : W * 0.32; victim.pose = { run: 1, lean: 0.25, arms: -0.9, scarf: '#9a2020', flip: true }; victim.show = !caught;
+        if (caught) { cam(W * 0.42, gy - 90 * U, 1.12); if (t < 2.7) shk = 14; }
+        const open = caught ? (t < 4.0 ? 0.15 + Math.abs(Math.sin(t * 12)) * 0.4 : 0.1) : 0.35 + Math.abs(Math.sin(t * 9)) * 0.55, bs = caught ? 1.7 : 1.15, rot = caught ? Math.sin(t * 17) * 0.18 : 0.1;
+        const bxx = bx + (caught ? Math.sin(t * 40) * 10 * U : 0), byy = gy - 60 * U * bs - hop;
+        draws.push(() => { rim(g, W, Hh, dpr, 'rgba(120,255,140,.35)', 16, o => { o.save(); o.translate(bxx, byy); o.scale(-U * bs, U * bs); o.rotate(rot);
+          const cover = () => { const fur = H.furOutline([[-70, 0], [-70, -10], [-50, -50], [50, -50], [70, -10], [70, 0]], 3, 9); o.beginPath(); o.moveTo(-70, 0); fur.forEach(([x, y]) => o.lineTo(x, y)); o.closePath(); o.fill(); };
+          o.save(); o.rotate(-open * 0.6); cover(); o.restore(); o.save(); o.rotate(open * 0.25); o.scale(1, -1); cover(); o.restore(); o.restore(); });
+          g.save(); g.translate(bxx, byy); g.scale(-U * bs, U * bs); g.rotate(rot);
+          g.save(); g.rotate(-open * 0.6); g.fillStyle = '#efe6d0'; for (let k = 0; k < 10; k++) { g.beginPath(); g.moveTo(-60 + k * 12, -2); g.lineTo(-54 + k * 12, 14); g.lineTo(-48 + k * 12, -2); g.fill(); } g.restore();
+          g.save(); g.rotate(open * 0.25); g.fillStyle = '#efe6d0'; for (let k = 0; k < 10; k++) { g.beginPath(); g.moveTo(-60 + k * 12, 2); g.lineTo(-54 + k * 12, -12); g.lineTo(-48 + k * 12, 2); g.fill(); } g.fillStyle = '#7a1018'; g.beginPath(); g.ellipse(-10, 6, 36, 6, 0, 0, Math.PI); g.fill(); g.restore();
+          g.save(); g.rotate(-open * 0.6); g.globalCompositeOperation = 'lighter'; const eg = g.createRadialGradient(20, -30, 0, 20, -30, 14); eg.addColorStop(0, 'rgba(255,255,160,1)'); eg.addColorStop(0.4, 'rgba(160,255,80,.8)'); eg.addColorStop(1, 'rgba(0,255,0,0)'); g.fillStyle = eg; g.fillRect(6, -44, 28, 28); g.restore(); g.restore();
+          if (caught) { if (t < 4.0 && Math.random() < 0.7) spray(bx, gy - 90 * U, 3, 4, t); const k2 = t - 2.5; paper.forEach(p => { if (k2 > 2.2) return; g.save(); g.translate(bx + p.vx * k2 * 40 * U, gy - 90 * U + (p.vy * k2 * 40 + k2 * k2 * 120) * U); g.rotate(p.r + k2 * 6); g.fillStyle = 'rgba(230,220,200,.9)'; g.fillRect(-7 * U, -9 * U, 14 * U, 18 * U); g.restore(); });
+            if (t > 4.1) { const hk = t - 4.1; g.save(); g.translate(bx + 40 * U + hk * 60 * U, gy - 120 * U - hk * 120 * U + hk * hk * 300 * U); g.rotate(-hk * 5); g.fillStyle = '#0a0812'; g.beginPath(); g.moveTo(-20 * U, 0); g.quadraticCurveTo(-4 * U, -40 * U, 16 * U, -54 * U); g.quadraticCurveTo(6 * U, -30 * U, 18 * U, 0); g.fill(); g.restore(); } } });
+      } else if (kind === 0) { // 石化咒：巫師在右邊面對破產者，光束打中→由下往上變石像→裂→碎
+        const hit = 1.3, stone = clamp((t - hit) / 1.4), crack = clamp((t - 2.7) / 0.6), shat = t > 3.4 ? t - 3.4 : 0;
+        victim.pose = { arms: stone > 0 ? -2.3 : -0.4, lean: stone > 0 ? -0.05 : 0, scarf: stone > 0.5 ? null : '#9a2020' }; victim.show = !shat; victim.frozen = stone > 0 ? hit : null;
+        if (stone > 0) victim.stone = stone; if (crack > 0) victim.crack = crack;
+        if (t > hit - 0.1 && t < hit + 0.35) { shk = 6; cam(vx, gy - 120 * U, 1.06); }
+        if (shat && shat < 0.3) { shk = 12; cam(vx, gy - 120 * U, 1.1); }
+        draws.push(() => { const wand = rim(g, W, Hh, dpr, 'rgba(160,190,255,.6)', 16, o => student(o, W * 0.8, gy, S * 1.05, { arms: -0.35 - Math.min(1, t) * 0.3, wand: true, scarf: '#5a3aa0', flip: true }, t));
+          if (t > 0.7 && t < hit + 0.5) { const k = clamp((t - 0.7) / 0.6), tx = wand[0] + (vx - wand[0]) * k, ty = wand[1] + (gy - 120 * S - wand[1]) * k; g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(220,230,255,.95)'; g.lineWidth = 5 * dpr; g.shadowColor = '#a0b8ff'; g.shadowBlur = 24 * dpr; g.beginPath(); g.moveTo(wand[0], wand[1]); for (let q = 1; q <= 12; q++) g.lineTo(wand[0] + (tx - wand[0]) * q / 12 + rnd(-6, 6) * U, wand[1] + (ty - wand[1]) * q / 12 + rnd(-6, 6) * U); g.stroke(); g.restore(); }
+          if (shat) { shards.forEach(p => { const k = shat; g.save(); g.translate(vx + (p.x + p.vx * k * 50) * S, gy + (p.y + p.vy * k * 40 + k * k * 300) * S); g.rotate(p.r + k * 4); g.fillStyle = `rgb(${p.c},${p.c - 2},${p.c - 6})`; g.beginPath(); g.moveTo(-p.s * S, 0); g.lineTo(-p.s * S * 0.2, -p.s * S * 0.8); g.lineTo(p.s * S * 0.7, -p.s * S * 0.2); g.lineTo(p.s * S * 0.4, p.s * S * 0.5); g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.moveTo(-p.s * S, 0); g.lineTo(-p.s * S * 0.2, -p.s * S * 0.8); g.lineTo(0, -p.s * S * 0.3); g.fill(); g.restore(); });
+            g.fillStyle = 'rgba(160,156,150,.45)'; g.beginPath(); g.ellipse(vx, gy, 70 * U * Math.min(1, shat * 2), 14 * U, 0, 0, 7); g.fill(); } });
+      } else if (kind === 1) { // 大巨蛇：從破產者前方地面竄起、張大嘴、整個吞下、吞嚥的鼓包往下滑
+        const rise = ease(t / 1.1), strike = ease(clamp((t - 1.7) / 0.28)), back = ease(clamp((t - 2.2) / 0.9)), jaw = t < 1.2 ? 0.1 : t < 2.0 ? 0.25 + clamp((t - 1.2) / 0.5) * 0.85 : t < 2.3 ? 0.15 : 0.05;
+        victim.pose = { arms: t > 1.2 ? -2.5 : -0.4, lean: t > 1.2 ? -0.15 : 0, scarf: '#9a2020' }; victim.show = t < 1.98;
+        if (t > 1.9 && t < 2.2) { shk = 12; cam(vx, gy - 130 * U, 1.12); spray(vx, gy - 130 * U, 3, 4, t); }
+        const hx0 = W * 0.75, hy0 = gy - 60 * U - rise * 230 * U, hx = hx0 + (vx + 30 * U - hx0) * strike * (1 - back * 0.85), hy = hy0 + (gy - 150 * U - hy0) * strike * (1 - back);
+        draws.push(() => { rim(g, W, Hh, dpr, 'rgba(120,255,160,.4)', 22, o => { o.strokeStyle = o.fillStyle; serpent(o, [W * 1.15, gy + 60 * U], [hx, hy], [W * 0.75, gy + 40 * U, W * 1.05, hy + 60 * U], U * 1.15, jaw, t > 2.2 ? clamp((t - 2.2) / 2.0) : -1); });
+          const ang = Math.atan2(hy - (hy + 60 * U), hx - W * 1.05); g.save(); g.translate(hx, hy); g.rotate(ang); g.globalCompositeOperation = 'lighter'; const eg = g.createRadialGradient(-2 * U, -22 * U, 0, -2 * U, -22 * U, 18 * U); eg.addColorStop(0, 'rgba(255,255,150,1)'); eg.addColorStop(0.3, 'rgba(230,220,0,.8)'); eg.addColorStop(1, 'rgba(200,200,0,0)'); g.fillStyle = eg; g.fillRect(-16 * U, -36 * U, 40 * U, 40 * U); g.globalCompositeOperation = 'source-over';
+          if (jaw > 0.4) { const sU = U * 1.15; g.fillStyle = '#5a0a14'; g.beginPath(); g.moveTo(16 * sU, 0); g.lineTo(16 * sU + Math.cos(-jaw * 0.75) * 58 * sU, Math.sin(-jaw * 0.75) * 58 * sU); g.lineTo(16 * sU + Math.cos(jaw * 0.75) * 52 * sU, Math.sin(jaw * 0.75) * 52 * sU); g.fill();
+            g.fillStyle = '#f0f0e8'; g.save(); g.translate(16 * sU, -6 * sU); g.rotate(-jaw * 0.75); [44].forEach(x => { g.beginPath(); g.moveTo(x * sU, 6 * sU); g.quadraticCurveTo((x + 2) * sU, 24 * sU, (x + 5) * sU, 34 * sU); g.lineTo((x + 9) * sU, 6 * sU); g.fill(); }); g.restore(); } g.restore(); });
+      } else if (kind === 2) { // 貓頭鷹群：從四面八方包圍、抓住、拖出窗外
+        const lift = ease((t - 2.0) / 2.4); victim.x = vx + lift * W * 0.12; victim.y = gy - lift * Hh * 0.65; victim.scale = 1 - lift * 0.55; victim.pose = { arms: -2.6 + Math.sin(t * 12) * 0.3, run: lift > 0 ? 0.6 : 0, scarf: '#9a2020' };
+        const owlsAt = (front) => o => owls.forEach(p => { if (!!p.front !== front) return; const k = clamp((t - p.d) / 1.1), ox = victim.x + p.o * U * victim.scale, oy = victim.y - 200 * S * victim.scale + p.q * U, sx = ox + Math.cos(p.a) * (1 - k) * W, sy = oy - Math.abs(Math.sin(p.a)) * (1 - k) * Hh; owl(o, sx, sy, U * (front ? 1.1 : 0.8) * (1 - lift * 0.4), t * 16 + p.p); });
+        victim.before = () => rim(g, W, Hh, dpr, 'rgba(160,180,255,.4)', 10, owlsAt(false));
+        draws.push(() => { rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, owlsAt(true)); g.fillStyle = 'rgba(200,190,170,.6)'; for (let q = 0; q < 16; q++) { const fk = ((t * 0.3 + q / 16) % 1); g.save(); g.translate((q * 0.06 + 0.1) * W + Math.sin(t * 2 + q) * 20 * U, fk * Hh); g.rotate(Math.sin(t * 3 + q)); g.beginPath(); g.ellipse(0, 0, 3 * U, 9 * U, 0, 0, 7); g.fill(); g.restore(); } });
+      } else if (kind === 3 || kind === 5) { // 小火龍在右前方噴火／鳳凰從右上俯衝：燒成焦炭→化成灰
+        const fire = clamp((t - 0.9) / 0.3), char = clamp((t - 1.4) / 1.0), crumble = clamp((t - 2.9) / 1.2);
+        victim.pose = { arms: -2.4 + Math.sin(t * 15) * (1 - char) * 0.6, scarf: char > 0.3 ? null : '#9a2020' }; victim.char = char; victim.crumble = crumble;
+        if (t > 0.9 && t < 1.2) cam(vx, gy - 120 * U, 1.08);
+        draws.push(() => {
+          if (kind === 3) rim(g, W, Hh, dpr, 'rgba(255,140,60,.6)', 18, o => { o.save(); o.translate(W * 0.78, gy); o.scale(-U * 1.15, U * 1.15); o.beginPath(); o.ellipse(0, -60, 60, 36, -0.1, 0, 7); o.fill(); limb(o, -30, -40, -36, 0, 12, 10); limb(o, 30, -40, 34, 0, 12, 10); o.beginPath(); o.moveTo(40, -80); o.quadraticCurveTo(70, -130, 100, -120); o.lineTo(130, -110); o.lineTo(100, -96); o.quadraticCurveTo(80, -90, 60, -60); o.fill();
+            o.beginPath(); o.moveTo(-50, -60); o.quadraticCurveTo(-120, -50, -150, -90); o.lineTo(-140, -70); o.quadraticCurveTo(-110, -40, -50, -40); o.fill(); [-1, 1].forEach(sd => { o.save(); o.translate(-6, -86); o.rotate(sd * 0.25 + Math.sin(t * 8 + sd) * 0.25); o.beginPath(); o.moveTo(0, 0); o.lineTo(-30, -110); o.lineTo(-90, -120); o.quadraticCurveTo(-70, -90, -84, -66); o.quadraticCurveTo(-60, -60, -64, -34); o.quadraticCurveTo(-40, -30, -36, -6); o.closePath(); o.fill(); o.restore(); });
+            [0, 10].forEach(d => { o.beginPath(); o.moveTo(76 + d, -124); o.lineTo(70 + d, -152); o.lineTo(86 + d, -122); o.fill(); }); o.restore(); });
+          else fireBird(g, W * 0.8 - ease(t / 1.1) * W * 0.35, Hh * 0.12 + ease(t / 1.1) * Hh * 0.5, U * 0.55, t, Math.min(1, t * 2), Math.sin(t * 7));
+          if (fire > 0 && t < 3.1) { const sx = kind === 3 ? W * 0.78 - 130 * U * 1.15 : vx + 60 * U, sy = kind === 3 ? gy - 112 * U * 1.15 : gy - 200 * U; g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 80; q++) { const ph = (t * 1.8 + q / 80) % 1, x = sx + (vx - sx) * ph * fire, y = sy + (gy - 110 * U - sy) * ph + Math.sin(q * 3 + t * 20) * 30 * U * ph, r = (6 + ph * 34) * U; const fg = g.createRadialGradient(x, y, 0, x, y, r); fg.addColorStop(0, 'rgba(255,250,200,.85)'); fg.addColorStop(0.4, 'rgba(255,150,40,.55)'); fg.addColorStop(1, 'rgba(255,40,0,0)'); g.fillStyle = fg; g.fillRect(x - r, y - r, r * 2, r * 2); } g.restore(); }
+          if (char > 0.6) H.flames(g, vx - 40 * U, vx + 40 * U, gy, 220 * U * (1 - crumble), t, 8 * U, 7, 0.85);
+          if (crumble > 0) { for (let q = 0; q < 90; q++) { const k = crumble, x = vx + Math.sin(q * 7.1) * 40 * U + Math.sin(q) * k * 60 * U, y = gy - (q % 26) * 10 * U * (1 - k) - 4 * U; g.fillStyle = q % 3 ? 'rgba(60,50,46,.9)' : 'rgba(255,120,40,.8)'; g.fillRect(x, y, 3 * dpr, 3 * dpr); } g.fillStyle = '#2a2420'; g.beginPath(); g.ellipse(vx, gy, 50 * U * crumble, 10 * U, 0, Math.PI, 0); g.fill(); } });
+      } else if (kind === 4) { // 獨角獸：從右側全速衝過來，低頭用角從側面撞，人被頂飛到左上方
+        const hitT = 1.45, ux = W * (1.35 - Math.min(1, t / hitT) * 0.82) - (t > hitT ? (t - hitT) * W * 0.5 : 0), hit = t > hitT, fly = hit ? t - hitT : 0;
+        if (!hit) victim.pose = { arms: t > 0.8 ? -2.5 : -0.4, lean: t > 0.8 ? -0.12 : 0, scarf: '#9a2020' };
+        else { victim.x = vx - fly * 260 * U; victim.y = gy - fly * 560 * U + fly * fly * 230 * U; victim.rot = -fly * 10; victim.pose = { arms: -2.5, hat: false, scarf: '#9a2020' }; if (fly < 0.25) { shk = 16; cam(vx, gy - 120 * U, 1.14); } if (fly < 0.08) spray(vx, gy - 120 * U, 30, 6, t); }
+        draws.push(() => { rim(g, W, Hh, dpr, 'rgba(230,230,255,.7)', 24, o => { o.save(); o.translate(ux, gy); o.scale(-U * 1.15, U * 1.15); const gal = t * 16, low = hit ? 0 : clamp((t - 0.9) / 0.4); o.beginPath(); o.ellipse(0, -80, 70, 30, 0, 0, 7); o.fill();
+          [[-45, 0], [-30, 1], [35, 2], [50, 3]].forEach(([lx, q]) => { const a = Math.sin(gal + q * 1.6) * 0.7; limb(o, lx, -70, lx + Math.sin(a) * 40, -30, 9, 7); limb(o, lx + Math.sin(a) * 40, -30, lx + Math.sin(a) * 30 + Math.sin(a * 1.3) * 10, 0, 7, 6); });
+          o.save(); o.translate(50, -96); o.rotate(low * 0.55); o.beginPath(); o.moveTo(-10, 0); o.quadraticCurveTo(12, -54, 34, -68); o.quadraticCurveTo(50, -76, 62, -64); o.lineTo(90, -32); o.quadraticCurveTo(94, -20, 82, -18); o.lineTo(54, -28); o.quadraticCurveTo(40, -4, 20, 26); o.fill(); o.beginPath(); o.moveTo(40, -74); o.lineTo(46, -90); o.lineTo(50, -72); o.fill();
+          for (let q = 0; q < 9; q++) { const mx2 = 34 - q * 6, my2 = -72 + q * 9, sw2 = Math.sin(gal * 0.6 + q) * 8; o.beginPath(); o.moveTo(mx2, my2); o.quadraticCurveTo(mx2 - 26, my2 + 4 + sw2, mx2 - 40 + sw2, my2 + 18); o.lineTo(mx2 - 4, my2 + 10); o.fill(); } o.restore();
           o.beginPath(); o.moveTo(-66, -90); o.quadraticCurveTo(-120, -80, -130, -40); o.quadraticCurveTo(-100, -70, -66, -70); o.fill(); o.restore(); });
-        g.save(); g.translate(ux, gy); g.scale(U, U); g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(255,250,220,1)'; g.lineWidth = 6; g.shadowColor = '#fff'; g.shadowBlur = 20; g.beginPath(); g.moveTo(112, -164); g.lineTo(150, -216); g.stroke(); g.restore();
-        if (!hit) rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, o => student(o, vx0, gy, S, { arms: t > 0.8 ? -2.5 : -0.4, flip: true, scarf: '#9a2020' }, t));
-        else { if (fly < 0.1) { shk = 12; spray(vx0, gy - 120 * U, 30, 6, t); } rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, o => { o.save(); o.translate(vx0 + fly * 220 * U, gy - fly * 520 * U + fly * fly * 200 * U); o.rotate(fly * 9); student(o, 0, 0, S, { arms: -2.5, flip: true, hat: false, scarf: '#9a2020' }, t); o.restore(); });
-          g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 30; q++) { const k = (fly * 0.9 + q / 30) % 1; g.fillStyle = `rgba(255,${200 + (q % 3) * 20},255,${1 - k})`; g.fillRect(vx0 + k * fly * 220 * U + Math.sin(q) * 20 * U, gy - k * fly * 420 * U, 3 * dpr, 3 * dpr); } g.restore(); }
-      } else if (kind === 6) { // ===== 人馬：拉弓、慢動作的箭、射中倒下 =====
-        const draw = clamp((t - 0.4) / 1.0), rel = 1.5, fly = clamp((t - rel) / 0.7), hit = t > rel + 0.7;
-        rim(g, W, Hh, dpr, 'rgba(160,190,255,.6)', 16, o => { o.save(); o.translate(W * 0.18, gy); o.scale(U * 0.95, U * 0.95); o.beginPath(); o.ellipse(-10, -90, 70, 32, 0, 0, 7); o.fill(); [[-60, 0], [-40, 1], [30, 2], [46, 3]].forEach(([lx, q]) => { limb(o, lx, -80, lx + 4, -30, 10, 8); limb(o, lx + 4, -30, lx, 0, 8, 6); });
-          o.beginPath(); o.moveTo(-76, -100); o.quadraticCurveTo(-120, -90, -126, -40); o.lineTo(-110, -70); o.fill(); limb(o, 40, -110, 50, -210, 22, 20); o.beginPath(); o.ellipse(56, -236, 16, 19, 0, 0, 7); o.fill();
-          limb(o, 50, -196, 120, -200, 7, 6); limb(o, 50, -196, 120 - draw * 70, -198, 7, 6);
-          o.strokeStyle = o.fillStyle; o.lineWidth = 5; o.beginPath(); o.arc(110, -200, 80, -1.15, 1.15); o.stroke(); o.lineWidth = 1.5; o.beginPath(); o.moveTo(110 + Math.cos(-1.15) * 80, -200 + Math.sin(-1.15) * 80); o.lineTo(t < rel ? 120 - draw * 70 : 112, -198); o.lineTo(110 + Math.cos(1.15) * 80, -200 + Math.sin(1.15) * 80); o.stroke();
-          if (t < rel) { o.lineWidth = 3; o.beginPath(); o.moveTo(120 - draw * 70, -198); o.lineTo(220 - draw * 70, -198); o.stroke(); } o.restore(); });
-        const ax = W * 0.18 + 140 * U + fly * (vx0 - W * 0.18 - 160 * U), ay = gy - 190 * U + fly * 40 * U;
-        if (t >= rel && !hit) { g.save(); g.globalCompositeOperation = 'lighter'; const tg = g.createLinearGradient(ax - 120 * U, ay, ax, ay); tg.addColorStop(0, 'rgba(200,220,255,0)'); tg.addColorStop(1, 'rgba(220,235,255,.8)'); g.strokeStyle = tg; g.lineWidth = 4 * dpr; g.beginPath(); g.moveTo(ax - 120 * U, ay - 10 * U); g.lineTo(ax, ay); g.stroke(); g.restore(); g.strokeStyle = '#1a140e'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(ax - 50 * U, ay - 4 * U); g.lineTo(ax, ay); g.stroke(); }
-        const fall = hit ? ease((t - rel - 0.7) / 0.8) : 0; if (hit && t < rel + 0.8) { shk = 10; spray(vx0, gy - 150 * U, 4, 5, t); }
-        rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, o => { o.save(); o.translate(vx0, gy); o.rotate(fall * 1.45); student(o, 0, 0, S, { arms: hit ? -1.6 : -0.4, flip: true, scarf: '#9a2020' }, t); if (hit) { o.lineWidth = 3; o.beginPath(); o.moveTo(-20 * S, -150 * S); o.lineTo(-70 * S, -160 * S); o.stroke(); } o.restore(); });
-        if (hit) { g.fillStyle = '#6a0008'; g.beginPath(); g.ellipse(vx0 + 60 * U, gy + 4 * U, 60 * U * fall, 8 * U, 0, 0, 7); g.fill(); }
-      } else if (kind === 7) { // ===== 狼人：仰天長嚎、撲過來、三道爪痕 =====
-        const howl = t < 2.0, pounce = clamp((t - 2.0) / 0.4);
-        rim(g, W, Hh, dpr, 'rgba(200,210,255,.7)', 20, o => { o.save(); o.translate(W * 0.25 + pounce * W * 0.35, gy - pounce * 120 * U); o.scale(U * (1 + pounce * 0.6), U * (1 + pounce * 0.6)); o.rotate(howl ? 0 : -0.4);
-          const fur = H.furOutline([[-50, 0], [-60, -90], [-40, -170], [0, -200], [40, -170], [60, -90], [50, 0]], 13, 14); o.beginPath(); o.moveTo(-50, 0); fur.forEach(([x, y]) => o.lineTo(x, y)); o.closePath(); o.fill();
-          o.save(); o.translate(0, -200); o.rotate(howl ? -0.9 + Math.sin(t * 3) * 0.05 : 0.2); o.beginPath(); o.ellipse(0, -20, 30, 26, 0, 0, 7); o.fill(); o.beginPath(); o.moveTo(10, -30); o.lineTo(76, -26); o.lineTo(70, -10); o.lineTo(10, -4); o.fill(); [-1, 1].forEach(sd => { o.beginPath(); o.moveTo(sd * 10 - 6, -40); o.lineTo(sd * 14 - 4, -78); o.lineTo(sd * 20 + 4, -42); o.fill(); }); o.restore();
-          limb(o, -40, -150, -90, howl ? -60 : -230, 14, 10); limb(o, 40, -150, 90, howl ? -60 : -230, 14, 10); o.restore(); });
-        if (howl) rim(g, W, Hh, dpr, 'rgba(160,180,255,.5)', 12, o => student(o, vx0, gy, S, { arms: t > 1.0 ? -2.6 : -0.4, flip: true, lean: t > 1.0 ? 0.15 : 0, scarf: '#9a2020' }, t));
-        if (t > 2.4) { const k = clamp((t - 2.4) / 0.35); if (t < 2.55) shk = 16; g.save(); g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, Hh); for (let q = 0; q < 3; q++) { const x0 = W * (0.2 + q * 0.22), y0 = Hh * 0.1, x1 = x0 + W * 0.3, y1 = Hh * 0.9; g.strokeStyle = '#7a0008'; g.lineWidth = 26 * U; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k); g.stroke(); g.strokeStyle = '#d8203a'; g.lineWidth = 8 * U; g.stroke();
-            if (k >= 1) for (let d = 0; d < 6; d++) { const dk = clamp((t - 2.8 - d * 0.05) / 1.5); const dx = x0 + (x1 - x0) * (d / 6 + 0.05), dy = y0 + (y1 - y0) * (d / 6 + 0.05); g.fillStyle = '#7a0008'; g.fillRect(dx - 3 * U, dy, 6 * U, dk * 120 * U); g.beginPath(); g.arc(dx, dy + dk * 120 * U, 5 * U, 0, 7); g.fill(); } } g.restore(); }
+          const low = hit ? 0 : clamp((t - 0.9) / 0.4), hb = [ux - 50 * U * 1.15, gy - 96 * U * 1.15], ca = Math.PI - (-0.95 + low * 0.55); g.save(); g.translate(hb[0], hb[1]); g.scale(-1, 1); g.rotate(low * 0.55); g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(255,250,220,1)'; g.lineWidth = 6 * U; g.shadowColor = '#fff'; g.shadowBlur = 20 * dpr; g.beginPath(); g.moveTo(66 * U * 1.15, -66 * U * 1.15); g.lineTo(108 * U * 1.15, -118 * U * 1.15); g.stroke(); g.restore(); void ca;
+          if (hit) { g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 36; q++) { const k = (q / 36), x = vx - k * fly * 260 * U, y = gy - 120 * U - k * fly * 560 * U + (k * fly) ** 2 * 230 * U; g.fillStyle = `rgba(255,${200 + (q % 3) * 20},255,${(1 - k) * 0.8})`; g.fillRect(x + Math.sin(q * 3) * 14 * U, y + Math.cos(q * 2) * 14 * U, 3 * dpr, 3 * dpr); } g.restore(); }
+          g.fillStyle = 'rgba(120,120,150,.35)'; for (let q = 0; q < 8; q++) { const dk = (t * 2 + q / 8) % 1; g.beginPath(); g.arc(ux + 60 * U + dk * 80 * U, gy - dk * 30 * U, (8 + dk * 20) * U, 0, 7); g.fill(); } });
+      } else if (kind === 6) { // 人馬：右邊拉弓→慢動作特寫箭飛→射中往後倒
+        const draw = clamp((t - 0.3) / 1.0), rel = 1.4, fly = clamp((t - rel) / 1.0), hit = t > rel + 1.0, cxn = W * 0.8;
+        const fall = hit ? ease((t - rel - 1.0) / 0.8) : 0; victim.rot = -fall * 1.45; victim.pose = { arms: hit ? -1.6 : t > 1.2 ? -2.0 : -0.4, scarf: '#9a2020' };
+        if (t > rel && !hit) cam(cxn + (vx - cxn) * fly, gy - 190 * U, 1.0 + Math.sin(fly * Math.PI) * 0.25);
+        if (hit && t < rel + 1.25) { shk = 10; spray(vx + 10 * U, gy - 150 * U, 4, 5, t); }
+        const ax = cxn - 140 * U + fly * (vx + 20 * U - cxn + 140 * U), ay = gy - 190 * U + fly * 40 * U;
+        draws.push(() => { rim(g, W, Hh, dpr, 'rgba(160,190,255,.6)', 16, o => { o.save(); o.translate(cxn, gy); o.scale(-U * 0.95, U * 0.95); o.beginPath(); o.ellipse(-10, -90, 70, 32, 0, 0, 7); o.fill(); [[-60, 0], [-40, 1], [30, 2], [46, 3]].forEach(([lx]) => { limb(o, lx, -80, lx + 4, -30, 10, 8); limb(o, lx + 4, -30, lx, 0, 8, 6); });
+            o.beginPath(); o.moveTo(-76, -100); o.quadraticCurveTo(-120, -90, -126, -40); o.lineTo(-110, -70); o.fill(); o.beginPath(); o.moveTo(18, -110); o.quadraticCurveTo(20, -170, 34, -206); o.lineTo(70, -206); o.quadraticCurveTo(80, -160, 62, -110); o.fill(); o.beginPath(); o.ellipse(52, -230, 16, 19, 0, 0, 7); o.fill();
+            limb(o, 56, -196, 120, -200, 7, 6); limb(o, 46, -196, 120 - draw * 70, -198, 7, 6);
+            o.lineWidth = 5; o.beginPath(); o.arc(110, -200, 80, -1.15, 1.15); o.stroke(); o.lineWidth = 1.5; o.beginPath(); o.moveTo(110 + Math.cos(-1.15) * 80, -200 + Math.sin(-1.15) * 80); o.lineTo(t < rel ? 120 - draw * 70 : 112, -198); o.lineTo(110 + Math.cos(1.15) * 80, -200 + Math.sin(1.15) * 80); o.stroke();
+            if (t < rel) { o.lineWidth = 3; o.beginPath(); o.moveTo(120 - draw * 70, -198); o.lineTo(220 - draw * 70, -198); o.stroke(); } o.restore(); });
+          if (t >= rel && !hit) { g.save(); g.globalCompositeOperation = 'lighter'; const tg = g.createLinearGradient(ax + 160 * U, ay, ax, ay); tg.addColorStop(0, 'rgba(200,220,255,0)'); tg.addColorStop(1, 'rgba(220,235,255,.85)'); g.strokeStyle = tg; g.lineWidth = 4 * dpr; g.beginPath(); g.moveTo(ax + 160 * U, ay - 10 * U); g.lineTo(ax, ay); g.stroke(); g.restore(); g.strokeStyle = '#1a140e'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(ax + 50 * U, ay - 4 * U); g.lineTo(ax, ay); g.stroke(); g.fillStyle = '#c8c8d0'; g.beginPath(); g.moveTo(ax, ay - 5 * U); g.lineTo(ax - 12 * U, ay); g.lineTo(ax, ay + 5 * U); g.fill(); }
+          if (hit) { g.fillStyle = '#6a0008'; g.beginPath(); g.ellipse(vx - 70 * U, gy + 4 * U, 70 * U * fall, 9 * U, 0, 0, 7); g.fill(); } });
+        victim.after = hit ? (o) => { o.lineWidth = 3; o.beginPath(); o.moveTo(10 * S, -150 * S); o.lineTo(60 * S, -160 * S); o.stroke(); } : null;
+      } else if (kind === 7) { // 狼人：月光下長嚎→蹲低→撲上去壓倒→狂抓→爪痕
+        const leapT = 2.1, landT = 2.55; let pose = t < 1.6 ? 'howl' : t < leapT ? 'crouch' : t < landT ? 'leap' : 'maul';
+        const k = ease(clamp((t - leapT) / (landT - leapT))), wx = W * 0.78 + (vx + 60 * U - W * 0.78) * k, wy = gy - Math.sin(k * Math.PI) * 160 * U + (t > landT ? -10 * U : 0);
+        victim.show = true; if (t > landT) { victim.rot = -1.45; victim.y = gy; victim.pose = { arms: -2.8 + Math.sin(t * 20) * 0.3, scarf: '#9a2020' }; if (t < landT + 0.25) { shk = 16; cam(vx, gy - 80 * U, 1.12); } if (Math.random() < 0.6) spray(vx - 20 * U, gy - 40 * U, 3, 6, t); }
+        else victim.pose = { arms: t > 1.2 ? -2.5 : -0.4, lean: t > 1.2 ? -0.12 : 0, scarf: '#9a2020' };
+        draws.push(() => { const r = rim(g, W, Hh, dpr, 'rgba(200,210,255,.7)', 22, o => werewolf(o, wx, wy, U * 1.15, pose, t, true));
+          g.save(); g.globalCompositeOperation = 'lighter'; [-1, 1].forEach(sd => { const ex = r.eye[0] + sd * 7 * U, ey = r.eye[1]; const eg = g.createRadialGradient(ex, ey, 0, ex, ey, 10 * U); eg.addColorStop(0, 'rgba(255,240,160,1)'); eg.addColorStop(0.4, 'rgba(255,160,0,.8)'); eg.addColorStop(1, 'rgba(255,100,0,0)'); g.fillStyle = eg; g.fillRect(ex - 10 * U, ey - 10 * U, 20 * U, 20 * U); }); g.restore();
+          if (t > 3.85) { const ck = clamp((t - 3.85) / 0.3); if (t < 4.05) shk = 14; g.save(); g.fillStyle = `rgba(0,0,0,${0.5 * ck})`; g.fillRect(0, 0, W, Hh); for (let q = 0; q < 3; q++) { const x0 = W * (0.62 - q * 0.2), y0 = Hh * 0.12, x1 = x0 - W * 0.3, y1 = Hh * 0.88; g.strokeStyle = '#6a0008'; g.lineWidth = 28 * U; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + (x1 - x0) * ck, y0 + (y1 - y0) * ck); g.stroke(); g.strokeStyle = '#d8203a'; g.lineWidth = 9 * U; g.stroke();
+            if (ck >= 1) for (let d = 0; d < 6; d++) { const dk = clamp((t - 4.2 - d * 0.05) / 1.2); const dx = x0 + (x1 - x0) * (d / 6 + 0.05), dy = y0 + (y1 - y0) * (d / 6 + 0.05); g.fillStyle = '#7a0008'; g.fillRect(dx - 3 * U, dy, 6 * U, dk * 110 * U); g.beginPath(); g.arc(dx, dy + dk * 110 * U, 5 * U, 0, 7); g.fill(); } } g.restore(); } });
       }
+      // ===== 畫 =====
+      g.save();
+      if (zoomF) { g.translate(zoomF[0], zoomF[1]); g.scale(zoom, zoom); g.translate(-zoomF[0], -zoomF[1]); }
+      g.translate(rnd(-lastShk, lastShk) * dpr, rnd(-lastShk, lastShk) * dpr);
+      hall(g, W, Hh, t, U, { moon: kind === 7 || kind === 2 });
+      if (victim.before) victim.before();
+      if (victim.show && !(victim.crumble >= 1)) {
+        const sc = S * (victim.scale || 1), pz = victim.frozen != null ? victim.frozen : t;
+        const drawV = (o, fill) => { if (fill) o.fillStyle = fill; o.save(); o.translate(victim.x, victim.y); o.rotate(victim.rot || 0); student(o, 0, 0, sc, victim.pose, pz); if (victim.after) victim.after(o); o.restore(); };
+        g.save(); if (victim.crumble > 0) { g.beginPath(); g.rect(0, 0, W, victim.y - victim.crumble * 260 * S); g.rect(0, 0, 0, 0); g.clip(); }
+        const ch = victim.char || 0;
+        rim(g, W, Hh, dpr, ch > 0 ? `rgba(255,${120 - ch * 60},40,.9)` : victim.stone ? 'rgba(220,220,230,.45)' : victim.glow, 12 + ch * 20, o => drawV(o, ch > 0.5 ? '#140806' : null));
+        if (victim.stone) { // 石像：灰色石頭由腳往上蔓延，左上受光；最後出現裂痕
+          g.save(); g.beginPath(); g.rect(0, victim.y - victim.stone * 270 * S, W, Hh); g.clip();
+          rim(g, W, Hh, dpr, null, 0, o => { const lg = o.createLinearGradient(victim.x - 50 * U, victim.y - 250 * S, victim.x + 50 * U, victim.y); lg.addColorStop(0, '#c4c0b8'); lg.addColorStop(0.5, '#8f8b84'); lg.addColorStop(1, '#55524d'); drawV(o, lg);
+            o.globalCompositeOperation = 'source-atop'; let sd = 3; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; for (let q = 0; q < 500; q++) { o.fillStyle = R() < 0.5 ? 'rgba(40,38,34,.35)' : 'rgba(230,226,218,.3)'; o.fillRect(victim.x + (R() - 0.5) * 120 * S, victim.y - R() * 270 * S, 2.2 * dpr, 2.2 * dpr); }
+            if (victim.crack) { let sd2 = 7; const R2 = () => (sd2 = (sd2 * 16807) % 2147483647) / 2147483647; o.lineCap = 'round';
+              for (let q = 0; q < 7; q++) { const len = Math.round(2 + victim.crack * 9); let x = victim.x + (R2() - 0.5) * 30 * S, y = victim.y - 30 * S - R2() * 200 * S; const pts = [[x, y]]; for (let z = 0; z < len; z++) { x += (R2() - 0.5) * 22 * S; y += (R2() - 0.3) * 18 * S; pts.push([x, y]); }
+                o.strokeStyle = 'rgba(235,232,226,.6)'; o.lineWidth = 2.2 * dpr; o.beginPath(); pts.forEach(([px, py], k) => k ? o.lineTo(px + 1.2, py + 1.2) : o.moveTo(px + 1.2, py + 1.2)); o.stroke();
+                o.strokeStyle = 'rgba(20,18,16,.95)'; o.lineWidth = 1.4 * dpr; o.beginPath(); pts.forEach(([px, py], k) => k ? o.lineTo(px, py) : o.moveTo(px, py)); o.stroke(); } }
+            o.globalCompositeOperation = 'source-over'; });
+          g.restore(); }
+        g.restore(); }
+      draws.forEach(f => f());
       drawBlood(g, t, U);
       H.drawEmbers(g, emb, W, Hh, t, dpr, 'rgba(200,210,255,A)', 0.6);
-      g.restore();
-      lastShk = shk;
-      finish(g, W, Hh, dpr, t, T0, U, '💀 ' + title, vName ? `${vName} 破產了` : '');
+      g.restore(); lastShk = shk;
+      H.vignette(g, W, Hh, 0.88); H.grain(g, W, Hh, 0.09);
     }, snd);
   };
   root.MONO_MAGICFX = M;
