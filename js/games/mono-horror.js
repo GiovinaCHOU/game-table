@@ -90,20 +90,21 @@
     // 骨頭的稜線用亮紅筆觸勾出來（眉骨、顴骨、下顎、太陽穴）
     const ridge = (pts, w, l, a) => { g.strokeStyle = col(l, a * 0.55); g.lineWidth = S * w * (0.4 + R() * 0.4); g.setLineDash([S * (0.03 + R() * 0.08), S * (0.01 + R() * 0.04)]); g.lineDashOffset = R() * S; g.beginPath(); const o = () => (R() - 0.5) * 0.025; g.moveTo(cx + (pts[0] + o()) * S, L(pts[1] + o())); for (let k = 2; k < pts.length; k += 4) g.quadraticCurveTo(cx + (pts[k] + o()) * S, L(pts[k + 1] + o()), cx + (pts[k + 2] + o()) * S, L(pts[k + 3] + o())); g.stroke(); g.setLineDash([]); };
     for (let rep = 0; rep < 5; rep++) { const j = () => (R() - 0.5) * 0.02;
-      ridge([-0.3 + j(), 0.12, -0.1, 0.02, 0.12 + j(), 0.1], 0.03, 58 + rep * 8, 0.45);                       // 額頭
-      [-1, 1].forEach(sx => {
-        ridge([sx * 0.04, 0.27, sx * 0.17, 0.2 + j(), sx * 0.32, 0.3], 0.028, 60 + rep * 7, 0.55);          // 眉骨
-        ridge([sx * 0.33, 0.47, sx * 0.3, 0.6, sx * 0.2, 0.66 + j()], 0.032, 55 + rep * 8, 0.5);           // 顴骨
-        ridge([sx * 0.27, 0.78, sx * 0.24, 0.98, sx * 0.1, 1.1], 0.022, 50 + rep * 8, 0.45);               // 下顎
+            [-1, 1].forEach(sx => {
+        ridge([sx * 0.04, 0.27, sx * 0.17, 0.2 + j(), sx * 0.32, 0.3], 0.028, 36 + rep * 3, 0.45);          // 眉骨
+        ridge([sx * 0.33, 0.47, sx * 0.3, 0.6, sx * 0.2, 0.66 + j()], 0.032, 38 + rep * 3, 0.45);           // 顴骨
+        ridge([sx * 0.27, 0.78, sx * 0.24, 0.98, sx * 0.1, 1.1], 0.022, 32 + rep * 3, 0.4);               // 下顎
         ridge([sx * 0.4, 0.2, sx * 0.43, 0.35, sx * 0.39, 0.5], 0.02, 45, 0.4);                             // 太陽穴
       }); }
     g.restore();
     // 眼窩：往外下垂的淚滴形黑洞（痛苦的表情），邊緣暈開
-    [-1, 1].forEach(sx => { const ex = cx + sx * S * 0.16 + asym * S, ey = L(0.38);
+    [-1, 1].forEach(sx => { const ex = cx + sx * S * 0.15 + asym * S, ey = L(0.39);
+      const sh = g.createRadialGradient(ex, ey, 0, ex, ey, S * 0.24); sh.addColorStop(0, 'rgba(0,0,0,.7)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.beginPath(); g.arc(ex, ey, S * 0.24, 0, 7); g.fill();
       const p = new Path2D(); p.moveTo(ex - sx * S * 0.09, ey - S * 0.03); p.bezierCurveTo(ex - sx * S * 0.02, ey - S * 0.12, ex + sx * S * 0.12, ey - S * 0.06, ex + sx * S * 0.1, ey + S * (0.07 + droop * 0.2));
       p.bezierCurveTo(ex + sx * S * 0.09, ey + S * (0.17 + droop * 0.3), ex - sx * S * 0.05, ey + S * 0.14, ex - sx * S * 0.09, ey - S * 0.03);
       g.save(); g.shadowColor = 'rgba(0,0,0,1)'; g.shadowBlur = S * 0.08; g.fillStyle = '#000'; g.fill(p); g.fill(p); g.restore();
-      g.strokeStyle = col(62, 0.35); g.lineWidth = S * 0.012; g.stroke(p); });
+      });
+    [-1, 1].forEach(sx => { const hx = cx + sx * S * 0.22, hy = L(0.74), hg = g.createRadialGradient(hx, hy, 0, hx, hy, S * 0.16); hg.addColorStop(0, 'rgba(0,0,0,.55)'); hg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = hg; g.beginPath(); g.ellipse(hx, hy, S * 0.12, S * 0.2, 0, 0, 7); g.fill(); });
     // 鼻子：兩道細縫
     g.fillStyle = 'rgba(0,0,0,.95)'; [-1, 1].forEach(sx => { g.beginPath(); g.ellipse(cx + sx * S * 0.03, L(0.6), S * 0.013, S * 0.04, sx * 0.4, 0, 7); g.fill(); });
     // 嘴：又長又歪的黑洞，嘴唇有一圈亮紅筆觸
@@ -111,7 +112,7 @@
     const m = new Path2D(); m.moveTo(cx - mw + asym * S, my - mh * 0.55); m.bezierCurveTo(cx - mw * 0.3, my - mh * 0.85, cx + mw * 0.6, my - mh * 0.7, cx + mw + asym * S, my - mh * 0.4);
     m.bezierCurveTo(cx + mw * 1.2, my + mh * 0.4, cx + mw * 0.3, my + mh * 0.9, cx - mw * 0.2, my + mh * 0.85); m.bezierCurveTo(cx - mw * 1.1, my + mh * 0.6, cx - mw * 1.25, my, cx - mw + asym * S, my - mh * 0.55);
     g.save(); g.shadowColor = '#000'; g.shadowBlur = S * 0.06; g.fillStyle = '#000'; g.fill(m); g.fill(m); g.restore();
-    g.strokeStyle = col(58, 0.45); g.lineWidth = S * 0.02; g.stroke(m);
+    
     // 下巴往下融化滴落
     for (let i = 0; i < 9; i++) { const x = cx + (R() - 0.5) * S * 0.3, y0 = L(1.05); g.strokeStyle = col(8 + R() * 14, 0.7); g.lineWidth = S * (0.015 + R() * 0.025); g.beginPath(); g.moveTo(x, y0); g.lineTo(x + (R() - 0.5) * S * 0.03, y0 + S * (0.08 + R() * 0.3)); g.stroke(); }
     return (cache[key] = c);
@@ -152,24 +153,49 @@
     return { doorX: cx, doorY: base - dh * 0.45, dw, dh };
   };
 
-  // 天空中的巨大牛角惡鬼剪影（從煙裡浮出來，眼睛發紅光）
+  // 天空中的巨大牛角惡鬼剪影：有毛邊的肩膀、往下長的羊頭吻部、彎曲漸細的角、垂下的長毛
+  // 形狀只算一次（固定亂數），每一格只做輕微呼吸起伏
+  function furOutline(pts, seed, len) { // 沿著折線每一小段長出一根往外的毛
+    let sd = seed; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const out = [];
+    for (let k = 0; k < pts.length - 1; k++) { const [x0, y0] = pts[k], [x1, y1] = pts[k + 1], n = Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / 9));
+      const nx = (y1 - y0), ny = -(x1 - x0), nl = Math.hypot(nx, ny) || 1;
+      for (let q = 0; q < n; q++) { const u = q / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, l = len * (0.3 + R()); out.push([x, y]); out.push([x + nx / nl * l + (R() - 0.5) * 6, y + ny / nl * l + l * 0.5]); } }
+    return out;
+  }
+  let demonPath = null;
+  function buildDemon() {
+    const P = new Path2D();
+    // 外輪廓（順時針）：左肩 → 頭頂 → 右肩 → 下方
+    const body = [[-360, 430], [-330, 300], [-270, 190], [-200, 120], [-120, 70], [-80, 20], [-70, -50], [-40, -90], [0, -98], [40, -90], [70, -50], [80, 20], [120, 70], [200, 120], [270, 190], [330, 300], [360, 430]];
+    const fur = furOutline(body, 41, 26); P.moveTo(fur[0][0], fur[0][1]); fur.forEach(([x, y]) => P.lineTo(x, y)); P.lineTo(360, 460); P.lineTo(-360, 460); P.closePath();
+    // 吻部：從臉往下變窄，像羊或牛的長臉
+    const sn = new Path2D(); sn.moveTo(-52, 20); sn.bezierCurveTo(-50, 70, -30, 120, -14, 150); sn.quadraticCurveTo(0, 162, 14, 150); sn.bezierCurveTo(30, 120, 50, 70, 52, 20); sn.closePath();
+    // 角：漸細、往外再往上彎
+    const horn = (sd) => { const h = new Path2D(); h.moveTo(sd * 40, -70); h.bezierCurveTo(sd * 110, -150, sd * 230, -170, sd * 300, -110); h.bezierCurveTo(sd * 345, -70, sd * 345, -10, sd * 318, 20);
+      h.bezierCurveTo(sd * 330, -40, sd * 300, -95, sd * 240, -115); h.bezierCurveTo(sd * 170, -132, sd * 110, -100, sd * 70, -40); h.closePath(); return h; };
+    // 垂下的長毛
+    const hair = []; let sd = 77; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (let k = 0; k < 26; k++) { const x0 = (R() - 0.5) * 130, y0 = -40 + R() * 70, len = 80 + R() * 170, dx = (x0 > 0 ? 1 : -1) * (40 + R() * 160); hair.push([x0, y0, dx, len, 2 + R() * 6]); }
+    demonPath = { P, sn, hl: horn(-1), hr: horn(1), hair };
+  }
   H.horned = function (g, cx, cy, s, a, t) {
-    if (a <= 0) return; g.save(); g.globalAlpha = a; g.translate(cx, cy); g.scale(s, s);
-    g.shadowColor = 'rgba(255,110,30,.75)'; g.shadowBlur = 45;
-    const body = new Path2D(); body.moveTo(-90, 40); body.bezierCurveTo(-170, 120, -260, 240, -330, 420); body.lineTo(330, 420); body.bezierCurveTo(260, 240, 170, 120, 90, 40); body.closePath();
-    g.fillStyle = 'rgba(22,3,3,.96)'; g.fill(body);
-    const head = new Path2D(); head.moveTo(0, -95); head.bezierCurveTo(70, -95, 95, -40, 80, 20); head.bezierCurveTo(70, 70, 30, 105, 0, 112); head.bezierCurveTo(-30, 105, -70, 70, -80, 20); head.bezierCurveTo(-95, -40, -70, -95, 0, -95);
-    g.fill(head);
-    // 毛髮的鋸齒邊
-    g.beginPath(); for (let i = 0; i <= 30; i++) { const ang = Math.PI + i / 30 * Math.PI, r = 100 + (i % 2 ? 22 : 0); g.lineTo(Math.cos(ang) * r * 1.05, -10 + Math.sin(ang) * r * 0.9); } g.fill();
-    // 大彎角
-    [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 55, -70); g.bezierCurveTo(sd * 140, -150, sd * 260, -140, sd * 300, -40); g.bezierCurveTo(sd * 310, 0, sd * 290, 20, sd * 270, 30); g.bezierCurveTo(sd * 280, -40, sd * 220, -90, sd * 150, -80); g.bezierCurveTo(sd * 110, -75, sd * 80, -50, sd * 70, -40); g.closePath(); g.fill();
-      g.beginPath(); g.moveTo(sd * 80, -20); g.bezierCurveTo(sd * 130, -10, sd * 160, 10, sd * 180, 40); g.lineTo(sd * 120, 10); g.closePath(); g.fill(); });
+    if (a <= 0) return; if (!demonPath) buildDemon(); const D = demonPath;
+    g.save(); g.globalAlpha = a; g.translate(cx, cy + Math.sin(t * 0.8) * 4 * s); g.scale(s * (1 + Math.sin(t * 0.8) * 0.006), s);
+    g.shadowColor = 'rgba(255,110,30,.7)'; g.shadowBlur = 40; g.fillStyle = 'rgba(20,3,3,.97)';
+    g.fill(D.hl); g.fill(D.hr); g.fill(D.P); g.fill(D.sn);
     g.shadowBlur = 0;
-    // 發光的眼睛
-    const eo = 0.6 + Math.sin(t * 5) * 0.2;
-    [-1, 1].forEach(sd => { const gr = g.createRadialGradient(sd * 32, 5, 0, sd * 32, 5, 40); gr.addColorStop(0, `rgba(255,240,180,${eo})`); gr.addColorStop(0.2, `rgba(255,80,20,${eo})`); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.fillRect(sd * 32 - 40, -35, 80, 80); g.globalCompositeOperation = 'source-over';
-      g.fillStyle = `rgba(255,220,150,${eo})`; g.beginPath(); g.moveTo(sd * 14, 2); g.quadraticCurveTo(sd * 32, -6, sd * 48, 6); g.quadraticCurveTo(sd * 32, 10, sd * 14, 2); g.fill(); });
+    // 角上的環紋＋上緣的亮邊
+    [[-1, D.hl], [1, D.hr]].forEach(([sd, hp]) => { g.save(); g.clip(hp); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; for (let k = 0; k < 14; k++) { const u = k / 14, x = sd * (60 + u * 250), y = -80 - Math.sin(u * Math.PI) * 70 + u * 30; g.beginPath(); g.arc(x, y, 30 - u * 14, 0, 7); g.stroke(); } g.restore();
+      g.strokeStyle = 'rgba(255,140,60,.35)'; g.lineWidth = 3; g.beginPath(); g.moveTo(sd * 60, -80); g.bezierCurveTo(sd * 120, -150, sd * 230, -165, sd * 295, -108); g.stroke(); });
+    // 長毛垂下來，會微微飄
+    g.strokeStyle = 'rgba(14,2,2,.75)'; g.lineCap = 'round';
+    D.hair.forEach(([x0, y0, dx, len, w], k) => { const sw = Math.sin(t * 1.2 + k) * 10; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo(x0 + dx * 0.3, y0 + len * 0.3, x0 + dx * 0.8 + sw, y0 + len * 0.7, x0 + dx + sw * 1.5, y0 + len); g.stroke(); });
+    // 鼻孔與眼睛
+    g.fillStyle = 'rgba(255,90,30,.35)'; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 9, 140, 4, 6, sd * 0.3, 0, 7); g.fill(); });
+    const eo = 0.65 + Math.sin(t * 5) * 0.2;
+    g.globalCompositeOperation = 'lighter';
+    [-1, 1].forEach(sd => { const gr = g.createRadialGradient(sd * 30, 8, 0, sd * 30, 8, 46); gr.addColorStop(0, `rgba(255,240,180,${eo})`); gr.addColorStop(0.2, `rgba(255,80,20,${eo * 0.9})`); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = gr; g.fillRect(sd * 30 - 46, -38, 92, 92);
+      g.fillStyle = `rgba(255,225,160,${eo})`; g.beginPath(); g.moveTo(sd * 12, 4); g.quadraticCurveTo(sd * 30, -8, sd * 48, 2); g.quadraticCurveTo(sd * 30, 12, sd * 12, 4); g.fill(); });
     g.restore();
   };
 
@@ -215,7 +241,7 @@
       H.cloudLayer(g, sky1, W * 1.3, Hh, 3.2 * U, -W * 0.15 + t * 22 * U, t * -6 * U, 0.9);
       H.cloudLayer(g, sky2, W * 1.3, Hh, 2.2 * U, -W * 0.15 - t * 35 * U, t * 4 * U, 0.5);
       // 牛角惡鬼
-      H.horned(g, cx, Hh * 0.3, 0.85 * U * (1 + ease((t - 1.2) / 3) * 0.12), ease((t - 1.0) / 1.6) * 0.95, t);
+      H.horned(g, cx, Hh * 0.3, 0.6 * U * (1 + ease((t - 1.2) / 3) * 0.12), ease((t - 1.0) / 1.6) * 0.95, t);
       H.cloudLayer(g, sky2, W * 1.3, Hh, 1.6 * U, -W * 0.15 + t * 50 * U, 0, 0.22);
       // 遠景的城牆與塔剪影
       g.fillStyle = '#0b0202'; g.beginPath(); g.moveTo(-W * 0.2, Hh); for (let i = 0; i <= 14; i++) { const x = -W * 0.2 + i / 14 * W * 1.4, h2 = Hh * (0.28 + ((i * 37) % 7) / 40 + (i === 3 || i === 11 ? 0.12 : 0)); g.lineTo(x, Hh - h2); g.lineTo(x + W * 0.05, Hh - h2); } g.lineTo(W * 1.2, Hh); g.fill();
