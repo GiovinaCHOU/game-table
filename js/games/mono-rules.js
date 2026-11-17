@@ -36,10 +36,12 @@
     if (t.type === 'luck') return th.luckName; return th.badName;
   }
   // 「打到有人破產／剩一人」模式：第 8 回合後過路費每回合漲 20%（最多 6 倍），避免無限拖長
-  // 通膨：第 15 回合起每回合 +6%，最多 3 倍；第 51 回合起「末日通膨」每回合再 +60%
-  const DOOM_ROUND = 51;
-  const INF = (globalThis.__INF || { start: 15, rate: 0.06, max: 3 }); // 第 15 回合起每回合 +6%，最多 3 倍（讓破產大多落在末日通膨前後）
-  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); return r < DOOM_ROUND ? base : Math.min(20, INF.max + (r - DOOM_ROUND + 1) * 0.6); }
+  // 通膨：第 6 回合起每回合 +10%，最多 3 倍；「末日通膨」依人數提前（3人21／4人25／5人27回合），之後每回合再 +60%
+  // 目標：第一次破產大約落在 30–35 回合，第 15 回合領先者最後翻盤率 55% 以上（tests 模擬 300 局）
+  const DOOM_BY_N = { 2: 18, 3: 21, 4: 25, 5: 27, 6: 29 };
+  const doomRound = (st) => globalThis.__DOOM || DOOM_BY_N[st.n] || 25;
+  const INF = (globalThis.__INF || { start: 6, rate: 0.1, max: 3 });
+  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * 0.6); }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
     if (lv === 0) { const same = BOARD.filter(b => b.type === 'prop' && b.g === t.g); if (same.every(b => st.owners[b.i] === st.owners[i])) r *= 2; }
@@ -297,8 +299,8 @@
       s = (s + 1) % st.n;
       if (s === st.first) { st.round++; const cap = st.maxRounds === 0 || st.maxRounds >= 900 ? SAFETY_CAP : st.maxRounds;
         if (st.round > cap) return finish(st, cap === SAFETY_CAP ? 'cap' : 'rounds');
-        if (st.inflate && st.round === DOOM_ROUND - 3) ev(st, { t: 'alert', text: `⚠️ 3 回合後（第 ${DOOM_ROUND} 回合）末日通膨，過路費會開始暴漲` });
-        if (st.inflate && st.round === DOOM_ROUND) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' });
+        if (st.inflate && st.round === doomRound(st) - 3) ev(st, { t: 'alert', text: `⚠️ 3 回合後（第 ${doomRound(st)} 回合）末日通膨，過路費會開始暴漲` });
+        if (st.inflate && st.round === doomRound(st)) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' });
         if (cap !== SAFETY_CAP && cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` }); }
       const p = st.players[s]; if (!p.alive) continue;
       if (p.skip > 0) { p.skip--; if (!p.skip && p.frog) { p.frog = false; ev(st, { t: 'unfrog', seat: s }); } ev(st, { t: 'skip', seat: s }); continue; }
