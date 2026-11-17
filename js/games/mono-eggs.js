@@ -211,7 +211,8 @@
       if (t > 3.0) title(g, W, H, dpr, amt, '#ffe9a0', H * 0.9, 30);
     }, () => S.bag(SFX));
   };
-  E.phoenix = function (SFX, e) {
+  E.phoenix = function (SFX, e) { if (root.MONO_MAGICFX) return root.MONO_MAGICFX.phoenix(this, SFX, e); return E._phoenixOld.call(this, SFX, e); };
+  E._phoenixOld = function (SFX, e) {
     const ash = Array.from({ length: 140 }, () => ({ x: rnd(-1, 1), y: rnd(-1, 0.5), v: rnd(0.4, 1.2) }));
     const fire = Array.from({ length: 220 }, () => ({ a: rnd(0, 6.283), r: Math.random(), v: rnd(0.5, 1.5), h: rnd(10, 50) }));
     return this.overlay(4200, (g, W, H, dpr, t) => {
@@ -439,7 +440,8 @@
   };
 
   // 魔法學院破產：看債主是誰決定死法；沒有債主就被巨大的魔法書吸進去
-  E.magicDeath = function (SFX, e) {
+  E.magicDeath = function (SFX, e) { if (root.MONO_MAGICFX) return root.MONO_MAGICFX.death(this, SFX, e); return E._magicDeathOld.call(this, SFX, e); };
+  E._magicDeathOld = function (SFX, e) {
     const ui = this, vf = face(ui, e.seat), bf = e.by >= 0 ? face(ui, e.by) : null, kind = bf ? (bf.i >= 0 ? bf.i : 0) : -1;
     const NAME = ['咒語反彈大爆炸', '被大巨蛇一口吞下', '被貓頭鷹群叼走', '被小火龍烤焦', '被獨角獸頂飛', '被鳳凰之火吞噬', '被人馬一箭射穿', '被狼人撲倒', ][kind] || '被巨大的魔法書吸進去';
     const parts = Array.from({ length: 80 }, () => ({ a: rnd(0, 6.283), v: rnd(0.4, 1.4), c: ['#ffd23a', '#ff6a2a', '#fff', '#c8a0ff'][Math.floor(Math.random() * 4)] }));
