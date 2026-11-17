@@ -342,19 +342,124 @@
       for (let k = 0; k < (q.high ? 90 : 45); k++) { const a = rnd(0, 6.28), d = rnd(9, 40); const c = add(new T.SphereGeometry(rnd(1.5, 3.5), 12, 10), cloudM, Math.cos(a) * d, rnd(-4.5, -2.2), Math.sin(a) * d, false); c.scale.y = 0.45; }
       // 遠方神山
       for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.3, d = rnd(34, 42), h = rnd(10, 18); add(new T.ConeGeometry(rnd(5, 8), h, 7), M('#b9c3d6', { roughness: 1 }), Math.cos(a) * d, h / 2 - 4, Math.sin(a) * d, false); add(new T.ConeGeometry(2, 3, 7), M('#ffffff'), Math.cos(a) * d, h - 5.2, Math.sin(a) * d, false); }
-      // 中央：奧林帕斯神殿＋金色神像
-      const marble = M('#f4f0e6', { roughness: 0.3 }), gold = M('#d4af37', { metalness: 0.9, roughness: 0.2 });
-      for (let s = 0; s < 3; s++) add(new T.BoxGeometry(5 - s * 0.5, 0.18, 4 - s * 0.5), marble, 0, -0.27 + s * 0.18, 0);
-      for (let k = 0; k < 10; k++) { const x = -1.8 + (k % 5) * 0.9, z = k < 5 ? -1.3 : 1.3; add(new T.CylinderGeometry(0.15, 0.17, 2.4, 14), marble, x, 1.4, z); }
-      add(new T.BoxGeometry(4.3, 0.25, 3.2), marble, 0, 2.7, 0);
-      const ped = add(new T.CylinderGeometry(0.01, 2.6, 0.9, 4), marble, 0, 3.25, 0); ped.rotation.y = Math.PI / 4; ped.scale.z = 0.62;
-      const st = new T.Group(); st.position.set(0, 0.25, 0); scene.add(st);
-      const body = new T.Mesh(new T.CylinderGeometry(0.28, 0.4, 1.4, 12), gold); body.position.y = 0.8; st.add(body);
-      const head = new T.Mesh(new T.SphereGeometry(0.22, 16, 12), gold); head.position.y = 1.7; st.add(head);
-      const arm = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, 1.0, 8), gold); arm.position.set(0.38, 1.6, 0); arm.rotation.z = -0.5; st.add(arm);
-      const bolt = new T.Mesh(new T.ConeGeometry(0.08, 0.6, 4), new T.MeshBasicMaterial({ color: '#fff4b0' })); bolt.position.set(0.66, 2.15, 0); st.add(bolt);
-      const L = new T.PointLight('#ffe9a8', 12, 9, 1.4); L.position.set(0, 2.3, 0); scene.add(L);
-      upd.push((t) => { L.intensity = 10 + Math.sin(t * 2) * 2; bolt.material.color.setHSL(0.14, 1, 0.75 + Math.sin(t * 6) * 0.1); });
+      // 中央：林間噴泉廣場（女神雕像倒水、小天使、雕像群、白鴿、精靈粉塵）
+      const marble = M('#f3eee2', { roughness: 0.45 }), stone = M('#cbbb9c', { roughness: 0.85 }), aged = M('#a99a7e', { roughness: 0.9 });
+      // 鋪石地＋斑駁光影
+      { const [c, g2] = cvs(512); g2.fillStyle = '#b9ab90'; g2.fillRect(0, 0, 512, 512);
+        for (let r = 0; r < 12; r++) for (let k = 0; k < 6 + r * 6; k++) { const a0 = k / (6 + r * 6) * 6.283, rr = r * 21 + 6; g2.fillStyle = `hsl(38,${rnd(14, 24)}%,${rnd(58, 70)}%)`; g2.beginPath(); g2.arc(256 + Math.cos(a0) * rr, 256 + Math.sin(a0) * rr, rnd(8, 11), 0, 7); g2.fill(); }
+        for (let k = 0; k < 70; k++) { g2.fillStyle = `rgba(255,246,210,${rnd(0.12, 0.3)})`; g2.beginPath(); g2.ellipse(rnd(0, 512), rnd(0, 512), rnd(6, 26), rnd(4, 14), rnd(0, 3), 0, 7); g2.fill(); }
+        for (let k = 0; k < 40; k++) { g2.fillStyle = `rgba(60,70,40,${rnd(0.08, 0.18)})`; g2.beginPath(); g2.ellipse(rnd(0, 512), rnd(0, 512), rnd(10, 40), rnd(6, 20), rnd(0, 3), 0, 7); g2.fill(); }
+        const fl = add(new T.CircleGeometry(3.5, 48), M('#ffffff', { map: tex(T, c), roughness: 0.9 }), 0, -0.36, 0, false); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = q.high; }
+      // 水池：外緣石圈＋青綠水面（水紋會流動）
+      const [wc, wg] = cvs(256); const wt = tex(T, wc, 2); wt.wrapS = wt.wrapT = T.RepeatWrapping;
+      { wg.fillStyle = '#2fb3bf'; wg.fillRect(0, 0, 256, 256); for (let k = 0; k < 160; k++) { wg.strokeStyle = `rgba(210,255,250,${rnd(0.15, 0.45)})`; wg.lineWidth = rnd(1, 2.5); wg.beginPath(); const x = rnd(0, 256), y = rnd(0, 256), r = rnd(6, 20); wg.arc(x, y, r, rnd(0, 3), rnd(3, 6)); wg.stroke(); } wt.needsUpdate = true; }
+      const rimG = new T.LatheGeometry([[2.0, -0.36], [2.25, -0.36], [2.3, -0.05], [2.36, 0.04], [2.36, 0.12], [2.0, 0.12], [2.0, -0.36]].map(([x, y]) => new T.Vector2(x, y)), 64);
+      add(rimG, stone, 0, 0, 0);
+      const pool = add(new T.CircleGeometry(2.02, 48), new T.MeshStandardMaterial({ color: '#ffffff', map: wt, roughness: 0.08, metalness: 0.2, emissive: '#1a8a94', emissiveIntensity: 0.35, transparent: true, opacity: 0.93 }), 0, 0.02, 0, false); pool.rotation.x = -Math.PI / 2;
+      // 中柱＋上層水盆（有雕花托架）
+      const stemG = new T.LatheGeometry([[0, -0.3], [0.5, -0.3], [0.42, 0], [0.26, 0.15], [0.22, 0.5], [0.3, 0.62], [0.95, 0.78], [1.15, 0.86], [1.15, 0.94], [0, 0.94]].map(([x, y]) => new T.Vector2(x, y)), 48);
+      add(stemG, aged, 0, 0, 0);
+      for (let k = 0; k < 4; k++) { const a0 = k / 4 * 6.283 + 0.4; const br = add(new T.TorusGeometry(0.16, 0.05, 8, 12, Math.PI), aged, Math.cos(a0) * 0.36, 0.42, Math.sin(a0) * 0.36); br.rotation.y = -a0; br.rotation.z = Math.PI / 2; }
+      const bowlW = add(new T.CircleGeometry(1.08, 40), new T.MeshStandardMaterial({ color: '#ffffff', map: wt, roughness: 0.08, emissive: '#1a8a94', emissiveIntensity: 0.4 }), 0, 0.95, 0, false); bowlW.rotation.x = -Math.PI / 2;
+      // 雕像：披袍人形
+      const gold = M('#d4af37', { metalness: 0.9, roughness: 0.25 });
+      const figure = (sc, pose) => {
+        const f = new T.Group(); f.scale.setScalar(sc);
+        const robe = new T.Mesh(new T.LatheGeometry([[0.26, 0], [0.24, 0.12], [0.19, 0.42], [0.13, 0.62], [0.15, 0.76], [0.16, 0.88], [0.11, 0.97], [0.05, 1.02]].map(([x, y]) => new T.Vector2(x, y)), 44), marble); f.add(robe);
+        { const pa = robe.geometry.attributes.position; for (let v = 0; v < pa.count; v++) { const x = pa.getX(v), y = pa.getY(v), z = pa.getZ(v), an = Math.atan2(z, x), w = 1 + Math.max(0, 0.75 - y) * 0.12 * Math.sin(an * 11 + y * 2); pa.setX(v, x * w); pa.setZ(v, z * w); } robe.geometry.computeVertexNormals(); }
+        const drape = new T.Mesh(new T.TorusGeometry(0.2, 0.035, 6, 18, Math.PI * 1.1), marble); drape.position.set(0, 0.55, 0.02); drape.rotation.set(0.25, 0, -0.6); f.add(drape);
+        const sash = new T.Mesh(new T.TorusGeometry(0.16, 0.025, 6, 16), marble); sash.position.y = 0.8; sash.rotation.set(Math.PI / 2 - 0.5, 0, 0); f.add(sash);
+        const nk = new T.Mesh(new T.CylinderGeometry(0.035, 0.045, 0.08, 8), marble); nk.position.y = 1.05; f.add(nk);
+        const hd = new T.Mesh(new T.SphereGeometry(0.085, 16, 12), marble); hd.position.y = 1.15; hd.scale.set(0.9, 1.1, 0.95); f.add(hd);
+        const hair = new T.Mesh(new T.SphereGeometry(0.09, 14, 10, 0, 6.283, 0, 1.6), marble); hair.position.set(0, 1.17, -0.012); f.add(hair);
+        const bun = new T.Mesh(new T.SphereGeometry(0.045, 10, 8), marble); bun.position.set(0, 1.2, -0.085); f.add(bun);
+        const nose = new T.Mesh(new T.ConeGeometry(0.014, 0.04, 5), marble); nose.position.set(0, 1.15, 0.085); nose.rotation.x = Math.PI / 2 + 0.3; f.add(nose);
+        const wreath = new T.Mesh(new T.TorusGeometry(0.088, 0.012, 6, 20), gold); wreath.position.set(0, 1.2, -0.01); wreath.rotation.x = Math.PI / 2 - 0.25; f.add(wreath);
+        const arm = (side, ex, ey, ez) => { const sh = new T.Vector3(side * 0.15, 0.95, 0), el = new T.Vector3(ex, ey, ez); const len = sh.distanceTo(el); const c = new T.Mesh(new T.CapsuleGeometry(0.035, len, 4, 8), marble); c.position.copy(sh).add(el).multiplyScalar(0.5); c.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), el.clone().sub(sh).normalize()); f.add(c); return el; };
+        const out = [];
+        if (pose === 'pour') { [-1, 1].forEach(sd => { const h = arm(sd, sd * 0.3, 0.66, 0.12); const urn = new T.Mesh(new T.LatheGeometry([[0, 0], [0.06, 0.02], [0.085, 0.08], [0.05, 0.16], [0.035, 0.19], [0.055, 0.22]].map(([x, y]) => new T.Vector2(x, y)), 16), marble); urn.position.set(h.x + sd * 0.02, h.y - 0.02, h.z); urn.rotation.z = sd * -1.9; f.add(urn); out.push(new T.Vector3(h.x + sd * 0.22, h.y - 0.08, h.z)); }); }
+        else if (pose === 'raise') { arm(1, 0.16, 1.45, 0.05); arm(-1, -0.25, 0.6, 0.12); const wr = new T.Mesh(new T.TorusGeometry(0.07, 0.015, 6, 14), gold); wr.position.set(0.16, 1.52, 0.05); f.add(wr); }
+        else if (pose === 'lyre') { arm(1, 0.1, 0.78, 0.2); arm(-1, -0.1, 0.8, 0.2); const ly = new T.Mesh(new T.TorusGeometry(0.09, 0.012, 6, 14, Math.PI * 1.3), gold); ly.position.set(0, 0.85, 0.23); ly.rotation.z = Math.PI * 1.35; f.add(ly); }
+        else { arm(1, 0.12, 0.6, 0.1); arm(-1, -0.1, 0.62, 0.1); const bk = new T.Mesh(new T.BoxGeometry(0.16, 0.1, 0.04), aged); bk.position.set(0, 0.64, 0.14); f.add(bk); }
+        f.traverse(m => { if (m.isMesh && q.high) { m.castShadow = true; m.receiveShadow = true; } });
+        return { f, out };
+      };
+      const god = figure(1.05, 'pour'); god.f.position.set(0, 0.94, 0); scene.add(god.f);
+      const godBase = add(new T.CylinderGeometry(0.28, 0.34, 0.1, 16), aged, 0, 0.97, 0);
+      void godBase;
+      // 兩個跪坐的小天使在水盆邊抱著水瓶倒水
+      const kids = [];
+      [-1, 1].forEach(sd => { const k = new T.Group(); k.position.set(sd * 0.82, 0.94, 0.25); k.rotation.y = sd * -0.9; scene.add(k);
+        const bd = new T.Mesh(new T.SphereGeometry(0.12, 12, 10), marble); bd.position.y = 0.14; bd.scale.set(1, 1.15, 0.9); k.add(bd);
+        const lg = new T.Mesh(new T.CapsuleGeometry(0.05, 0.14, 4, 8), marble); lg.position.set(0, 0.05, 0.08); lg.rotation.x = Math.PI / 2; k.add(lg);
+        const hd = new T.Mesh(new T.SphereGeometry(0.075, 12, 10), marble); hd.position.y = 0.32; k.add(hd);
+        [-1, 1].forEach(w => { const wi = new T.Mesh(new T.SphereGeometry(0.09, 10, 6, 0, 3.14), marble); wi.position.set(w * 0.08, 0.22, -0.08); wi.scale.set(0.5, 1.1, 0.3); wi.rotation.y = w * 0.6; k.add(wi); });
+        const vs = new T.Mesh(new T.LatheGeometry([[0, 0], [0.05, 0.02], [0.065, 0.07], [0.035, 0.13], [0.04, 0.15]].map(([x, y]) => new T.Vector2(x, y)), 10), marble); vs.position.set(0, 0.22, 0.13); vs.rotation.x = 1.9; k.add(vs);
+        k.traverse(m => { if (m.isMesh && q.high) m.castShadow = true; }); kids.push(k); });
+      // 周圍雕像群：四座台座上不同姿態的雕像＋兩根愛奧尼克柱
+      [['raise', 0.785], ['lyre', 2.356], ['book', 3.927], ['raise', 5.498]].forEach(([pose, a0], i) => {
+        const x = Math.cos(a0) * 3.0, z = Math.sin(a0) * 3.0;
+        add(new T.BoxGeometry(0.42, 0.5, 0.42), stone, x, -0.11, z); add(new T.BoxGeometry(0.5, 0.06, 0.5), aged, x, 0.17, z);
+        const s2 = figure(0.62, pose); s2.f.position.set(x, 0.2, z); s2.f.lookAt(0, 0.2, 0); scene.add(s2.f); void i;
+      });
+      [0, Math.PI].forEach(a0 => { const x = Math.cos(a0) * 3.15, z = Math.sin(a0) * 3.15;
+        add(new T.CylinderGeometry(0.17, 0.19, 1.9, 16), marble, x, 0.6, z);
+        for (let k = 0; k < 12; k++) { const fl = add(new T.BoxGeometry(0.02, 1.85, 0.02), aged, x + Math.cos(k / 12 * 6.283) * 0.175, 0.6, z + Math.sin(k / 12 * 6.283) * 0.175, false); void fl; }
+        add(new T.BoxGeometry(0.5, 0.1, 0.5), marble, x, 1.6, z); [-1, 1].forEach(sd => { const vo = add(new T.TorusGeometry(0.07, 0.03, 6, 12), marble, x + sd * 0.24, 1.52, z); vo.rotation.y = Math.PI / 2; });
+        add(new T.BoxGeometry(0.4, 0.12, 0.4), stone, x, -0.3, z);
+        const ivy = M('#4f7a34', { roughness: 1, flatShading: true }); for (let k = 0; k < 14; k++) { const u = k / 14; add(new T.SphereGeometry(rnd(0.05, 0.08), 6, 4), ivy, x + Math.cos(u * 9) * 0.19, -0.2 + u * 1.5, z + Math.sin(u * 9) * 0.19, false); } });
+      // 花壇與灌木
+      const leaf = M('#5f8a3a', { roughness: 1, flatShading: true }), petals = ['#e8455a', '#ff8fa8', '#ffffff', '#f6d36b'].map(c => M(c, { roughness: 0.8 }));
+      for (let k = 0; k < 10; k++) { const a0 = k / 10 * 6.283 + 0.31; if (Math.abs(Math.cos(a0)) > 0.97) continue; const x = Math.cos(a0) * 2.75, z = Math.sin(a0) * 2.75; const bu = add(new T.SphereGeometry(0.26, 10, 8), leaf, x, -0.22, z); bu.scale.y = 0.65;
+        for (let j = 0; j < 7; j++) add(new T.SphereGeometry(0.035, 6, 4), petals[(k + j) % 4], x + rnd(-0.2, 0.2), -0.1 + rnd(0, 0.06), z + rnd(-0.2, 0.2), false); }
+      // 水流：女神雙瓶、小天使水瓶的拋物線水柱＋水盆邊緣的溢流水簾（流動紋理）
+      const [sc3, sg3] = cvs(32, 128); sg3.clearRect(0, 0, 32, 128); sg3.fillStyle = 'rgba(200,245,255,0.35)'; sg3.fillRect(0, 0, 32, 128); for (let k = 0; k < 90; k++) { const x = rnd(0, 32), y = rnd(0, 128), l = rnd(14, 50), gr = sg3.createLinearGradient(0, y, 0, y + l); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, `rgba(255,255,255,${rnd(0.5, 1)})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); sg3.fillStyle = gr; sg3.fillRect(x, y, rnd(0.8, 2), l); }
+      const flowT = tex(T, sc3); flowT.wrapS = flowT.wrapT = T.RepeatWrapping;
+      const flowM = new T.MeshBasicMaterial({ map: flowT, color: '#9fe8ff', transparent: true, opacity: 0.95, depthWrite: false, side: T.DoubleSide });
+      const arcTube = (o, v, ground, r) => { const pts = []; for (let k = 0; k <= 16; k++) { const tt = k / 16 * 0.6; const y = o.y + v.y * tt - 4.9 * tt * tt; pts.push(new T.Vector3(o.x + v.x * tt, Math.max(ground, y), o.z + v.z * tt)); if (y < ground) break; }
+        const tb = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 24, r, 6, false), flowM); scene.add(tb); return pts[pts.length - 1]; };
+      const splash = [];
+      god.f.updateMatrixWorld(true);
+      god.out.forEach(pp => { const w = god.f.localToWorld(pp.clone()); splash.push(arcTube(w, new T.Vector3(Math.sign(w.x) * 0.5, 0.25, 0.08), 0.95, 0.045)); });
+      kids.forEach(k => { k.updateMatrixWorld(true); const w = k.localToWorld(new T.Vector3(0, 0.2, 0.25)); const d = k.localToWorld(new T.Vector3(0, 0, 1)).sub(k.position).normalize(); splash.push(arcTube(w, d.multiplyScalar(0.55).setY(0.2), 0.95, 0.032)); });
+      const curtain = add(new T.CylinderGeometry(1.17, 1.3, 0.9, 64, 1, true), new T.MeshBasicMaterial({ map: flowT, color: '#a8ecff', transparent: true, opacity: 0.85, depthWrite: false, side: T.DoubleSide }), 0, 0.47, 0, false);
+      curtain.material.map = flowT.clone(); curtain.material.map.repeat.set(10, 1); curtain.material.map.needsUpdate = true;
+      const dropM = new T.MeshBasicMaterial({ color: '#f0ffff', transparent: true, opacity: 0.8, depthWrite: false }), drops = [];
+      splash.forEach(sp => { for (let k = 0; k < 5; k++) { const m = add(new T.SphereGeometry(0.014, 5, 4), dropM, sp.x, sp.y, sp.z, false); m.userData = { o: sp, a: rnd(0, 6.28), v: rnd(0.3, 0.6), ph: rnd(0, 1) }; drops.push(m); } });
+      // 水面漣漪
+      const rips = []; for (let k = 0; k < 6; k++) { const r = add(new T.RingGeometry(0.9, 0.94, 40), new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.4, depthWrite: false }), 0, 0.03, 0, false); r.rotation.x = -Math.PI / 2; r.userData.o = k / 6; rips.push(r); }
+      // 光束（林間灑下的光）
+      const [bc, bg2] = cvs(32, 128); const grd = bg2.createLinearGradient(0, 0, 0, 128); grd.addColorStop(0, 'rgba(255,248,214,0)'); grd.addColorStop(0.35, 'rgba(255,244,200,0.22)'); grd.addColorStop(1, 'rgba(255,248,214,0)'); bg2.fillStyle = grd; bg2.fillRect(0, 0, 32, 128);
+      const beamM = new T.MeshBasicMaterial({ map: tex(T, bc), transparent: true, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
+      const beams = []; [[-0.8, 0.3, 0.5], [0.6, -0.5, 0.35], [1.4, 0.8, 0.28]].forEach(([x, z, w]) => { for (let r = 0; r < 2; r++) { const b = add(new T.PlaneGeometry(w, 7), beamM.clone(), x, 2.6, z, false); b.rotation.set(0, r * Math.PI / 2, 0.32); beams.push(b); } });
+      // 精靈粉塵：會閃爍、慢慢往上飄的金綠光點
+      const [sc2, sg] = cvs(32); const rg2 = sg.createRadialGradient(16, 16, 0, 16, 16, 16); rg2.addColorStop(0, 'rgba(255,255,255,1)'); rg2.addColorStop(0.25, 'rgba(255,250,200,0.8)'); rg2.addColorStop(1, 'rgba(255,240,160,0)'); sg.fillStyle = rg2; sg.fillRect(0, 0, 32, 32);
+      const sprite = tex(T, sc2), dust = [];
+      [['#ffd86a', 0], ['#b8ff9a', 2.1], ['#ffe9b0', 4.2]].forEach(([col, ph]) => {
+        const n = q.high ? 40 : 20, pos = new Float32Array(n * 3), base = [];
+        for (let k = 0; k < n; k++) { const a0 = rnd(0, 6.283), d = Math.sqrt(Math.random()) * 3.3; base.push([Math.cos(a0) * d, rnd(0, 3), Math.sin(a0) * d, rnd(0.15, 0.4), rnd(0, 6)]); }
+        const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+        const pt = new T.Points(geo, new T.PointsMaterial({ color: col, map: sprite, size: 0.08, transparent: true, blending: T.AdditiveBlending, depthWrite: false })); scene.add(pt);
+        dust.push({ pt, pos, base, ph });
+      });
+      // 白鴿：繞著噴泉盤旋，翅膀拍動；另有兩隻停在池邊
+      const doveM = M('#fbfbf6', { roughness: 0.7 }), beakM = M('#e09a6a');
+      const dove = () => { const d = new T.Group(); const b = new T.Mesh(new T.SphereGeometry(0.07, 10, 8), doveM); b.scale.set(0.8, 0.8, 1.6); d.add(b); const h = new T.Mesh(new T.SphereGeometry(0.045, 10, 8), doveM); h.position.set(0, 0.04, 0.11); d.add(h); const bk = new T.Mesh(new T.ConeGeometry(0.012, 0.035, 5), beakM); bk.position.set(0, 0.035, 0.16); bk.rotation.x = Math.PI / 2; d.add(bk); const tl = new T.Mesh(new T.ConeGeometry(0.05, 0.12, 4), doveM); tl.position.set(0, 0, -0.14); tl.rotation.x = -Math.PI / 2; tl.scale.y = 1; tl.scale.x = 1.4; d.add(tl);
+        const wings = [-1, 1].map(sd => { const pv = new T.Group(); pv.position.set(sd * 0.04, 0.02, 0); const w = new T.Mesh(new T.PlaneGeometry(0.22, 0.11), new T.MeshStandardMaterial({ color: '#ffffff', side: T.DoubleSide, roughness: 0.7 })); w.position.x = sd * 0.11; w.rotation.x = -Math.PI / 2; pv.add(w); d.add(pv); return pv; }); d.userData.w = wings; scene.add(d); return d; };
+      const flock = []; for (let k = 0; k < (q.high ? 7 : 4); k++) { const d = dove(); d.userData.r = rnd(1.6, 3.2); d.userData.h = rnd(2.2, 3.6); d.userData.s = rnd(0.35, 0.55) * (k % 2 ? 1 : -1); d.userData.o = rnd(0, 6.28); flock.push(d); }
+      const perched = [[2.2, 0.13, 0.5, 1.2], [-1.9, 0.13, -1.15, -2.1]].map(([x, y, z, ry]) => { const d = dove(); d.position.set(x, y + 0.06, z); d.rotation.y = ry; d.userData.w.forEach(w => { w.rotation.z = 0; w.children[0].scale.set(0.6, 1, 1); }); return d; });
+      const L = new T.PointLight('#fff1c8', 6, 8, 1.6); L.position.set(0, 2.6, 0.6); scene.add(L);
+      upd.push((t) => {
+        wt.offset.set(t * 0.02, t * 0.013);
+        flowT.offset.y = t * 1.6; curtain.material.map.offset.y = t * 0.9;
+        drops.forEach(m => { const u = m.userData, tt = ((t * 1.4 + u.ph) % 1) * 0.3; m.position.set(u.o.x + Math.cos(u.a) * u.v * tt, u.o.y + 1.2 * tt - 4.9 * tt * tt, u.o.z + Math.sin(u.a) * u.v * tt); });
+        rips.forEach(r => { const p = (t * 0.35 + r.userData.o) % 1; const R = 1.2 + p * 0.8; r.scale.setScalar(R); r.material.opacity = 0.35 * (1 - p); });
+        beams.forEach((b, k) => { b.material.opacity = 0.6 + Math.sin(t * 0.6 + k) * 0.3; });
+        dust.forEach(D => { const { pos, base } = D; for (let k = 0; k < base.length; k++) { const [x, y, z, sp, o] = base[k]; const yy = (y + t * sp) % 3.2; pos[k * 3] = x + Math.sin(t * 0.7 + o) * 0.25; pos[k * 3 + 1] = yy - 0.1; pos[k * 3 + 2] = z + Math.cos(t * 0.6 + o) * 0.25; } D.pt.geometry.attributes.position.needsUpdate = true; D.pt.material.opacity = 0.45 + Math.sin(t * 2.3 + D.ph) * 0.45; D.pt.material.size = 0.06 + (Math.sin(t * 3.1 + D.ph) * 0.5 + 0.5) * 0.05; });
+        flock.forEach((d, k) => { const u = d.userData, a0 = u.o + t * u.s; d.position.set(Math.cos(a0) * u.r, u.h + Math.sin(t * 0.9 + k) * 0.25, Math.sin(a0) * u.r); d.rotation.y = -a0 + (u.s > 0 ? 0 : Math.PI); const fl = Math.sin(t * 11 + k * 1.7) * 0.8; d.userData.w[0].rotation.z = -fl; d.userData.w[1].rotation.z = fl; });
+        perched.forEach((d, k) => { const hop = Math.max(0, Math.sin(t * 0.8 + k * 2.5)) ** 20; d.position.y = 0.19 + hop * 0.12; d.children[1].position.y = 0.04 + Math.max(0, Math.sin(t * 3 + k)) * 0.015; });
+        L.intensity = 5.5 + Math.sin(t * 1.3) * 0.6;
+      });
       // 彩虹橋
       const [rc, rg] = cvs(8, 128); ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#457b9d', '#7b2cbf'].forEach((col, k) => { rg.fillStyle = col; rg.fillRect(0, k * 21, 8, 22); });
       const rb = add(new T.TorusGeometry(9, 0.35, 6, 64, Math.PI * 0.55), new T.MeshBasicMaterial({ map: tex(T, rc), transparent: true, opacity: 0.85 }), 6, -1, -6, false); rb.rotation.set(0, Math.PI / 4, 0);
