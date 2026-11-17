@@ -165,7 +165,8 @@
     }, () => S.ghost(SFX));
   };
   // 多眼鳥夜啼：木雕鳥身上的眼睛一顆一顆睜開，最後全部盯著你
-  E.birds = function (SFX) {
+  E.birds = function (SFX) { if (root.MONO_HORROR && root.MONO_HORROR.manyEyes) return root.MONO_HORROR.manyEyes(this, SFX); return E._birdsOld.call(this, SFX); };
+  E._birdsOld = function (SFX) {
     const eyes = []; for (let k = 0; k < 46; k++) { const a = rnd(0, 6.283), r = Math.sqrt(Math.random()); eyes.push({ x: Math.cos(a) * r * 0.9, y: Math.sin(a) * r * 0.75, s: rnd(0.06, 0.12), o: 0.5 + k * 0.055 }); }
     return this.overlay(4400, (g, W, H, dpr, t) => {
       const cx = W / 2, cy = H * 0.54, U = Math.min(W, H) / 400, look = t > 3 ? [0, 0] : [Math.sin(t * 3), Math.cos(t * 2) * 0.5];

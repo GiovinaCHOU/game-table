@@ -162,6 +162,7 @@
       for (let q = 0; q < n; q++) { const u = q / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, l = len * (0.3 + R()); out.push([x, y]); out.push([x + nx / nl * l + (R() - 0.5) * 6, y + ny / nl * l + l * 0.5]); } }
     return out;
   }
+  H.furOutline = furOutline;
   let demonPath = null;
   function buildDemon() {
     const P = new Path2D();
@@ -288,4 +289,115 @@
   };
 
   root.MONO_HORROR = H;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+// ======================= 多眼鳥夜啼（重做） =======================
+(function (root) {
+  const H = root.MONO_HORROR, { cvs, rnd, ease, clamp } = H;
+  // 側面的大烏鴉（嘴往左上張開）：羽毛一片一片疊出來，先畫成一張離屏圖
+  let crow = null;
+  const EYES = [ // 眼睛位置（在 600×820 的烏鴉圖上）＋大小
+    [312, 190, 26], [372, 170, 16], [282, 262, 15], [350, 290, 22], [410, 262, 14], [300, 360, 15], [392, 352, 19], [452, 318, 13], [340, 420, 17], [430, 410, 15],
+    [280, 455, 13], [384, 478, 18], [470, 470, 14], [330, 530, 14], [420, 548, 16], [500, 520, 12], [262, 560, 12], [370, 610, 15], [470, 620, 13], [300, 660, 12], [410, 690, 14], [520, 680, 12]];
+  function crowSprite() {
+    if (crow) return crow; const Wc = 600, Hc = 820, [c, g] = cvs(Wc, Hc);
+    // 外輪廓：頭頂圓、後頸往下、喉嚨是一撮撮尖尖的蓑羽
+    const back = [[262, 168], [300, 126], [350, 108], [405, 116], [446, 150], [462, 200], [456, 262], [470, 320], [520, 400], [565, 520], [590, 660], [600, 820]];
+    const front = [[150, 820], [175, 690], [195, 600], [205, 520], [212, 450], [222, 380], [232, 320], [244, 268]];
+    const fb = H.furOutline(back, 3, 10), ff = H.furOutline(front, 8, 26);
+    const body = new Path2D(); body.moveTo(fb[0][0], fb[0][1]); fb.forEach(([x, y]) => body.lineTo(x, y)); body.lineTo(600, 820); ff.forEach(([x, y]) => body.lineTo(x, y)); body.lineTo(252, 238); body.closePath();
+    // 嘴喙：根部很寬、直接長在額頭上
+    const upper = new Path2D(); upper.moveTo(270, 160); upper.bezierCurveTo(215, 128, 120, 72, 36, 50); upper.bezierCurveTo(64, 72, 120, 112, 160, 146); upper.bezierCurveTo(190, 172, 222, 202, 250, 226); upper.closePath();
+    const lower = new Path2D(); lower.moveTo(250, 240); lower.bezierCurveTo(205, 214, 140, 178, 66, 140); lower.bezierCurveTo(118, 186, 180, 240, 246, 282); lower.closePath();
+    g.fillStyle = '#3a0a1c'; g.beginPath(); g.moveTo(252, 228); g.lineTo(150, 150); g.lineTo(90, 128); g.lineTo(120, 162); g.lineTo(248, 246); g.fill();
+    // 羽毛：隨機撒、由下往上畫（上面的蓋住下面），方向順著身體往右下
+    g.save(); g.clip(body); g.fillStyle = '#120c18'; g.fillRect(0, 0, Wc, Hc);
+    let sd = 5; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const fs = [];
+    for (let k = 0; k < 2600; k++) fs.push([140 + R() * 470, 100 + R() * 730, R(), R(), R()]); fs.sort((a, b) => b[1] - a[1]);
+    fs.forEach(([x, y, r1, r2, r3]) => { const sz = 7 + (y / Hc) * 22 + r1 * 8, l = 9 + r2 * 24, hue = 258 + r3 * 34;
+      g.fillStyle = `hsl(${hue},${20 + r1 * 25}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(0.35 + (r2 - 0.5) * 0.6 - (x < 260 ? 0.4 : 0));
+      g.beginPath(); g.moveTo(0, -sz); g.bezierCurveTo(sz * 0.6, -sz * 0.4, sz * 0.35, sz * 0.5, 0, sz * 0.9); g.bezierCurveTo(-sz * 0.35, sz * 0.5, -sz * 0.6, -sz * 0.4, 0, -sz); g.fill();
+      g.strokeStyle = `hsla(${hue},45%,${l + 20}%,.45)`; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -sz * 0.85); g.lineTo(0, sz * 0.7); g.stroke(); g.restore(); });
+    // 收起來的翅膀：大片、顏色更深的飛羽，邊緣一片片
+    const wing = new Path2D(); wing.moveTo(400, 420); wing.bezierCurveTo(470, 400, 560, 470, 600, 560); wing.lineTo(600, 820); wing.lineTo(380, 820); wing.bezierCurveTo(360, 680, 360, 520, 400, 420);
+    g.save(); g.clip(wing); g.fillStyle = '#0e0914'; g.fillRect(300, 380, 320, 460);
+    for (let row = 0; row < 7; row++) for (let k = 0; k < 9; k++) { const x = 370 + k * 28 + row * 6, y = 440 + row * 58 + k * 10, l = 14 + R() * 16; g.fillStyle = `hsl(${262 + R() * 20},${25 + R() * 15}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(0.55);
+      g.beginPath(); g.moveTo(0, -30); g.quadraticCurveTo(16, 0, 4, 70); g.quadraticCurveTo(-4, 74, -10, 60); g.quadraticCurveTo(-14, 0, 0, -30); g.fill(); g.strokeStyle = 'rgba(190,150,230,.35)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, -26); g.lineTo(-2, 64); g.stroke(); g.restore(); }
+    g.restore(); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 4; g.beginPath(); g.moveTo(400, 420); g.bezierCurveTo(470, 400, 560, 470, 600, 560); g.stroke();
+    const lg = g.createLinearGradient(160, 120, 580, 760); lg.addColorStop(0, 'rgba(210,140,255,.25)'); lg.addColorStop(0.45, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = lg; g.fillRect(0, 0, Wc, Hc);
+    g.restore();
+    // 嘴喙上色＋亮邊＋鼻孔
+    [upper, lower].forEach((p, k) => { const bg = g.createLinearGradient(40, 50, 260, 250); bg.addColorStop(0, '#6a5a78'); bg.addColorStop(0.6, '#3a2e48'); bg.addColorStop(1, '#1a1222'); g.fillStyle = bg; g.fill(p); });
+    g.strokeStyle = 'rgba(230,200,250,.4)'; g.lineWidth = 3; g.beginPath(); g.moveTo(266, 158); g.bezierCurveTo(212, 126, 120, 74, 40, 52); g.stroke();
+    g.fillStyle = '#0a060e'; g.beginPath(); g.ellipse(232, 168, 9, 4, -0.5, 0, 7); g.fill();
+    // 嘴根的鬚毛
+    g.strokeStyle = 'rgba(30,20,40,.9)'; g.lineWidth = 2; for (let k = 0; k < 14; k++) { g.beginPath(); g.moveTo(262 + R() * 10, 165 + k * 4); g.quadraticCurveTo(230, 160 + k * 4, 205 - R() * 20, 150 + k * 5); g.stroke(); }
+    // 外緣被月光照到的紅邊
+    g.save(); g.globalCompositeOperation = 'destination-over'; g.shadowColor = 'rgba(255,90,60,.6)'; g.shadowBlur = 30; g.fillStyle = '#100a16'; g.fill(body); g.fill(upper); g.fill(lower); g.restore();
+    return (crow = { c, W: Wc, H: Hc });
+  }
+  function eye(g, x, y, r, open, look, glow) { // 杏仁眼，橘紅色會發光的虹膜、直立的瞳孔
+    if (open < 0.03) { g.strokeStyle = 'rgba(0,0,0,.8)'; g.lineWidth = r * 0.18; g.beginPath(); g.moveTo(x - r, y); g.quadraticCurveTo(x, y + r * 0.25, x + r, y); g.stroke(); return; }
+    const o = open * 0.62; g.save();
+    const lid = new Path2D(); lid.moveTo(x - r * 1.1, y); lid.quadraticCurveTo(x, y - r * o * 1.6, x + r * 1.1, y); lid.quadraticCurveTo(x, y + r * o * 1.6, x - r * 1.1, y);
+    g.fillStyle = '#0a0406'; g.beginPath(); g.ellipse(x, y, r * 1.35, r * (0.35 + o * 0.9), 0, 0, 7); g.fill(); // 眼皮的暗色凹陷
+    g.clip(lid); const ix = x + look[0] * r * 0.35, iy = y + look[1] * r * 0.2;
+    const ig = g.createRadialGradient(ix - r * 0.15, iy - r * 0.15, 0, ix, iy, r * 0.95); ig.addColorStop(0, '#fff2a0'); ig.addColorStop(0.35, '#ffae2a'); ig.addColorStop(0.8, '#e0401a'); ig.addColorStop(1, '#5a0a08');
+    g.fillStyle = ig; g.fillRect(x - r * 1.2, y - r, r * 2.4, r * 2);
+    g.fillStyle = '#100204'; g.beginPath(); g.ellipse(ix, iy, r * (0.12 + glow * 0.18), r * 0.62, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(ix - r * 0.3, iy - r * 0.25, r * 0.12, 0, 7); g.fill();
+    g.restore();
+    g.strokeStyle = '#3a0a10'; g.lineWidth = r * 0.14; g.stroke(lid);
+    g.save(); g.globalCompositeOperation = 'lighter'; const gg = g.createRadialGradient(x, y, 0, x, y, r * 2.6); gg.addColorStop(0, `rgba(255,120,30,${0.35 * open * (0.7 + glow)})`); gg.addColorStop(1, 'rgba(255,60,0,0)'); g.fillStyle = gg; g.fillRect(x - r * 2.6, y - r * 2.6, r * 5.2, r * 5.2); g.restore();
+  }
+  function flyer(g, x, y, s, ph, dir) { // 遠處飛的烏鴉剪影
+    g.save(); g.translate(x, y); g.scale(s * dir, s); g.fillStyle = '#07040a';
+    g.beginPath(); g.ellipse(0, 0, 26, 9, -0.1, 0, 7); g.fill(); g.beginPath(); g.arc(-26, -3, 7, 0, 7); g.fill(); g.beginPath(); g.moveTo(-32, -4); g.lineTo(-46, -1); g.lineTo(-32, 1); g.fill();
+    g.beginPath(); g.moveTo(24, 0); g.lineTo(44, -6); g.lineTo(44, 8); g.fill();
+    const a = Math.sin(ph) * 1.1; [-1, 1].forEach(sd => { g.save(); g.scale(1, sd); g.rotate(a * sd * -1 * sd); g.beginPath(); g.moveTo(-8, -4); g.quadraticCurveTo(0, -38, 30, -58 * Math.cos(a)); g.lineTo(16, -30); g.lineTo(26, -26); g.lineTo(10, -14); g.lineTo(16, -6); g.closePath(); g.fill(); g.restore(); });
+    g.restore();
+  }
+  H.manyEyes = function (ui, SFX) {
+    const sky = H.smoke('purpsky', [90, 40, 120], 0.35, 31), mist = H.smoke('mist2', [40, 10, 30], 0.4, 13);
+    const flock = Array.from({ length: 34 }, (_, i) => ({ a: i / 34 * 6.283 + rnd(0, 0.3), r: rnd(0.36, 0.5), s: rnd(0.5, 1.1), p: rnd(0, 6), v: rnd(0.25, 0.45) }));
+    const rush = Array.from({ length: 26 }, () => ({ y: rnd(0.05, 0.95), d: rnd(0, 0.5), s: rnd(2.5, 6), p: rnd(0, 6) }));
+    const order = EYES.map((e, i) => i).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : EYES[a][1] - EYES[b][1]));
+    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+      T(41, 4.8, { type: 'sawtooth', vol: 0.06, lp: 180, attack: 0.5 }); T(43.2, 4.8, { type: 'sawtooth', vol: 0.05, lp: 180, attack: 0.5 });
+      for (let i = 0; i < 10; i++) { const d = 0.2 + i * 0.32 + Math.random() * 0.2, f = 700 + Math.random() * 500; T(f, 0.22, { type: 'sawtooth', glide: f * 0.7, vol: 0.02 + Math.random() * 0.02, lp: 1800, delay: d }); N(0.1, { f: 1500, type: 'bandpass', q: 3, vol: 0.02, delay: d }); }
+      for (let i = 0; i < 24; i++) N(0.06, { f: 400, vol: 0.05, delay: 0.1 + i * 0.16 });
+      for (let i = 0; i < 9; i++) { T(58, 0.12, { vol: 0.16, wet: false, delay: 0.6 + i * 0.42 - i * i * 0.012 }); T(52, 0.12, { vol: 0.12, wet: false, delay: 0.75 + i * 0.42 - i * i * 0.012 }); }
+      T(3400, 2.8, { type: 'sine', vol: 0.012, detune: 25, delay: 1.0, attack: 1.2 }); T(3480, 2.8, { type: 'sine', vol: 0.012, delay: 1.0, attack: 1.2 });
+      [620, 660, 900, 1240].forEach((f, i) => T(f, 0.7, { type: i % 2 ? 'square' : 'sawtooth', glide: f * 0.62, vol: 0.06, lp: 3200, delay: 3.25 })); N(0.6, { f: 1200, type: 'bandpass', vol: 0.1, delay: 3.25 });
+      for (let i = 0; i < 30; i++) N(0.08, { f: 300 + Math.random() * 300, vol: 0.08, delay: 3.6 + i * 0.03 });
+    };
+    return ui.overlay(5000, (g, W, Hh, dpr, t) => {
+      const U = Math.min(W, Hh) / 420, cx = W / 2, cy = Hh * 0.45;
+      const shk = t > 3.25 && t < 3.7 ? 10 : 0; g.save(); g.translate(rnd(-shk, shk) * dpr, rnd(-shk, shk) * dpr);
+      const bg = g.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#0c0814'); bg.addColorStop(0.5, '#24122c'); bg.addColorStop(1, '#08040a'); g.fillStyle = bg; g.fillRect(-20, -20, W + 40, Hh + 40);
+      H.cloudLayer(g, sky, W, Hh, 2.6 * U, t * 14 * U, 0, 0.7);
+      // 血紅的大月亮
+      const mr = Math.min(W, Hh) * 0.42, mg = g.createRadialGradient(cx, cy, mr * 0.2, cx, cy, mr); mg.addColorStop(0, '#ff7a3a'); mg.addColorStop(0.7, '#e02a1a'); mg.addColorStop(1, '#7a0a10'); g.fillStyle = mg; g.beginPath(); g.arc(cx, cy, mr, 0, 7); g.fill();
+      const halo = g.createRadialGradient(cx, cy, mr, cx, cy, mr * 1.6); halo.addColorStop(0, 'rgba(255,60,30,.45)'); halo.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = halo; g.fillRect(0, 0, W, Hh);
+      H.cloudLayer(g, mist, W, Hh, 1.8 * U, -t * 25 * U, Hh * 0.2, 0.45);
+      // 繞著月亮盤旋的烏鴉
+      flock.forEach(f => { const a = f.a + t * f.v, r = Math.min(W, Hh) * (f.r + Math.sin(t + f.p) * 0.03) * 1.35; flyer(g, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 1.15, f.s * U * 0.7, t * 9 + f.p, Math.sin(a) > 0 ? -1 : 1); });
+      // 大烏鴉：慢慢靠近，最後低頭衝向鏡頭
+      const C = crowSprite(), sc = Math.min(W / C.W, Hh / C.H) * (0.95 + ease(t / 3) * 0.08 + (t > 3.2 ? ease((t - 3.2) / 0.6) * 0.9 : 0));
+      const rot = t > 3.2 ? ease((t - 3.2) / 0.5) * 0.35 : Math.sin(t * 0.8) * 0.02;
+      g.save(); g.translate(cx + W * 0.08, Hh + 10 * U); g.rotate(rot); g.scale(sc, sc); g.translate(-C.W / 2, -C.H);
+      g.drawImage(C.c, 0, 0);
+      const look = t < 2.8 ? [Math.sin(t * 2.3) * 0.8, Math.cos(t * 1.7) * 0.6] : [-0.2, 0.25];
+      order.forEach((idx, k) => { const [ex, ey, er] = EYES[idx], o = clamp((t - 0.5 - k * 0.11) * 3.5), bl = (Math.sin(t * 3 + idx * 7) > 0.97) ? 0.1 : 1; eye(g, ex, ey, er, o * bl, look, t > 3.0 ? 0.8 : 0.2); });
+      g.restore();
+      // 一大群烏鴉從鏡頭前橫掃
+      if (t > 3.6) rush.forEach(p => { const k = (t - 3.6 - p.d) / 0.9; if (k < 0 || k > 1) return; flyer(g, W * (1.2 - k * 1.5), p.y * Hh, p.s * U, t * 14 + p.p, 1); });
+      if (t > 4.1) { g.fillStyle = `rgba(0,0,0,${clamp((t - 4.1) * 2.2)})`; g.fillRect(-20, -20, W + 40, Hh + 40); }
+      g.restore();
+      H.vignette(g, W, Hh, 0.9); H.grain(g, W, Hh, 0.1);
+      const tt = (txt, y, px, col, a) => { g.save(); g.globalAlpha = a; g.font = `900 ${Math.round(px * dpr)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#000'; g.shadowBlur = 14 * dpr; g.fillStyle = col; g.fillText(txt, W / 2, y); g.restore(); };
+      tt('多 眼 鳥 夜 啼', Hh * 0.1, 36, '#f0c8a0', ease(t / 0.8) * (t > 3.2 ? Math.max(0, 1 - (t - 3.2) * 3) : 1));
+      if (t > 4.3) tt('被盯上了：接下來 3 次過路費加倍', Hh * 0.5, 22, '#ffb890', clamp((t - 4.3) * 4));
+    }, snd);
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
