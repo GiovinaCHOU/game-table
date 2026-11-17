@@ -112,7 +112,7 @@
     options: [
       { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
-      { key: 'rounds', label: '遊戲長度', choices: [[0, '有人破產就結束（約 25～30 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
+      { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 25～30 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
     init(n, o, names, now) { return R().init(n, o, now); },
     action(st, seat, a, ctx) {
@@ -140,7 +140,7 @@
         players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
-        pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks
+        pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
       };
     },
 
@@ -514,7 +514,9 @@
       const th = TH()[v.theme];
       if (v.phase === 'over') {
         m.hidden = false;
-        m.innerHTML = `<div class="mm-card over"><h2>🏆 ${U.esc(v.names[v.winner])} 獲勝！</h2>
+        const ew = v.endWhy || {}, dn = (ew.dead || []).map(i => U.esc(v.names[i])).join('、');
+        const why = ew.why === 'bankrupt' ? `${dn} 破產了，這局設定「有人破產就結束」，所以由總資產最多的人獲勝` : ew.why === 'last' ? `其他人都破產了，只剩一位` : ew.why === 'rounds' ? `打滿設定的 ${ew.round} 回合` : ew.why === 'cap' ? `已經到第 ${ew.round} 回合上限` : '';
+        m.innerHTML = `<div class="mm-card over"><h2>🏆 ${U.esc(v.names[v.winner])} 獲勝！</h2>${why ? `<p class="endwhy">結束原因：${why}</p>` : ''}
           <p class="hint">排名看「總資產」＝ 現金 ＋ 地價 ＋ 建築（單位：${th.unit}）</p>
           <table class="atab rank"><tr><th></th><th>玩家</th><th>現金</th><th>地＋建築</th><th>總資產</th></tr>${(v.ranks || []).map((r, k) => `<tr class="${k === 0 ? 'win' : ''}"><td>${k + 1}</td><td>${this.faceHTML(v, r.s, 24)} ${U.esc(v.names[r.s])}</td>${r.w >= 0 ? `<td>${fmt(r.cash)}</td><td>${fmt(r.land + r.bld)}</td><td><b>${fmt(r.w)}</b></td>` : '<td colspan="3">破產</td>'}</tr>`).join('')}</table><div class="act-row"><button class="btn" data-lobby>回遊戲大廳</button></div></div>`;
         m.onclick = null; const lb = m.querySelector('[data-lobby]'); if (lb) { if (v.seat < 0) lb.remove(); else lb.onclick = () => window.backToLobby ? window.backToLobby() : Room.send({ t: 'end' }); } return;

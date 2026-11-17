@@ -251,12 +251,12 @@
     st.phase = 'roll'; st.pending = null;
     if (st.extra) { st.extra = false; if (st.players[st.turn].alive && alive(st).length > 1) { setDeadline(st, now, 15000); return; } }
     const al = alive(st);
-    if (al.length <= 1) return finish(st);
-    if (st.maxRounds === 0 && al.length < st.n) return finish(st); // 有人破產就結束
+    if (al.length <= 1) return finish(st, 'last');
+    if (st.maxRounds === 0 && al.length < st.n) return finish(st, 'bankrupt'); // 有人破產就結束
     let s = st.turn;
     for (let guard = 0; guard < st.n * 4; guard++) {
       s = (s + 1) % st.n;
-      if (s === st.first) { st.round++; if (st.round > (st.maxRounds || ROUND_CAP)) return finish(st); }
+      if (s === st.first) { st.round++; if (st.round > (st.maxRounds || ROUND_CAP)) return finish(st, st.maxRounds ? 'rounds' : 'cap'); }
       const p = st.players[s]; if (!p.alive) continue;
       if (p.skip > 0) { p.skip--; ev(st, { t: 'skip', seat: s }); continue; }
       break;
@@ -266,8 +266,10 @@
     if (np.invest && np.invest.length) { const due = np.invest.filter(r => r <= st.round); if (due.length) { np.invest = np.invest.filter(r => r > st.round); np.cash += 6000 * due.length; ev(st, { t: 'cash', seat: s, amt: 6000 * due.length, why: '投資回收' }); } }
     setDeadline(st, now, 15000);
   }
-  function finish(st) {
+  function finish(st, why) {
     st.phase = 'over'; st.deadline = 0;
+    const dead = st.players.map((p, i) => p.alive ? -1 : i).filter(i => i >= 0);
+    st.endWhy = { why: why || 'cap', dead, round: Math.min(st.round, st.maxRounds || ROUND_CAP) };
     const ranks = U.range(st.n).map(s => { const a = assets(st, s); return { s, w: st.players[s].alive ? a.total : -1, cash: a.cash, land: a.land, bld: a.bld }; }).sort((a, b) => b.w - a.w);
     st.winner = ranks[0].s; st.ranks = ranks;
   }

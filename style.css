@@ -747,3 +747,5 @@ body.res-open.res-peek .res-pill { display: block; }
 /* 畫圖區不要被當成文字選取（iPhone 長按放大鏡、選取泡泡） */
 [data-g="draw"] .dr-area, [data-g="draw"] .dr-tools, [data-g="draw"] .dr-canvas-wrap, .pad, .mono-modal .pad-wrap { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 [data-g="draw"] .dr-canvas-wrap canvas, [data-g="draw"] .dr-overlay { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+.endwhy { font-size: 13px; color: #b5651d; background: #fff3dd; border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px; }
