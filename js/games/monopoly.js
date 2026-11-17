@@ -121,6 +121,7 @@
     },
     tick(st, now) {
       if (!st.deadline || now <= st.deadline || st.phase === 'over') return false;
+      if (st.phase === 'passbuild') { R().act(st, st.turn, { type: 'passbuild', to: -1 }, now); return true; } // 真人逾時：這次不蓋，不幫他花錢
       const w = R().autoAct(st); if (!w) return false;
       R().act(st, w.seat < 0 ? 0 : w.seat, w.a, now); return true;
     },
@@ -216,7 +217,7 @@
         try { const ek = new URLSearchParams(location.search).get('egg'), rm = root.Room && root.Room.room; if (ek && rm && rm.test && root.MONO_EGGS && root.MONO_EGGS[ek] && !this._eggPreviewed) { this._eggPreviewed = true; setTimeout(() => root.MONO_EGGS[ek].call(this, SFX, { eff: ek + ':30000', mul: 1, seat: Math.max(0, this.v.seat), by: -1 }), 3000); } } catch (e) {}
         b.onPan = () => { this._camFree = true; };
         b.onLost = () => { if (this.board !== b || !this.v || !this.ui) return; try { this.destroy(); } catch (e) {} const host = this.el; if (host) { host.dataset.g = ''; this.render(host, this.v, this.ui); } };
-        b.onTap = (h) => { if (h.tile != null && this.canAct('gate')) this.pickGate(h.tile); else if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
+        b.onTap = (h) => { if (h.tile != null && this.canAct('passbuild')) this.pickBuild(h.tile); else if (h.tile != null && this.canAct('gate')) this.pickGate(h.tile); else if (h.tile != null) this.tileInfo(h.tile); else if (h.seat != null) b.focusSeat(h.seat, true); };
         try { if (!localStorage.getItem('mono-hint')) { const hn = el.querySelector('.mono-hint'); hn.hidden = false; setTimeout(() => hn.hidden = true, 6000); localStorage.setItem('mono-hint', '1'); } } catch (x) {}
         b.onStep = () => SFX.step();
         this.syncBoard(true);
@@ -519,6 +520,7 @@
       const v = this.v; if (!this.el || this.playing || !this.el.querySelector('.go-btn')) return;
       if (v.phase === 'quiz' && v.pending && v.pending.quiz) this.quizUI(v.pending, null); else if (!this._revealing) { const qz = this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true; }
       if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
+      if (!(v.phase === 'passbuild' && v.turn === v.seat)) this.buildBar(false);
       if (!(v.phase === 'roll' && v.turn === v.seat && v.players[v.seat] && v.players[v.seat].trance)) this.diceBar(false); else if (this.canAct('roll')) this.diceBar(true);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
@@ -556,6 +558,8 @@
           <div class="act-row"><button class="btn ghost" data-k="">${pd.free ? '都不要' : '不買'}</button></div>
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { this.ui.send({ type: 'shop', k: b.dataset.k || null }); m.hidden = true; });
+      } else if (v.phase === 'passbuild' && v.turn === v.seat) {
+        m.hidden = true; this.buildBar(true); return;
       } else if (v.phase === 'gate' && v.turn === v.seat) {
         m.hidden = true; this.gateBar(true); return;
       } else if (v.phase === 'buyout' && v.turn === v.seat) {
@@ -608,6 +612,33 @@
         if (b) { b.markTiles([to], v.owners[to] === v.seat ? [to] : [], to); b.focusTile(to); }
       });
       bar.querySelector('[data-go]').onclick = () => { if (!pick) return; this._camFree = false; this.ui.send({ type: 'roll', pick }); this.diceBar(false); const g = this.el.querySelector('.go-btn'); if (g) g.disabled = true; SFX.dice(); };
+    },
+    // 經過起點的加蓋：直接點地圖上金色光圈的地（自己的、還能蓋的），或用清單選
+    buildBar(on) {
+      const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.build-bar');
+      if (!on) { if (bar) { bar.remove(); if (this.board) this.board.clearMarks(); this._camFree = false; } this._bldSel = null; return; }
+      if (bar) return; const v = this.v, b = this.board, opts = (v.pending && v.pending.opts) || [];
+      if (b) { this._camFree = true; b.overview(); b.markTiles(opts, opts, null); }
+      bar = document.createElement('div'); bar.className = 'gate-bar build-bar';
+      bar.innerHTML = `<b>🏗️ 經過起點：可以加蓋一層</b><span class="gb-tip">點地圖上<i class="dot gold"></i>金圈的地（你的地、錢夠蓋的）</span>
+        <div class="gate-row"><span class="gb-sel">還沒選</span><button class="btn sm ghost" data-list>用清單選</button><button class="btn sm ghost" data-skip>這次不蓋</button><button class="btn sm" data-go disabled>蓋這裡</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
+      st.appendChild(bar);
+      bar.querySelector('[data-go]').onclick = () => { if (this._bldSel != null) { this.ui.send({ type: 'passbuild', to: this._bldSel }); this.buildBar(false); } };
+      bar.querySelector('[data-skip]').onclick = () => { this.ui.send({ type: 'passbuild', to: -1 }); this.buildBar(false); };
+      bar.querySelector('[data-list]').onclick = () => {
+        const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null;
+        m.innerHTML = `<div class="mm-card"><h3>要加蓋哪一塊？</h3><div class="mi-targets">${opts.map(i => { const t = R().BOARD[i]; return `<button class="btn ghost" data-tl="${i}"><span class="tile-dot" style="background:${t.color}"></span>${U.esc(R().tileName(v.theme, i))}<small>${v.levels[i]} 級 → ${v.levels[i] + 1} 級・${t.up.toLocaleString()}</small></button>`; }).join('')}</div><div class="act-row"><button class="btn ghost" data-x>關閉</button></div></div>`;
+        m.querySelectorAll('[data-tl]').forEach(x => x.onclick = () => { m.hidden = true; this.pickBuild(+x.dataset.tl); });
+        m.querySelector('[data-x]').onclick = () => { m.hidden = true; };
+      };
+    },
+    pickBuild(i) {
+      const bar = this.el.querySelector('.build-bar'); if (!bar) return; const v = this.v, opts = (v.pending && v.pending.opts) || [];
+      if (!opts.includes(i)) { this.fx('這塊不能加蓋', '', v.seat); return; }
+      this._bldSel = i; const t = R().BOARD[i], lv = v.levels[i];
+      const rentNow = R().rentOf ? null : null; void rentNow;
+      bar.querySelector('.gb-sel').innerHTML = `<b>${U.esc(R().tileName(v.theme, i))}</b>：${lv} 級 → ${lv + 1} 級${lv + 1 === 4 ? '（地標！）' : ''}・建築費 ${t.up.toLocaleString()}`; bar.querySelector('[data-go]').disabled = false;
+      if (this.board) { this.board.markTiles(opts, opts, i); this.board.focusTile && this.board.focusTile(i); }
     },
     pickGate(i) {
       const bar = this.el.querySelector('.gate-bar'); if (!bar) return; const v = this.v, b = this.board;

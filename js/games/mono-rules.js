@@ -7,7 +7,7 @@
   const LAYOUT = ['S', 'P0', 'L', 'P0', 'X', 'P1', 'B', 'J', 'P1', 'P2', 'I', 'P2', 'P3', 'B', 'F', 'P3', 'P4', 'L', 'P4', 'X', 'P5', 'G', 'P5', 'I', 'P6', 'P6', 'P7', 'P7'];
   const GROUP_PRICE = [3000, 4000, 5000, 6000, 8000, 9000, 11000, 13000];
   const GROUP_COLOR = ['#8d6e63', '#4fc3f7', '#ec407a', '#ffa726', '#ef5350', '#ffee58', '#66bb6a', '#5c6bc0'];
-  const RENT_MUL = [0.092, 0.35, 0.74, 1.29, 2.02]; // 過路費比原本少約 8%
+  const RENT_MUL = [0.035, 0.11, 0.21, 0.38, 0.62]; // 搭配「經過起點可加蓋」整體下修，等級差距拉開、通膨會讓它越來越貴
   const BUYOUT_MUL = 1.4, ROUND_CAP = 40, SAFETY_CAP = 300; // ROUND_CAP 只給「打到剩一人」以外的舊設定用；破產模式不強制結算
   const START_BONUS = 5000, BOOST = 3000, JAIL = 7;
   // 稅金＝財產稅（總資產分段累進）＋房屋稅（每蓋一級 500，地標一塊 3,000），最少 1,000
@@ -62,7 +62,7 @@
     for (let k = 0; k < Math.abs(steps); k++) {
       pos = (pos + dir + N) % N; path.push(pos);
       if (dir > 0 && pos === 0) {
-        p.cash += START_BONUS; ev(st, { t: 'cash', seat: s, amt: START_BONUS, why: '經過起點' });
+        p.cash += START_BONUS; ev(st, { t: 'cash', seat: s, amt: START_BONUS, why: '經過起點' }); p.buildTicket = 1;
         if (isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
       }
     }
@@ -282,7 +282,11 @@
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
     return false;
   }
+  // 經過起點的加蓋機會：自己的地（未滿 4 級、付得起建築費）任選一塊加蓋一層
+  function buildOpts(st, s) { const p = st.players[s]; return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s && st.levels[t.i] < 4 && p.cash >= t.up).map(t => t.i); }
   function endTurn(st, now) {
+    const cp = st.players[st.turn];
+    if (cp && cp.alive && cp.buildTicket > 0 && st.phase !== 'over') { cp.buildTicket = 0; const opts = buildOpts(st, st.turn); if (opts.length) { st.phase = 'passbuild'; st.pending = { opts }; setDeadline(st, now, 25000); return; } }
     st.phase = 'roll'; st.pending = null;
     if (st.extra) { st.extra = false; if (st.players[st.turn].alive && alive(st).length > 1) { setDeadline(st, now, 15000); return; } }
     const al = alive(st);
@@ -364,7 +368,7 @@
       // 換成自己畫的角色：遊戲中任何時候都可以（選角色時來不及畫的人可以補）
       if (a.type === 'custom') { const p0 = st.players[s]; if (!p0 || !p0.alive) return 'silent'; p0.char = { kind: 'custom', i: p0.char ? p0.char.i : s }; return; }
       // 提示框真的出現在玩家畫面上了：從這一刻起再給完整的 15 秒（網路慢、動畫還沒播完時不會被系統先決定）
-      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + (['gate', 'dicepick'].includes(st.phase) || (st.phase === 'roll' && st.players[s].trance) ? 30000 : 15000)); return; } return 'silent'; }
+      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick', 'passbuild'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + (['gate', 'dicepick', 'passbuild'].includes(st.phase) || (st.phase === 'roll' && st.players[s].trance) ? 30000 : 15000)); return; } return 'silent'; }
       if (s !== st.turn) return '還沒輪到你';
       const p = st.players[s];
       st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
@@ -416,6 +420,12 @@
         else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
         setDeadline(st, now, 15000); return;
       }
+      if (a.type === 'passbuild') {
+        if (st.phase !== 'passbuild') return 'silent';
+        const to = a.to == null ? -1 : a.to | 0;
+        if (to >= 0) { if (!st.pending.opts.includes(to)) return '這塊地不能加蓋'; const t = BOARD[to]; if (p.cash < t.up || st.levels[to] >= 4) return '錢不夠'; p.cash -= t.up; st.levels[to]++; ev(st, { t: 'up', seat: s, tile: to, level: st.levels[to], amt: t.up, pass: true }); st.anim += 1600; }
+        st.pending = null; endTurn(st, now); return;
+      }
       if (a.type === 'gate') {
         if (st.phase !== 'gate') return 'silent';
         const to = a.to | 0; if (to < 0 || to >= N) return '沒有這一格';
@@ -445,6 +455,10 @@
           let best = 7; for (let n = 2; n <= 12; n++) if (score(n) > score(best)) best = n; return { seat: st.turn, a: { type: 'roll', pick: best } };
         }
         return { seat: st.turn, a: { type: 'roll' } };
+      }
+      if (st.phase === 'passbuild') { // 電腦：蓋最高的那塊（最快變地標），但要留 6000 保命錢
+        const p = st.players[st.turn], best = st.pending.opts.filter(i => p.cash - BOARD[i].up >= 6000).sort((x, y) => st.levels[y] - st.levels[x])[0];
+        return { seat: st.turn, a: { type: 'passbuild', to: best == null ? -1 : best } };
       }
       if (st.phase === 'gate') { // 代打：去能升級的自己的地 → 買得起的空地 → 休息站
         const p = st.players[st.turn];
