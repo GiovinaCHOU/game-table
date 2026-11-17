@@ -403,6 +403,13 @@
         [-0.16, 0.16].forEach(x => add(new T.CylinderGeometry(0.035, 0.035, 0.03, 10), M('#c0c0c0', { metalness: 0.8 }), x, 0.37, 0.05));
         [-0.18, 0, 0.18].forEach(x => { add(new T.CylinderGeometry(0.04, 0.04, 0.02, 10), M('#c8402a'), x, 0.16, 0.3); add(new T.CylinderGeometry(0.008, 0.008, 0.15, 5), dark, x, 0.075, 0.3); });
         [-0.18, 0.18].forEach(x => { const wh = add(new T.CylinderGeometry(0.07, 0.07, 0.02, 14), dark, x, 0.07, -0.16); wh.rotation.x = Math.PI / 2; });
+        // 霓虹燈串：沿著屋簷垂成弧線的彩色小燈泡，會輪流閃
+        const bulbs = [], cols = ['#ff2e88', '#3ad0ff', '#ffe04a', '#7aff6a', ctx.color];
+        for (let k = 0; k <= 12; k++) { const u = k / 12, x = -0.3 + u * 0.6, y = 0.69 - Math.sin(u * Math.PI) * 0.06; const b = add(new T.SphereGeometry(0.013, 8, 6), M(cols[k % 5], { emissive: cols[k % 5], emissiveIntensity: 2.4 }), x, y, 0.22); bulbs.push(b); }
+        for (let k = 0; k <= 8; k++) { const u = k / 8, z = 0.22 - u * 0.42, y = 0.69 - Math.sin(u * Math.PI) * 0.05; const b = add(new T.SphereGeometry(0.013, 8, 6), M(cols[(k + 2) % 5], { emissive: cols[(k + 2) % 5], emissiveIntensity: 2.4 }), 0.31, y, z); bulbs.push(b); }
+        const wire = new T.Line(new T.BufferGeometry().setFromPoints(Array.from({ length: 13 }, (_, k) => new T.Vector3(-0.3 + k / 12 * 0.6, 0.69 - Math.sin(k / 12 * Math.PI) * 0.06 + 0.012, 0.22))), new T.LineBasicMaterial({ color: '#111' })); g.add(wire);
+        const ns = add(new T.PlaneGeometry(0.2, 0.07), sign('拉麵', 0.2, 0.07, '#ff2e88'), 0, 0.8, 0.13); ns.rotation.x = -0.18;
+        upd.push(t => bulbs.forEach((b, k) => { b.material.emissiveIntensity = (Math.floor(t * 3) + k) % 3 === 0 ? 0.4 : 2.6; }));
         const steam = []; for (let k = 0; k < 4; k++) { const s = add(new T.SphereGeometry(0.04, 8, 6), new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.3, depthWrite: false }), -0.16, 0.4, 0.05); s.userData.o = k / 4; steam.push(s); }
         upd.push(t => steam.forEach(s => { const p = (t * 0.5 + s.userData.o) % 1; s.position.y = 0.4 + p * 0.35; s.position.x = -0.16 + Math.sin(t * 2 + p * 6) * 0.03; s.scale.setScalar(0.6 + p * 1.5); s.material.opacity = 0.3 * (1 - p); }));
       } else if (level === 2) { // 霓虹小酒館：兩層、捲門、直立招牌、自動販賣機、冷氣、電線
@@ -497,22 +504,24 @@
       add(new T.CylinderGeometry(0.012, 0.012, 0.7, 5), M('#5a4a3a'), -0.36, 0.35, -0.36);
       const fl = add(new T.PlaneGeometry(0.14, 0.4), M(ctx.color, { side: T.DoubleSide }), -0.29, 0.5, -0.36); upd.push(t => { fl.rotation.y = Math.sin(t * 2.5) * 0.35; });
     } else if (theme === 'magic') { // 魔法學院：魔藥攤 → 歪斜魔杖店 → 觀星塔 → 浮空魔法城堡
-      const stone = M('#8a8496', { roughness: 0.85 }), wood = M('#5a3a22', { roughness: 0.85 }), brass = M('#c8a050', { metalness: 0.85, roughness: 0.3 }), win = M('#ffcf6a', { emissive: '#ffb030', emissiveIntensity: 1.6 }), roofM = M(ctx.color, { roughness: 0.5, metalness: 0.15 });
+      const stone = M('#8a8496', { roughness: 0.85 }), wood = M('#5a3a22', { roughness: 0.85 }), brass = M('#c8a050', { metalness: 0.85, roughness: 0.3 }), win = M('#ffcf6a', { emissive: '#ffb030', emissiveIntensity: 1.6 }), roofM = M('#2e3550', { roughness: 0.55, metalness: 0.25 });
+      const pennant = (x, y, z) => { add(new T.CylinderGeometry(0.006, 0.006, 0.2, 4), M('#c8c8d0', { metalness: 0.6 }), x, y + 0.1, z); const f = add(new T.PlaneGeometry(0.1, 0.05), M(ctx.color, { side: T.DoubleSide, emissive: ctx.color, emissiveIntensity: 0.3 }), x + 0.05, y + 0.17, z); upd.push(t => { f.rotation.y = Math.sin(t * 3 + x * 9) * 0.4; }); };
       if (level === 1) { // 魔藥攤：條紋小棚子、三腳大釜、冒泡的綠色魔藥、一排藥瓶
         [-0.2, 0.2].forEach(x => add(new T.CylinderGeometry(0.012, 0.012, 0.5, 6), wood, x, 0.25, -0.12));
-        const awn = add(new T.CylinderGeometry(0.28, 0.28, 0.5, 16, 1, true, 0, Math.PI), M(ctx.color, { side: T.DoubleSide, roughness: 0.7 }), 0, 0.5, -0.12); awn.rotation.z = Math.PI / 2; awn.scale.set(1, 1, 0.45);
+        const awn = add(new T.CylinderGeometry(0.28, 0.28, 0.5, 16, 1, true, 0, Math.PI), M('#3a2a5a', { side: T.DoubleSide, roughness: 0.7 }), 0, 0.5, -0.12); awn.rotation.z = Math.PI / 2; awn.scale.set(1, 1, 0.45);
         add(new T.BoxGeometry(0.46, 0.02, 0.12), wood, 0, 0.26, -0.14); for (let k = 0; k < 5; k++) add(new T.CylinderGeometry(0.018, 0.022, 0.06, 8), M(['#5ae07a', '#c05aff', '#ff5a7a', '#5ac8ff', '#ffd25a'][k], { emissive: ['#2a8040', '#6020a0', '#a02040', '#2070a0', '#a08020'][k], emissiveIntensity: 0.6, transparent: true, opacity: 0.85 }), -0.18 + k * 0.09, 0.3, -0.14);
         const pot = add(new T.SphereGeometry(0.14, 16, 12, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65), M('#1a1a20', { metalness: 0.6, roughness: 0.4, side: T.DoubleSide }), 0, 0.2, 0.1);
         [0, 2.1, 4.2].forEach(a => { const l = add(new T.CylinderGeometry(0.01, 0.01, 0.14, 4), M('#1a1a20'), Math.cos(a) * 0.1, 0.05, 0.1 + Math.sin(a) * 0.1); l.rotation.z = Math.cos(a) * 0.3; });
         const liq = add(new T.CircleGeometry(0.115, 20), M('#5aff7a', { emissive: '#3aff5a', emissiveIntensity: 1.6 }), 0, 0.24, 0.1); liq.rotation.x = -Math.PI / 2; void pot;
         const bub = []; for (let k = 0; k < 5; k++) { const b = add(new T.SphereGeometry(0.02, 8, 6), M('#aaffb0', { emissive: '#5aff7a', emissiveIntensity: 1.2, transparent: true, opacity: 0.8 }), 0, 0.25, 0.1); b.userData.o = k / 5; bub.push(b); }
+        add(new T.CylinderGeometry(0.281, 0.281, 0.04, 16, 1, true, 0, Math.PI), M('#c8a050', { side: T.DoubleSide, metalness: 0.7 }), 0, 0.5, -0.12).rotation.z = Math.PI / 2; pennant(0.2, 0.5, -0.12);
         upd.push(t => bub.forEach((b, k) => { const p = (t * 0.7 + b.userData.o) % 1; b.position.set(Math.sin(k * 2.3) * 0.05, 0.25 + p * 0.3, 0.1 + Math.cos(k * 1.7) * 0.05); b.scale.setScalar(1 + p); b.material.opacity = 0.8 * (1 - p); }));
       } else if (level === 2) { // 歪斜魔杖店：木框屋身往一邊歪、陡屋頂、彎煙囪冒煙、圓窗、掛著的魔杖招牌
         const house = new T.Group(); house.rotation.z = 0.08; g.add(house);
         add(new T.BoxGeometry(0.42, 0.45, 0.38), M('#e8dcc0', { roughness: 0.9 }), 0, 0.225, 0, house);
         for (let k = 0; k < 3; k++) add(new T.BoxGeometry(0.43, 0.025, 0.39), wood, 0, 0.02 + k * 0.21, 0, house);
         [-0.2, 0, 0.2].forEach(x => add(new T.BoxGeometry(0.025, 0.45, 0.39), wood, x, 0.225, 0, house));
-        const roof = add(new T.ConeGeometry(0.36, 0.42, 4), roofM, 0.02, 0.66, 0, house); roof.rotation.set(0, Math.PI / 4, -0.12);
+        const roof = add(new T.ConeGeometry(0.36, 0.42, 4), roofM, 0.02, 0.66, 0, house); roof.rotation.set(0, Math.PI / 4, -0.12); pennant(-0.06, 0.86, 0);
         const chim = add(new T.CylinderGeometry(0.035, 0.045, 0.3, 8), stone, 0.14, 0.82, -0.06, house); chim.rotation.z = -0.25;
         add(new T.CircleGeometry(0.06, 16), win, -0.08, 0.32, 0.192, house); add(new T.BoxGeometry(0.12, 0.18, 0.01), M('#3a2a1a'), 0.09, 0.09, 0.192, house);
         add(new T.BoxGeometry(0.16, 0.06, 0.01), M('#2a1a10'), 0.12, 0.38, 0.24, house); const wand = add(new T.CylinderGeometry(0.005, 0.008, 0.14, 6), brass, 0.12, 0.38, 0.25, house); wand.rotation.z = 1.2;
@@ -527,7 +536,7 @@
         const orr = new T.Group(); orr.position.y = 1.45; g.add(orr);
         [0, 1, 2].forEach(k => { const rg = new T.Mesh(new T.TorusGeometry(0.16 + k * 0.05, 0.008, 6, 40), brass); rg.rotation.set(k * 0.9, k * 0.6, 0); orr.add(rg); });
         const sun = new T.Mesh(new T.SphereGeometry(0.05, 12, 10), M('#ffd27a', { emissive: '#ffb030', emissiveIntensity: 2 })); orr.add(sun);
-        const pl = new T.Mesh(new T.SphereGeometry(0.025, 8, 6), M(ctx.color, { emissive: ctx.color, emissiveIntensity: 1 })); orr.add(pl);
+        const pl = new T.Mesh(new T.SphereGeometry(0.025, 8, 6), M(ctx.color, { emissive: ctx.color, emissiveIntensity: 1 })); orr.add(pl); pennant(0.2, 0.97, 0.05);
         upd.push(t => { orr.children.forEach((c, k) => { if (k < 3) c.rotation.y = t * (0.4 + k * 0.3); }); pl.position.set(Math.cos(t * 1.2) * 0.21, Math.sin(t * 0.6) * 0.05, Math.sin(t * 1.2) * 0.21); });
       } else { // 浮空魔法城堡：城牆＋多座尖塔＋懸浮的水晶與魔法光環
         const tw = (x, z, r, h) => { add(new T.CylinderGeometry(r, r * 1.08, h, 12), stone, x, h / 2, z); add(new T.ConeGeometry(r * 1.35, r * 2.6, 12), roofM, x, h + r * 1.3, z); add(new T.PlaneGeometry(r * 0.5, r * 0.7), win, x, h * 0.65, z + r + 0.005); };
