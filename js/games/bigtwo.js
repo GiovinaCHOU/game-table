@@ -61,13 +61,13 @@
 
   function deal(st) {
     const deck = U.shuffle(U.deck(1));
-    const per = st.n === 2 ? 13 : st.n === 3 ? 17 : 13;
+    const per = st.n === 2 ? 13 : st.n === 3 ? 17 : st.n === 5 ? 10 : 13; // 5 人：每人 10 張，剩 2 張蓋著不用
     st.hands = U.range(st.n).map(i => deck.slice(i * per, i * per + per));
     const c3 = 8; // ♣3 = (3-1)*4+0
     let owner = st.hands.findIndex(h => h.includes(c3));
     if (st.n === 3) { const left = deck[51]; if (owner < 0) owner = 0; st.hands[owner].push(left); }
     st.dealt = st.hands.map(h => h.length);
-    if (owner < 0) { // 兩人局 ♣3 可能沒發到：由最小牌的人先
+    if (owner < 0) { // 2 人／5 人局 ♣3 可能沒發到：由手上最小牌的人先，第一手要含那張
       let best = 1e9; st.hands.forEach((h, i) => h.forEach(c => { if (val(c) < best) { best = val(c); owner = i; } }));
       st.mustCard = st.hands[owner].reduce((a, c) => val(c) < val(a) ? c : a);
     } else st.mustCard = c3;
@@ -75,8 +75,8 @@
   }
 
   const M = {
-    id: 'bigtwo', name: '大老二', icon: '🂡', min: 2, max: 4,
-    desc: '拿到梅花 3 的人先出，而且第一手要包含梅花 3。牌的大小：3 最小，2 最大；同點數時比花色 ♠>♥>♦>♣。可以出單張、對子或五張牌型（順子、同花、葫蘆、鐵支、同花順）。誰先出完誰贏，其他人照剩下的牌數扣分（剩很多 ×2，一張都沒出 ×3）。3 人玩：每人 17 張，多出來的 1 張給拿到梅花 3 的人（18 張）。2 人玩：每人 13 張。',
+    id: 'bigtwo', name: '大老二', icon: '🂡', min: 2, max: 5,
+    desc: '拿到梅花 3 的人先出，而且第一手要包含梅花 3。牌的大小：3 最小，2 最大；同點數時比花色 ♠>♥>♦>♣。可以出單張、對子或五張牌型（順子、同花、葫蘆、鐵支、同花順）。誰先出完誰贏，其他人照剩下的牌數扣分（剩很多 ×2，一張都沒出 ×3）。3 人玩：每人 17 張，多出來的 1 張給拿到梅花 3 的人（18 張）。2 人玩：每人 13 張。5 人玩：每人 10 張，剩 2 張蓋著不用；梅花 3 沒發出去時，由手上最小那張的人先出。',
     options: [{ key: 'bomb', label: '鐵支/同花順', choices: [[1, '可以壓單張和對子'], [0, '只能壓五張牌型']], def: 1 },
       { key: 'tlimit', label: '每手時間', choices: [[30, '30 秒'], [45, '45 秒'], [20, '20 秒'], [0, '不限']], def: 30 }],
     classify: (cards) => fixK(classify(cards), cards), beats,
@@ -119,7 +119,7 @@
     _end(st, w) {
       st.phase = 'over'; st.winner = w;
       // 扣分：剩幾張扣幾分；剩很多（4 人 10 張以上、3 人 13 張以上）×2；一張都沒出過 ×3
-      const dbl = st.n === 3 ? 13 : 10, full = (i) => st.dealt ? st.hands[i].length >= st.dealt[i] : st.hands[i].length >= 13;
+      const dbl = st.n === 3 ? 13 : st.n === 5 ? 8 : 10, full = (i) => st.dealt ? st.hands[i].length >= st.dealt[i] : st.hands[i].length >= 13;
       const pts = st.hands.map((h, i) => i === w ? 0 : -(full(i) ? h.length * 3 : h.length >= dbl ? h.length * 2 : h.length));
       pts[w] = -pts.reduce((a, b) => a + b, 0);
       st.lastPts = pts; pts.forEach((p, i) => st.total[i] += p);
