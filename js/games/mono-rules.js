@@ -162,7 +162,7 @@
     switch (k) {
       // ===== 神佛之境 =====
       case 'sync': st.anim += 6500; p.cash += v; p.freeRent = (p.freeRent || 0) + 1; ev(st, { t: 'cash', seat: s, amt: v, why: '與神同頻' }); break;
-      case 'trance': st.anim += 4500; p.trance = true; ev(st, { t: 'note', seat: s, text: '🔥 神明附身！下次擲骰自己選點數' }); break;
+      case 'trance': st.anim += 5000; p.trance = true; ev(st, { t: 'note', seat: s, text: '🔥 神明附身！下次擲骰自己選點數' }); break;
       case 'ghost': st.anim += 5500; pay(st, s, -1, Math.floor(p.cash * v / 100), '鬼門開'); break;
       case 'birds': st.anim += 5500; p.curse = (p.curse || 0) + v; ev(st, { t: 'note', seat: s, text: `👁️ 被多眼鳥盯上：接下來 ${v} 次過路費加倍` }); break;
       // ===== 魔法學院 =====

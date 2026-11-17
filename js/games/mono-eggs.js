@@ -114,7 +114,8 @@
     }, () => S.psy(SFX, 5.0));
   };
   // 神明附身・起乩：畫面猛晃、角色雙眼發光、鞭炮
-  E.trance = function (SFX, e) {
+  E.trance = function (SFX, e) { if (root.MONO_HORROR && root.MONO_HORROR.trance) return root.MONO_HORROR.trance(this, SFX); return E._tranceOld.call(this, SFX, e); };
+  E._tranceOld = function (SFX, e) {
     const th = root.MONO_THEMES[this.v.theme], p = this.v.players[e.seat], ch = p && p.char && p.char.kind !== 'custom' && th.chars[p.char.i] ? th.chars[p.char.i][0] : '🙏';
     const sparks = Array.from({ length: 120 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(0.2, 0.8), c: ['#ffd23a', '#ff4a2a', '#fff'][Math.floor(Math.random() * 3)] }));
     return this.overlay(3800, (g, W, H, dpr, t) => {

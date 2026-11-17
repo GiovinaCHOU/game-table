@@ -401,3 +401,100 @@
     }, snd);
   };
 })(typeof window !== 'undefined' ? window : globalThis);
+
+// ======================= 神明附身・起乩（重做） =======================
+(function (root) {
+  const H = root.MONO_HORROR, { rnd, ease, clamp } = H;
+  // 乩童剪影：關節式的人形（可以抖、甩頭、舉劍），統一黑色＋金色外緣光
+  function limb(g, x0, y0, x1, y1, w0, w1) { const a = Math.atan2(y1 - y0, x1 - x0), n = a + Math.PI / 2, c = Math.cos(n), sn = Math.sin(n); g.beginPath(); g.moveTo(x0 + c * w0, y0 + sn * w0); g.lineTo(x1 + c * w1, y1 + sn * w1); g.lineTo(x1 - c * w1, y1 - sn * w1); g.lineTo(x0 - c * w0, y0 - sn * w0); g.closePath(); g.fill(); g.beginPath(); g.arc(x0, y0, w0, 0, 7); g.fill(); g.beginPath(); g.arc(x1, y1, w1, 0, 7); g.fill(); }
+  function medium(g, t, s, jerk) {
+    const tw = (f, a) => Math.sin(t * f) * a + (jerk ? rnd(-a, a) * 0.6 : 0);
+    const hip = [0, -150], sh = [tw(17, 6), -300 + tw(9, 4)], hd = [sh[0] + tw(23, 14), sh[1] - 52];
+    g.save(); g.scale(s, s);
+    // 腿（馬步）
+    limb(g, hip[0] - 18, hip[1], -70, -70 + tw(11, 4), 22, 17); limb(g, -70, -70, -88, 0, 17, 14);
+    limb(g, hip[0] + 18, hip[1], 70, -72 + tw(13, 4), 22, 17); limb(g, 70, -72, 92, 0, 17, 14);
+    // 下身褲裙＋軀幹
+    g.beginPath(); g.moveTo(-46, hip[1] - 10); g.lineTo(46, hip[1] - 10); g.lineTo(62, hip[1] + 40); g.lineTo(-62, hip[1] + 40); g.fill();
+    g.beginPath(); g.moveTo(hip[0] - 40, hip[1]); g.bezierCurveTo(hip[0] - 46, hip[1] - 60, sh[0] - 70, sh[1] + 40, sh[0] - 62, sh[1] + 8); g.quadraticCurveTo(sh[0], sh[1] - 22, sh[0] + 62, sh[1] + 8); g.bezierCurveTo(sh[0] + 70, sh[1] + 40, hip[0] + 46, hip[1] - 60, hip[0] + 40, hip[1]); g.closePath(); g.fill();
+    // 舉劍的右手、張開的左手
+    const ra = [sh[0] + 46, sh[1] + 6], re = [ra[0] + 40 + tw(19, 8), ra[1] - 70 + tw(15, 10)], rh = [re[0] + 8 + tw(21, 10), re[1] - 78];
+    limb(g, ra[0], ra[1], re[0], re[1], 16, 13); limb(g, re[0], re[1], rh[0], rh[1], 13, 11);
+    const la = [sh[0] - 46, sh[1] + 6], le = [la[0] - 70 + tw(14, 10), la[1] + 30 + tw(18, 12)], lh = [le[0] - 60, le[1] - 20 + tw(25, 14)];
+    limb(g, la[0], la[1], le[0], le[1], 16, 13); limb(g, le[0], le[1], lh[0], lh[1], 13, 11);
+    // 七星劍
+    g.save(); g.translate(rh[0], rh[1]); g.rotate(-0.25 + tw(20, 0.12)); g.fillRect(-4, -170, 8, 170); g.fillRect(-20, -6, 40, 10); g.beginPath(); g.moveTo(-4, -170); g.lineTo(0, -190); g.lineTo(4, -170); g.fill(); g.restore();
+    // 頭：甩頭時留下殘影
+    for (let k = 3; k >= 0; k--) { const tt = t - k * 0.03, hx = sh[0] + Math.sin(tt * 23) * 14 + Math.sin(tt * 37) * 8, hy = sh[1] - 52 + Math.cos(tt * 29) * 5; g.globalAlpha = k ? 0.25 : 1; g.beginPath(); g.ellipse(hx, hy, 30, 36, Math.sin(tt * 23) * 0.4, 0, 7); g.fill(); g.fillRect(hx - 12, hy + 20, 24, 30); }
+    g.globalAlpha = 1; g.restore();
+    const ht = t, hx = sh[0] + Math.sin(ht * 23) * 14 + Math.sin(ht * 37) * 8, hy = sh[1] - 52 + Math.cos(ht * 29) * 5;
+    return { head: [hx * s, hy * s], sword: [rh[0] * s, (rh[1] - 120) * s], chest: [sh[0] * s, (sh[1] + 70) * s], tilt: Math.sin(ht * 23) * 0.4 };
+  }
+  H.trance = function (ui, SFX) { const self = {};
+    const smoke = H.smoke('incense', [200, 150, 120], 0.42, 19), smoke2 = H.smoke('incense2', [120, 40, 30], 0.35, 29), emb = H.embers(90);
+    const bursts = Array.from({ length: 22 }, () => ({ t: rnd(1.0, 3.6), x: rnd(0.05, 0.95), y: rnd(0.7, 0.98), n: Array.from({ length: 26 }, () => [rnd(0, 6.283), rnd(0.4, 1)]) }));
+    const shreds = Array.from({ length: 60 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0, 6), v: rnd(0.15, 0.4) }));
+    const lanterns = Array.from({ length: 12 }, (_, i) => ({ x: (i + 0.5) / 12 + rnd(-0.03, 0.03), y: rnd(0.08, 0.3), s: rnd(0.6, 1.4) }));
+    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+      // 北管大鼓＋小鼓越打越快
+      for (let i = 0; i < 34; i++) { const d = i < 8 ? i * 0.26 : 2.08 + (i - 8) * 0.075; T(i % 2 ? 98 : 72, 0.14, { type: 'triangle', glide: 45, vol: 0.13, wet: false, delay: d }); N(0.04, { f: 1800, type: 'bandpass', vol: 0.03, delay: d }); }
+      // 大鑼：低頻＋金屬泛音
+      [0.05, 1.6, 3.3].forEach(d => { T(132, 2.4, { vol: 0.08, detune: -25, delay: d }); T(137, 2.4, { vol: 0.06, delay: d }); T(523, 1.6, { vol: 0.02, detune: 30, delay: d }); N(0.9, { f: 3200, type: 'bandpass', q: 2, vol: 0.06, delay: d }); });
+      // 嗩吶般的尖銳旋律
+      [587, 659, 784, 659, 880, 784, 659, 587].forEach((f, i) => T(f, 0.24, { type: 'sawtooth', vol: 0.03, lp: 2600, delay: 1.0 + i * 0.25 }));
+      // 鞭炮
+      bursts.forEach(b => { for (let k = 0; k < 6; k++) N(0.03, { f: 2000 + Math.random() * 3000, type: 'bandpass', q: 2, vol: 0.1, delay: b.t + k * 0.04 }); });
+    };
+    return ui.overlay(4400, (g, W, Hh, dpr, t) => {
+      const U = Math.min(W, Hh) / 420, cx = W / 2, base = Hh * 0.9;
+      const beat = t < 2.08 ? (t % 0.26) / 0.26 : ((t - 2.08) % 0.075) / 0.075, kick = Math.pow(1 - beat, 4), shk = (t > 0.6 ? 3 + Math.min(10, (t - 0.6) * 4) : 1) * kick;
+      g.save(); g.translate(rnd(-shk, shk) * dpr, rnd(-shk, shk) * dpr);
+      // 廟裡：深紅背景、燈籠散景、兩根大紅柱
+      const bg = g.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#1a0404'); bg.addColorStop(0.6, '#3a0a06'); bg.addColorStop(1, '#120202'); g.fillStyle = bg; g.fillRect(-30, -30, W + 60, Hh + 60);
+      lanterns.forEach((l, i) => { const x = l.x * W, y = l.y * Hh, r = 26 * U * l.s, fl = 0.7 + Math.sin(t * 9 + i) * 0.15; const lg = g.createRadialGradient(x, y, 0, x, y, r * 2.2); lg.addColorStop(0, `rgba(255,120,60,${0.55 * fl})`); lg.addColorStop(0.35, `rgba(220,30,20,${0.35 * fl})`); lg.addColorStop(1, 'rgba(120,0,0,0)'); g.fillStyle = lg; g.beginPath(); g.arc(x, y, r * 2.2, 0, 7); g.fill(); });
+      [-1, 1].forEach(sd => { const px = cx + sd * W * 0.42, pg = g.createLinearGradient(px - 30 * U, 0, px + 30 * U, 0); pg.addColorStop(0, '#2a0404'); pg.addColorStop(0.5, '#7a1410'); pg.addColorStop(1, '#1a0202'); g.fillStyle = pg; g.fillRect(px - 26 * U, 0, 52 * U, Hh);
+        g.strokeStyle = 'rgba(220,170,70,.5)'; g.lineWidth = 3 * U; for (let k = 0; k < 6; k++) { const y = ((k * 0.17 + t * 0.03) % 1) * Hh; g.beginPath(); g.moveTo(px - 26 * U, y); g.quadraticCurveTo(px, y + 30 * U, px + 26 * U, y); g.stroke(); } });
+      // 神明的火焰背光：一圈會轉的火，越來越亮
+      const fa = ease((t - 0.4) / 1.6), mx = cx, my = base - 330 * U * 0.95;
+      if (fa > 0) { g.save(); g.globalCompositeOperation = 'lighter';
+        const hg = g.createRadialGradient(mx, my, 40 * U, mx, my, 210 * U); hg.addColorStop(0, `rgba(255,220,120,${0.25 * fa})`); hg.addColorStop(0.6, `rgba(255,120,30,${0.3 * fa})`); hg.addColorStop(1, 'rgba(255,40,0,0)'); g.fillStyle = hg; g.beginPath(); g.arc(mx, my, 210 * U, 0, 7); g.fill();
+        [[0, '255,70,20', 1.5, 0.5], [1, '255,170,40', 1.0, 0.65], [2, '255,240,170', 0.55, 0.7]].forEach(([L, col, len, al]) => { for (let k = 0; k < 54; k++) { const a = k / 54 * 6.283 + t * (0.4 + L * 0.15), r0 = 140 * U, n = Math.sin(k * 12.9 + L) * 0.5 + 0.5, fl = (20 + n * 40 + Math.sin(t * (9 + n * 6) + k * 2.3) * 14) * U * len, bend = Math.sin(t * 5 + k) * 0.12;
+          g.fillStyle = `rgba(${col},${al * fa})`; g.beginPath(); g.moveTo(mx + Math.cos(a - 0.07) * r0, my + Math.sin(a - 0.07) * r0); g.quadraticCurveTo(mx + Math.cos(a - 0.05 + bend) * (r0 + fl * 0.6), my + Math.sin(a - 0.05 + bend) * (r0 + fl * 0.6), mx + Math.cos(a + bend * 1.6) * (r0 + fl), my + Math.sin(a + bend * 1.6) * (r0 + fl)); g.quadraticCurveTo(mx + Math.cos(a + 0.06 + bend) * (r0 + fl * 0.5), my + Math.sin(a + 0.06 + bend) * (r0 + fl * 0.5), mx + Math.cos(a + 0.07) * r0, my + Math.sin(a + 0.07) * r0); g.fill(); } });
+        g.strokeStyle = `rgba(255,230,150,${0.3 * fa})`; g.lineWidth = 2 * U; g.beginPath(); g.arc(mx, my, 140 * U, 0, 7); g.stroke(); g.restore(); }
+      // 香煙
+      H.cloudLayer(g, smoke2, W, Hh, 2.2 * U, t * 10 * U, -t * 30 * U, 0.55);
+      H.cloudLayer(g, smoke, W, Hh, 1.7 * U, -t * 14 * U, -t * 45 * U, 0.28, 'screen');
+      // 乩童：先畫金色外緣光，再畫黑色本體
+      if (!self.fig || self.fig.width !== W) { self.fig = document.createElement('canvas'); self.fig.width = W; self.fig.height = Hh; }
+      const fg = self.fig.getContext('2d'); fg.setTransform(1, 0, 0, 1, 0, 0); fg.clearRect(0, 0, W, Hh); fg.translate(cx, base); fg.fillStyle = '#080202'; const P = medium(fg, t, U * 0.95, kick > 0.5 && t > 0.6);
+      // 紅肚兜＋飄動的紅頭巾
+      fg.fillStyle = '#9a1010'; fg.beginPath(); fg.moveTo(P.chest[0], P.chest[1] - 40 * U); fg.lineTo(P.chest[0] + 32 * U, P.chest[1]); fg.lineTo(P.chest[0], P.chest[1] + 46 * U); fg.lineTo(P.chest[0] - 32 * U, P.chest[1]); fg.fill();
+      fg.fillStyle = '#c8a040'; fg.beginPath(); fg.arc(P.chest[0], P.chest[1], 8 * U, 0, 7); fg.fill();
+      fg.save(); fg.translate(P.head[0], P.head[1] - 12 * U); fg.rotate(P.tilt); fg.fillStyle = '#a81212'; fg.fillRect(-31 * U, -6 * U, 62 * U, 12 * U);
+      for (let k = 0; k < 2; k++) { fg.beginPath(); fg.moveTo(28 * U, -2 * U); for (let q = 1; q <= 8; q++) fg.lineTo((28 + q * 12) * U, (Math.sin(t * 18 + q * 0.9 + k) * q * 2.2 + k * 8) * U); for (let q = 8; q >= 1; q--) fg.lineTo((28 + q * 12) * U, (Math.sin(t * 18 + q * 0.9 + k) * q * 2.2 + k * 8 + 6) * U); fg.fill(); }
+      fg.restore();
+      g.save(); g.shadowColor = 'rgba(255,170,60,.95)'; g.shadowBlur = 28 * dpr; g.drawImage(self.fig, 0, 0); g.shadowBlur = 0; g.drawImage(self.fig, 0, 0); g.restore();
+      // 雙眼發金光
+      if (t > 0.9) { const ex = cx + P.head[0], ey = base + P.head[1] - 6 * U, eo = ease((t - 0.9) / 0.4) * (0.8 + Math.sin(t * 20) * 0.2); g.save(); g.globalCompositeOperation = 'lighter';
+        [-1, 1].forEach(sd => { const x = ex + sd * 11 * U, gr = g.createRadialGradient(x, ey, 0, x, ey, 16 * U); gr.addColorStop(0, `rgba(255,255,230,${eo})`); gr.addColorStop(0.15, `rgba(255,210,80,${eo})`); gr.addColorStop(1, 'rgba(255,120,0,0)'); g.fillStyle = gr; g.fillRect(x - 16 * U, ey - 16 * U, 32 * U, 32 * U);
+          g.strokeStyle = `rgba(255,220,120,${eo * 0.5})`; g.lineWidth = 3 * U; g.beginPath(); g.moveTo(x, ey); g.lineTo(x + sd * 60 * U, ey - 6 * U); g.stroke(); }); g.restore(); }
+      // 劍尖閃光
+      if (t > 1.2) { const sx = cx + P.sword[0], sy = base + P.sword[1]; g.save(); g.globalCompositeOperation = 'lighter'; const sg = g.createRadialGradient(sx, sy, 0, sx, sy, 50 * U * (0.6 + kick)); sg.addColorStop(0, 'rgba(255,255,255,.9)'); sg.addColorStop(1, 'rgba(255,200,100,0)'); g.fillStyle = sg; g.fillRect(sx - 60 * U, sy - 60 * U, 120 * U, 120 * U); g.restore(); }
+      // 鞭炮：亮點炸開＋一團白煙
+      bursts.forEach(b => { const k = t - b.t; if (k < 0 || k > 0.9) return; const bx = b.x * W, by = b.y * Hh; g.save(); g.globalCompositeOperation = 'lighter';
+        if (k < 0.08) { const fg = g.createRadialGradient(bx, by, 0, bx, by, 70 * U); fg.addColorStop(0, 'rgba(255,255,220,1)'); fg.addColorStop(1, 'rgba(255,160,40,0)'); g.fillStyle = fg; g.fillRect(bx - 70 * U, by - 70 * U, 140 * U, 140 * U); }
+        b.n.forEach(([a, v]) => { const r = k * v * 160 * U; g.fillStyle = `rgba(255,${200 + v * 55},120,${1 - k})`; g.fillRect(bx + Math.cos(a) * r, by + Math.sin(a) * r + k * k * 60 * U, 3 * dpr, 3 * dpr); }); g.restore();
+        const sr = (20 + k * 60) * U, sy2 = by - k * 30 * U, smg = g.createRadialGradient(bx, sy2, 0, bx, sy2, sr); smg.addColorStop(0, `rgba(200,190,190,${0.22 * (1 - k)})`); smg.addColorStop(1, 'rgba(200,190,190,0)'); g.fillStyle = smg; g.fillRect(bx - sr, sy2 - sr, sr * 2, sr * 2); });
+      // 紅色鞭炮紙屑
+      if (t > 1.0) shreds.forEach(p => { const y = ((p.y + (t - 1) * p.v) % 1); g.save(); g.translate(p.x * W + Math.sin(t * 3 + p.r) * 20 * U, y * Hh); g.rotate(t * 5 + p.r); g.scale(1, Math.sin(t * 7 + p.r)); g.fillStyle = 'rgba(200,20,20,.9)'; g.fillRect(-5 * U, -3 * U, 10 * U, 6 * U); g.restore(); });
+      H.drawEmbers(g, emb, W, Hh, t, dpr, 'rgba(255,190,90,A)', 1.2);
+      g.restore();
+      // 閃光節拍
+      if (t > 2.08) { g.fillStyle = `rgba(255,200,120,${kick * 0.12})`; g.fillRect(0, 0, W, Hh); }
+      H.vignette(g, W, Hh, 0.85); H.grain(g, W, Hh, 0.08);
+      const tt = (txt, y, px, col, a) => { g.save(); g.globalAlpha = a; g.font = `900 ${Math.round(px * dpr)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#000'; g.shadowBlur = 14 * dpr; g.fillStyle = col; g.fillText(txt, W / 2, y); g.restore(); };
+      tt('神 明 附 身', Hh * 0.08, 38, '#ffe0a0', ease((t - 0.9) / 0.5));
+      if (t > 2.6) tt('下一次擲骰：點數由你決定', Hh * 0.95, 22, '#fff1d0', clamp((t - 2.6) * 3));
+    }, snd);
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
