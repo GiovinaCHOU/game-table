@@ -137,7 +137,7 @@
     view(st, seat) {
       return {
         theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
         pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
@@ -202,7 +202,7 @@
           <div class="mono-pick" hidden></div>
         </div>`;
       this.el = el;
-      el.querySelector('.go-btn').onclick = () => { if (this.canAct('roll')) { this.ui.send({ type: 'roll' }); el.querySelector('.go-btn').disabled = true; SFX.dice(); } };
+      el.querySelector('.go-btn').onclick = () => { if (!this.canAct('roll')) return; if (this.v.players[this.v.seat].trance) return this.diceBar(true); this.ui.send({ type: 'roll' }); el.querySelector('.go-btn').disabled = true; SFX.dice(); };
       el.querySelector('[data-t="me"]').onclick = () => { if (this.board && this.v.seat >= 0) this.board.focusSeat(this.v.seat, true); };
       el.querySelector('[data-t="all"]').onclick = () => { if (this.board) this.board.overview(); };
       el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; if (this.board && this.board.setQuality) this.board.setQuality(nq === 'high'); this.ui.toast(nq === 'high' ? '高畫質：更清晰、有陰影（比較耗電）' : '省電畫質：解析度低一點、沒有陰影'); };
@@ -506,11 +506,12 @@
       const v = this.v; if (!this.el || this.playing || !this.el.querySelector('.go-btn')) return;
       if (v.phase === 'quiz' && v.pending && v.pending.quiz) this.quizUI(v.pending, null); else if (!this._revealing) { const qz = this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true; }
       if (!(v.phase === 'gate' && v.turn === v.seat)) this.gateBar(false);
+      if (!(v.phase === 'roll' && v.turn === v.seat && v.players[v.seat] && v.players[v.seat].trance)) this.diceBar(false); else if (this.canAct('roll')) this.diceBar(true);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
       if (!m.hidden && m.querySelector('.pad')) return;
       // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）
-      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); if (this._decAt && v.phase !== 'roll') root.Room.diagPd = Date.now() - this._decAt; }
+      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); if (this._decAt && v.phase !== 'roll') root.Room.diagPd = Date.now() - this._decAt; }
       const th = TH()[v.theme];
       if (v.phase === 'over') {
         m.hidden = false;
@@ -538,6 +539,7 @@
         m.innerHTML = `<div class="mm-card shop-card"><h3>${pd.free ? '🎁 休息站：免費挑一張道具' : `${U.esc(I.tile)}：要買道具嗎？`}</h3>
           ${pd.free ? '<p class="hint">免費的，不算購買次數</p>' : `<p class="hint">這是你的第 ${pd.nth} 次購買，越買越貴（每 ${MI.RESET} 回合歸零）</p>`}
           <div class="shop-row">${pd.offers.map((k, j) => `<button class="shop-it" data-k="${k}" ${me.cash < pd.prices[j] ? 'disabled' : ''}><i>${I[k][1]}</i><b>${I[k][0]}</b><small>${MI.DESC[k]}</small><em>${pd.prices[j] ? `${fmt(pd.prices[j])}<u>${th.unit}</u>` : '免費'}</em></button>`).join('')}</div>
+          <p class="shop-rule">🎒 背包最多放 3 個道具・要在<b>擲骰子之前</b>使用（點左下角的道具）</p>
           <div class="act-row"><button class="btn ghost" data-k="">${pd.free ? '都不要' : '不買'}</button></div>
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { this.ui.send({ type: 'shop', k: b.dataset.k || null }); m.hidden = true; });
@@ -555,19 +557,52 @@
       } else if (!m.querySelector('.tinfo')) m.hidden = true;
     },
     // 星門：選目的地（點地圖上的格子，或用下拉選單）
+    // 傳送／自選格子：直接點地圖。進入時自動切到全景，自己的地是金色光圈；第一下選、按確認才送出
     gateBar(on) {
       const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.gate-bar');
-      if (!on) { if (bar) bar.remove(); return; }
-      if (bar) return; const v = this.v;
+      if (!on) { if (bar) bar.remove(); if (this.board) this.board.clearMarks(); this._gateSel = null; return; }
+      if (bar) return; const v = this.v, b = this.board;
+      const all = R().BOARD.map(t => t.i), mine = all.filter(i => v.owners[i] === v.seat);
+      if (b) { this._camFree = true; b.overview(); b.markTiles(all, mine, null); }
       bar = document.createElement('div'); bar.className = 'gate-bar';
-      bar.innerHTML = `<b>🌀 星門啟動：點地圖上任一格，或從選單挑</b><div class="gate-row"><select>${R().BOARD.map(t => `<option value="${t.i}">${U.esc(R().tileName(v.theme, t.i))}${t.type === 'prop' ? (v.owners[t.i] === v.seat ? '（我的 Lv' + v.levels[t.i] + '）' : v.owners[t.i] >= 0 ? '（' + U.esc(v.names[v.owners[t.i]]) + '）' : '（空地 ' + fmt(t.price) + '）') : ''}</option>`).join('')}</select><button class="btn sm">傳送</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
+      bar.innerHTML = `<b>🌀 選一格傳送過去</b><span class="gb-tip">直接點地圖上的格子（<i class="dot gold"></i>金圈是你的地）</span>
+        <div class="gate-row"><span class="gb-sel">還沒選</span><button class="btn sm ghost" data-list>用清單選</button><button class="btn sm" data-go disabled>傳送到這裡</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
       st.appendChild(bar);
-      bar.querySelector('button').onclick = () => this.pickGate(+bar.querySelector('select').value);
+      bar.querySelector('[data-go]').onclick = () => { if (this._gateSel != null) { this._camFree = false; this.ui.send({ type: 'gate', to: this._gateSel }); this.gateBar(false); } };
+      bar.querySelector('[data-list]').onclick = () => {
+        const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null;
+        m.innerHTML = `<div class="mm-card"><h3>選要傳送的格子</h3><div class="mi-targets">${R().BOARD.map(t => `<button class="btn ghost" data-tl="${t.i}">${t.color ? `<span class="tile-dot" style="background:${t.color}"></span>` : ''}${U.esc(R().tileName(v.theme, t.i))}<small>${v.owners[t.i] === v.seat ? '你的地' : v.owners[t.i] >= 0 ? U.esc(v.names[v.owners[t.i]]) + ' 的地' : t.type === 'prop' ? '空地' : ''}</small></button>`).join('')}</div><div class="act-row"><button class="btn ghost" data-x>關閉</button></div></div>`;
+        m.querySelectorAll('[data-tl]').forEach(x => x.onclick = () => { m.hidden = true; this.pickGate(+x.dataset.tl); });
+        m.querySelector('[data-x]').onclick = () => { m.hidden = true; };
+      };
+    },
+    // 神明附身：自己選這次要走幾步，選了會在地圖上標出會停在哪
+    diceBar(on) {
+      const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.dice-bar');
+      if (!on) { if (bar) bar.remove(); if (this.board) this.board.clearMarks(); return; }
+      if (bar) return; const v = this.v, b = this.board, me = v.players[v.seat];
+      if (b) { this._camFree = true; b.overview(); }
+      bar = document.createElement('div'); bar.className = 'gate-bar dice-bar';
+      bar.innerHTML = `<b>🔥 神明附身：這次要走幾步？</b><span class="gb-tip">點數字，地圖上會標出會停在哪一格</span>
+        <div class="dice-nums">${[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => `<button class="btn ghost sm" data-n="${n}">${n}</button>`).join('')}</div>
+        <div class="gate-row"><span class="gb-sel">還沒選</span><button class="btn sm" data-go disabled>走！</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
+      st.appendChild(bar); let pick = 0;
+      bar.querySelectorAll('[data-n]').forEach(x => x.onclick = () => {
+        pick = +x.dataset.n; bar.querySelectorAll('[data-n]').forEach(y => y.classList.toggle('on', y === x));
+        const to = (me.pos + pick) % R().N, t = R().BOARD[to];
+        const own = v.owners[to] === v.seat ? '（你的地）' : v.owners[to] >= 0 ? `（${U.esc(v.names[v.owners[to]])} 的地，要付過路費）` : t.type === 'prop' ? '（空地，可以買）' : '';
+        bar.querySelector('.gb-sel').innerHTML = `停在 <b>${U.esc(R().tileName(v.theme, to))}</b>${own}`; bar.querySelector('[data-go]').disabled = false;
+        if (b) { b.markTiles([to], v.owners[to] === v.seat ? [to] : [], to); b.focusTile(to); }
+      });
+      bar.querySelector('[data-go]').onclick = () => { if (!pick) return; this._camFree = false; this.ui.send({ type: 'roll', pick }); this.diceBar(false); const g = this.el.querySelector('.go-btn'); if (g) g.disabled = true; SFX.dice(); };
     },
     pickGate(i) {
-      const bar = this.el.querySelector('.gate-bar'); const sel = bar && bar.querySelector('select');
-      if (sel && String(sel.value) !== String(i)) { sel.value = i; if (this.board) this.board.focusTile && this.board.focusTile(i); this.ui.toast('再按一次「傳送」確認'); return; }
-      this.ui.send({ type: 'gate', to: i }); this.gateBar(false);
+      const bar = this.el.querySelector('.gate-bar'); if (!bar) return; const v = this.v, b = this.board;
+      this._gateSel = i; const t = R().BOARD[i];
+      const own = v.owners[i] === v.seat ? '（你的地）' : v.owners[i] >= 0 ? `（${U.esc(v.names[v.owners[i]])} 的地，要付過路費）` : t.type === 'prop' ? '（空地，可以買）' : '';
+      bar.querySelector('.gb-sel').innerHTML = `<b>${U.esc(R().tileName(v.theme, i))}</b>${own}`; bar.querySelector('[data-go]').disabled = false;
+      if (b) { const all = R().BOARD.map(x => x.i); b.markTiles(all, all.filter(k => v.owners[k] === v.seat), i); }
+      SFX.click && SFX.click();
     },
     // 全螢幕 3 秒星門穿越動畫（光帶隧道＋行星被拉長）
     stargate() {

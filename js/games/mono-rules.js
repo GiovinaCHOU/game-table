@@ -214,7 +214,7 @@
     animal: { tile: '松鼠的寶藏', trap: ['香蕉皮', '🍌'], steal: ['浣熊順手牽羊', '🦝'], invest: ['松鼠存糧', '🐿️'], bomb: ['河馬踩踏', '🦛'], shield: ['龜殼護盾', '🐢'] },
     alien: { tile: '遺落艙', trap: ['寄生卵', '🥚'], steal: ['觸手竊取', '🦑'], invest: ['孢子培養', '🍄'], bomb: ['孢子腐蝕', '☣️'], shield: ['幾丁質護甲', '🪲'] }
   };
-  const ITEM_DESC = { trap: '選一位玩家，讓他下回合停一輪', steal: '拿走對方現金的 15%：偷比你有錢的人最多 3 萬，偷比你窮的人最多 3,000', invest: '用了之後 3 回合拿回 6,000（後期會跟著通膨變多；期間破產就拿不回來）', bomb: '選別人一塊有建築的地，建築降一級', shield: '拿在手上就生效：自動擋下下一次別人對你用的道具' };
+  const ITEM_DESC = { trap: '讓一位玩家下回合停一輪', steal: '偷對方現金 15%（偷比你有錢的最多 3 萬，比你窮的最多 3 千）', invest: '3 回合後拿回 6,000（後期會變多）', bomb: '炸掉別人一塊地的一層房子', shield: '放著就生效：擋下別人對你用的下一個道具' };
   root.MONO_ITEMS = { KEYS: ITEM_KEYS, MAX: ITEM_MAX, NAMES: ITEMS, DESC: ITEM_DESC };
   // 價格：依道具強度分級 × 自己第幾次購買（越買越貴），每 25 回合歸零；錢最少的人 5 折；後期跟著通膨（最多 3 倍）
   const ITEM_BASE = { invest: 1000, shield: 1500, trap: 2000, bomb: 2500, steal: 3000 }, ITEM_MULT = [1, 2, 3.5, 5], ITEM_RESET = 25;
@@ -345,13 +345,15 @@
       // 換成自己畫的角色：遊戲中任何時候都可以（選角色時來不及畫的人可以補）
       if (a.type === 'custom') { const p0 = st.players[s]; if (!p0 || !p0.alive) return 'silent'; p0.char = { kind: 'custom', i: p0.char ? p0.char.i : s }; return; }
       // 提示框真的出現在玩家畫面上了：從這一刻起再給完整的 15 秒（網路慢、動畫還沒播完時不會被系統先決定）
-      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + 15000); return; } return 'silent'; }
+      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + (['gate', 'dicepick'].includes(st.phase) || (st.phase === 'roll' && st.players[s].trance) ? 30000 : 15000)); return; } return 'silent'; }
       if (s !== st.turn) return '還沒輪到你';
       const p = st.players[s];
       st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
       if (a.type === 'roll') {
         if (st.phase !== 'roll') return 'silent';
-        const d = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
+        let d = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
+        // 神明附身：這一次可以自己決定點數（2～12）
+        if (p.trance) { const n = a.pick | 0; if (n >= 2 && n <= 12) d = [Math.ceil(n / 2), Math.floor(n / 2)]; p.trance = false; }
         st.dice = d; ev(st, { t: 'dice', seat: s, d });
         moveTo(st, s, d[0] + d[1]);
         if (!land(st, s, 0)) endTurn(st, now); else setDeadline(st, now, 15000);

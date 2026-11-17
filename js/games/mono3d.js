@@ -123,6 +123,7 @@
       const hit = ray.intersectObjects(this.tileMeshes, false)[0]; if (hit) this.onTap({ tile: hit.object.userData.i });
     }
     frame() {
+      if (this._marks && this._marks.length) { const k = (performance.now() - this._markT) / 1000; this._marks.forEach((m, j) => { m.material.opacity = (m.scale.x > 1.1 ? 0.75 : 0.35) + Math.sin(k * 4 + j * 0.5) * 0.2; }); }
       const now = performance.now(), dt = Math.min(0.05, (now - this.last) / 1000); this.last = now; const t = (now - this.t0) / 1000;
       this.anim = this.anim.filter(a => { const k = Math.min(1, (now - a.start) / a.dur); a.step(k); if (k >= 1) { a.done && a.done(); return false; } return true; });
       if (this.following != null && this.tokens[this.following]) { const p = this.tokens[this.following].r.g.position; this.goal.target.set(p.x, 0, p.z); this.clampGoal(); }
@@ -168,6 +169,14 @@
         this.scene.add(top); this.tileMeshes.push(top);
       }
     }
+    // 選格子模式：把可以選的格子打上光圈（自己的地金色、其他白色），選中的那格會跳動
+    markTiles(list, mine, sel) {
+      const T = THREE; this.clearMarks(); this._marks = [];
+      for (const i of list) { const [x, z] = tileXZ(i); const g = new T.Mesh(new T.RingGeometry(0.55, 0.72, 40), new T.MeshBasicMaterial({ color: i === sel ? '#3ef0ff' : mine.includes(i) ? '#ffd36e' : '#ffffff', transparent: true, opacity: i === sel ? 0.95 : 0.55, depthWrite: false, side: T.DoubleSide }));
+        g.rotation.x = -Math.PI / 2; g.position.set(x, 0.12, z); g.userData.i = i; this.scene.add(g); this._marks.push(g); if (i === sel) { g.scale.setScalar(1.25); } }
+      this._markT = performance.now();
+    }
+    clearMarks() { (this._marks || []).forEach(m => { this.scene.remove(m); m.geometry.dispose(); m.material.dispose(); }); this._marks = []; }
     pulseTile(i) { const m = this.tileMeshes[i]; if (!m) return; this.tween(500, k => { m.position.y = 0.005 + Math.sin(k * Math.PI) * 0.08; }); }
 
     // ================= 建築 =================

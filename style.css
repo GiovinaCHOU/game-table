@@ -770,3 +770,14 @@ body.res-open.res-peek .res-pill { display: block; }
 .tp-card.spin { transform: scale(1.04); border-color: #3ef0ff; box-shadow: 0 0 0 3px #3ef0ff, 0 0 26px rgba(62,240,255,.8); }
 .tp-card.won { animation: tpWon .6s ease-out 2; }
 @keyframes tpWon { 50% { transform: scale(1.08); box-shadow: 0 0 0 4px #ffd36e, 0 0 40px rgba(255,211,110,.95); } }
+
+.gate-bar .gb-tip { display: block; font-size: 12px; opacity: .85; margin: 2px 0 6px; }
+.gate-bar .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #ffd36e; vertical-align: -1px; }
+.gate-bar .gb-sel { flex: 1; font-size: 13px; min-width: 0; }
+.gate-bar .gate-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+.dice-nums { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-bottom: 6px; }
+.dice-nums .btn { min-width: 38px; padding: 6px 0; color: #fff; }
+.dice-nums .btn.on { background: #ffd36e; color: #2b1a00; box-shadow: 0 0 12px rgba(255,211,110,.7); }
+
+.shop-rule { font-size: 12px; color: #7a6a55; background: #f6efe1; border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px; }
