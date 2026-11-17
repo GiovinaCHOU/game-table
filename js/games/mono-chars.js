@@ -329,6 +329,23 @@
     return r;
   }
 
+  // ---------- 花紋貼圖（布料刺繡、鱗片、羽毛、星星…），讓衣服和身體有細節 ----------
+  const PATC = {};
+  function PAT(T, kind, c1, c2, rep) {
+    const key = kind + c1 + c2 + (rep || ''); if (PATC[key]) return PATC[key];
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = c1; g.fillRect(0, 0, 256, 256); g.strokeStyle = g.fillStyle = c2;
+    if (kind === 'cloud') { g.lineWidth = 5; for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) { const cx = x * 86 + (y % 2) * 43 + 20, cy = y * 86 + 40; g.beginPath(); g.arc(cx, cy, 16, Math.PI, Math.PI * 2.3); g.stroke(); g.beginPath(); g.arc(cx + 20, cy + 8, 11, Math.PI * 1.1, Math.PI * 2.5); g.stroke(); g.beginPath(); g.moveTo(cx - 16, cy + 4); g.quadraticCurveTo(cx + 8, cy + 26, cx + 34, cy + 14); g.stroke(); } }
+    if (kind === 'scales') { for (let y = -1; y < 9; y++) for (let x = -1; x < 9; x++) { const cx = x * 32 + (y % 2) * 16, cy = y * 28; const gr = g.createRadialGradient(cx, cy + 6, 2, cx, cy + 4, 20); gr.addColorStop(0, c2); gr.addColorStop(1, c1); g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, 17, 0, Math.PI); g.fill(); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, 17, 0, Math.PI); g.stroke(); } }
+    if (kind === 'feathers') { for (let y = -1; y < 10; y++) for (let x = -1; x < 9; x++) { const cx = x * 30 + (y % 2) * 15, cy = y * 26; g.fillStyle = (x + y) % 3 ? c2 : c1; g.beginPath(); g.moveTo(cx - 14, cy); g.quadraticCurveTo(cx, cy + 34, cx + 14, cy); g.closePath(); g.fill(); g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy + 24); g.stroke(); } }
+    if (kind === 'stars') { g.globalAlpha = 0.9; for (let k = 0; k < 26; k++) { const x = (k * 97) % 256, y = (k * 61) % 256, r = 4 + (k % 4) * 3; g.beginPath(); for (let q = 0; q < 10; q++) { const a = q * Math.PI / 5 - Math.PI / 2, rr = q % 2 ? r * 0.42 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.fill(); } g.globalAlpha = 0.5; for (let k = 0; k < 50; k++) { g.beginPath(); g.arc((k * 53) % 256, (k * 131) % 256, 1.5, 0, 7); g.fill(); } }
+    if (kind === 'fur') { g.lineCap = 'round'; for (let k = 0; k < 900; k++) { const x = Math.random() * 256, y = Math.random() * 256, l = 6 + Math.random() * 10; g.strokeStyle = Math.random() < 0.5 ? c2 : 'rgba(0,0,0,.25)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 4, y + l); g.stroke(); } }
+    if (kind === 'brocade') { g.lineWidth = 3; for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { const cx = x * 64 + 32 + (y % 2) * 32, cy = y * 64 + 32; g.beginPath(); for (let q = 0; q < 8; q++) { const a = q * Math.PI / 4; g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * 14, cy + Math.sin(a) * 14); } g.stroke(); g.beginPath(); g.arc(cx, cy, 20, 0, 7); g.stroke(); g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill(); } }
+    if (kind === 'stripes') { for (let y = 0; y < 256; y += 32) { g.fillRect(0, y, 256, 10); } }
+    if (kind === 'plates') { g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.4)'; for (let y = 0; y < 256; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); } g.fillStyle = c2; for (let y = 16; y < 256; y += 32) for (let x = 16; x < 256; x += 48) { g.beginPath(); g.arc(x + (y / 32 % 2) * 24, y, 4, 0, 7); g.fill(); } }
+    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep || 2, rep || 2); return (PATC[key] = t);
+  }
+  const PM = (T, kind, c1, c2, rep, e) => M(T, '#ffffff', Object.assign({ map: PAT(T, kind, c1, c2, rep) }, e || {}));
+
   // ---------- 蛇類（那伽、大巨蛇）：盤起的身體＋抬起的頭 ----------
   function serpent(T, o) {
     const g = new T.Group(), body = new T.Group(); g.add(body);
@@ -352,7 +369,7 @@
     const gold = M(T, '#e0b040', { metalness: 0.85, roughness: 0.25 }), red = M(T, '#c21d24', { roughness: 0.5 });
     if (i === 3 || i === 6) { // 舞獅／雪獅
       const snow = i === 6, furC = snow ? '#f4f6f8' : '#d82a22', mane = M(T, snow ? '#3fc0c8' : '#ffcf3a', { roughness: 0.9 });
-      const r = quadruped(T, { bodyMat: M(T, furC, { roughness: 0.9 }), legMat: M(T, snow ? '#e8eef0' : '#f2e6c8', { roughness: 0.9 }), headR: 0.2, len: 0.48, height: 0.3, legR: 0.055, neck: 0.08, tail: { r: 0.05, len: 0.2, lift: 0.8, mat: mane }, iris: '#1a1a1a' });
+      const r = quadruped(T, { bodyMat: snow ? PM(T, 'fur', '#f2f6f8', '#c8dce4', 2, { roughness: 0.95 }) : PM(T, 'scales', '#c81e1a', '#ffcf3a', 3, { roughness: 0.6 }), legMat: snow ? PM(T, 'fur', '#e8eef0', '#c0d0d8', 2, { roughness: 0.95 }) : PM(T, 'stripes', '#f2e6c8', '#d82a22', 2, { roughness: 0.8 }), headR: 0.2, len: 0.48, height: 0.3, legR: 0.055, neck: 0.08, tail: { r: 0.05, len: 0.2, lift: 0.8, mat: mane }, iris: '#1a1a1a' });
       r.skull.scale.set(1.15, 1, 1.05);
       if (!snow) { const horn = mesh(T, new T.ConeGeometry(0.035, 0.12, 8), gold, 0, 0.21, 0.04, r.head); horn.rotation.x = -0.3; mesh(T, new T.SphereGeometry(0.07, 10, 8), M(T, '#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.3 }), 0, 0.2, 0.08, r.head).scale.set(1.4, 0.5, 0.6); } // 獅頭鏡
       const mouth = mesh(T, new T.BoxGeometry(0.22, 0.05, 0.08), M(T, '#2a0a0a'), 0, -0.1, 0.17, r.head); void mouth;
@@ -364,7 +381,7 @@
       return r;
     }
     if (i === 5) { // 那伽：多頭蛇，鱗片金邊，頭冠展開
-      const r = serpent(T, { mat: M(T, '#2f8fd8', { roughness: 0.3, metalness: 0.4 }), eyeMat: M(T, '#ffd23a', { emissive: '#ffb000', emissiveIntensity: 2 }), thick: 0.075, headR: 0.1 });
+      const r = serpent(T, { mat: PM(T, 'scales', '#1f6fb8', '#7ad8ff', 6, { roughness: 0.35, metalness: 0.3 }), eyeMat: M(T, '#ffd23a', { emissive: '#ffb000', emissiveIntensity: 2 }), thick: 0.075, headR: 0.1 });
       for (let k = -2; k <= 2; k++) { if (!k) continue; const h = mesh(T, new T.SphereGeometry(0.07, 10, 8), r.skull.material, k * 0.08, -0.02 - Math.abs(k) * 0.03, -0.04, r.head); h.scale.set(1, 0.7, 1.4); [-1, 1].forEach(sd => mesh(T, new T.SphereGeometry(0.012, 6, 4), M(T, '#ffd23a', { emissive: '#ffb000', emissiveIntensity: 2 }), k * 0.08 + sd * 0.03, 0, 0.04, r.head)); }
       const hood = mesh(T, new T.SphereGeometry(0.22, 16, 8, 0, Math.PI, 0, Math.PI), gold, 0, 0.02, -0.08, r.head); hood.scale.set(1.2, 1, 0.2); hood.rotation.y = Math.PI;
       for (let k = 0; k < 5; k++) mesh(T, new T.ConeGeometry(0.02, 0.1, 6), gold, (k - 2) * 0.07, 0.2 - Math.abs(k - 2) * 0.03, -0.08, r.head);
@@ -373,7 +390,8 @@
     }
     const skinC = { 0: '#ffd6c6', 1: '#f4f4f2', 2: '#1e1e26', 4: '#3fa868', 7: '#c8202a' }[i];
     const robeC = { 0: '#e0b040', 1: '#f2f0ea', 2: '#22222a', 4: '#7a3ac8', 7: '#2a2a32' }[i];
-    const skin = M(T, skinC, { roughness: 0.6 }), robe = M(T, robeC, { roughness: 0.7, metalness: i === 0 ? 0.6 : 0 });
+    const skin = M(T, skinC, { roughness: 0.6 });
+    const robe = i === 0 ? PM(T, 'plates', '#d8a838', '#fff0a0', 2, { metalness: 0.55, roughness: 0.35 }) : i === 1 ? PM(T, 'cloud', '#f2f0ea', '#c8c0b0', 2, { roughness: 0.75 }) : i === 2 ? PM(T, 'cloud', '#22222a', '#4a4a5a', 2, { roughness: 0.75 }) : i === 4 ? PM(T, 'brocade', '#6a2ab8', '#e0b040', 2, { roughness: 0.6 }) : PM(T, 'cloud', '#2a2a32', '#55556a', 2, { roughness: 0.8 });
     const r = humanoid(T, { bodyMat: robe, legMat: i === 0 ? red : robe, armMat: i === 4 ? skin : robe, headMat: skin, handMat: skin, iris: i === 2 || i === 4 ? '#ffffff' : '#1a120c', scale: i === 1 ? 1.22 : i === 0 ? 0.95 : 1, headR: i === 0 ? 0.19 : 0.13 });
     const skirt = mesh(T, new T.CylinderGeometry(0.13, 0.2, 0.3, 16, 1, true), M(T, robeC, { side: T.DoubleSide, roughness: 0.7 }), 0, 0.38, 0, r.body); void skirt;
     if (i === 0) { // 電音三太子：大頭、雙髻、墨鏡、金甲、紅肚兜、奶嘴
@@ -420,13 +438,31 @@
       const fm = M(T, '#1a1a22', { roughness: 0.8 }); [-1, 1].forEach(sd => wing(T, fm, sd, r.body, sd * 0.08, 0.78, -0.12, 1.1));
       const fan = mesh(T, new T.CircleGeometry(0.11, 10, Math.PI * 0.2, Math.PI * 0.6), M(T, '#3a5a2a', { side: T.DoubleSide }), 0, 0.12, 0, r.handR); void fan;
       mesh(T, new T.TorusGeometry(0.13, 0.02, 6, 18), M(T, color), 0, 0.5, 0, r.body).rotation.x = Math.PI / 2;
+      // 山伏的結袈裟（胸前一排毛球）＋一本齒木屐
+      for (let k = 0; k < 3; k++) mesh(T, new T.SphereGeometry(0.03, 10, 8), M(T, '#f0f0f0', { roughness: 1 }), 0, 0.72 - k * 0.07, 0.11, r.body);
+      r.legs.forEach(l => { mesh(T, new T.BoxGeometry(0.09, 0.025, 0.15), M(T, '#7a5030'), 0, -0.33, 0.01, l); mesh(T, new T.BoxGeometry(0.02, 0.06, 0.12), M(T, '#5a3a20'), 0, -0.37, 0.01, l); });
+    }
+    if (i === 0) { // 三太子：乾坤圈、腳踩風火輪、紅肚兜金邊、肩甲
+      const ring = mesh(T, new T.TorusGeometry(0.06, 0.014, 8, 20), gold, 0, -0.05, 0, r.handL); ring.rotation.x = Math.PI / 2;
+      r.legs.forEach(l => { const w = mesh(T, new T.TorusGeometry(0.07, 0.022, 8, 22), M(T, '#ff6a1a', { emissive: '#ff3a00', emissiveIntensity: 1.2 }), 0, -0.36, 0, l); w.rotation.y = Math.PI / 2; const f = mesh(T, new T.ConeGeometry(0.05, 0.12, 8), M(T, '#ffd23a', { emissive: '#ff8a00', emissiveIntensity: 1.6, transparent: true, opacity: 0.85 }), 0, -0.36, -0.08, l); f.rotation.x = -1.6; });
+      const bib = mesh(T, new T.BoxGeometry(0.16, 0.16, 0.02), PM(T, 'cloud', '#c81e24', '#ffd23a', 1), 0, 0.62, 0.105, r.body); bib.rotation.z = Math.PI / 4;
+      [-1, 1].forEach(sd => { const pad = mesh(T, new T.SphereGeometry(0.07, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), gold, sd * 0.17, 0.78, 0, r.body); pad.rotation.z = -sd * 0.4; });
+    }
+    if (i === 1 || i === 2) { // 七爺八爺：黑色領口、紅腰帶垂穗、手上的扇／令牌已在上面
+      mesh(T, new T.TorusGeometry(0.08, 0.018, 6, 18), M(T, i === 1 ? '#1a1a1a' : '#c0a050'), 0, 0.86, 0, r.body).rotation.x = Math.PI / 2;
+      [-1, 1].forEach(sd => { const tz = mesh(T, new T.CylinderGeometry(0.008, 0.02, 0.16, 6), M(T, '#c81e24'), sd * 0.05, 0.42, 0.12, r.body); tz.rotation.z = sd * 0.1; });
+    }
+    if (i === 4) { // 夜叉：金項圈、手環、腰間護甲
+      mesh(T, new T.TorusGeometry(0.1, 0.025, 8, 20), gold, 0, 0.86, 0, r.body).rotation.x = Math.PI / 2;
+      [r.handL, r.handR].forEach(h => mesh(T, new T.TorusGeometry(0.04, 0.012, 6, 14), gold, 0, 0.04, 0, h).rotation.x = Math.PI / 2);
+      for (let k = 0; k < 5; k++) { const pl = mesh(T, new T.BoxGeometry(0.06, 0.1, 0.015), gold, (k - 2) * 0.06, 0.4, 0.15 - Math.abs(k - 2) * 0.02, r.body); pl.rotation.y = (k - 2) * 0.3; }
     }
     return r;
   }
 
   function magic(T, i, color) {
     if (i === 1) { // 大巨蛇：粗壯綠鱗、發光黃眼
-      const r = serpent(T, { mat: M(T, '#2e6a38', { roughness: 0.35, metalness: 0.3 }), eyeMat: M(T, '#f5e23a', { emissive: '#e0c000', emissiveIntensity: 2.4 }), thick: 0.095, headR: 0.13 });
+      const r = serpent(T, { mat: PM(T, 'scales', '#1e5a2a', '#6aaa50', 6, { roughness: 0.35, metalness: 0.25 }), eyeMat: M(T, '#f5e23a', { emissive: '#e0c000', emissiveIntensity: 2.4 }), thick: 0.095, headR: 0.13 });
       r.g.scale.setScalar(1.15);
       const belly = M(T, '#c8c27a'); mesh(T, new T.SphereGeometry(0.09, 10, 8), belly, 0, -0.04, 0.1, r.head).scale.set(0.9, 0.4, 1.3);
       r.tick = (t) => { r.head.rotation.y = Math.sin(t * 1.2) * 0.4; r.head.position.y = r.pts[r.pts.length - 1].y + 0.05 + Math.sin(t * 2) * 0.03; r.tongue.scale.z = 0.4 + Math.abs(Math.sin(t * 7)) * 0.9; };
@@ -435,7 +471,7 @@
     if (i === 2 || i === 5) { // 貓頭鷹信使／鳳凰：站立的鳥
       const fire = i === 5;
       const g = new T.Group(), body = new T.Group(); g.add(body);
-      const bm = fire ? M(T, '#ff7a1a', { emissive: '#ff4a00', emissiveIntensity: 0.8, roughness: 0.4 }) : M(T, '#a07a52', { roughness: 0.95 });
+      const bm = fire ? PM(T, 'feathers', '#ff6a1a', '#ffc040', 3, { emissive: '#ff4a00', emissiveIntensity: 0.6, roughness: 0.4 }) : PM(T, 'feathers', '#8a6440', '#c8a070', 3, { roughness: 0.95 });
       const torso = mesh(T, new T.SphereGeometry(0.22, 18, 14), bm, 0, 0.38, 0, body); torso.scale.set(fire ? 0.8 : 1, fire ? 1.15 : 1.15, fire ? 0.8 : 0.95);
       const belly = mesh(T, new T.SphereGeometry(0.17, 14, 10), fire ? M(T, '#ffd23a', { emissive: '#ffb000', emissiveIntensity: 0.8 }) : M(T, '#ead8bc', { roughness: 0.95 }), 0, 0.34, 0.07, body); belly.scale.set(0.9, 1.1, 0.7);
       const head = new T.Group(); head.position.y = fire ? 0.7 : 0.66; body.add(head);
@@ -457,11 +493,12 @@
       return r;
     }
     if (i === 3) { // 小火龍：圓滾滾、翅膀、角、尾巴火焰
-      const sc = M(T, '#ff6a2a', { roughness: 0.45 }), belly = M(T, '#ffd890', { roughness: 0.6 });
+      const sc = PM(T, 'scales', '#e8501a', '#ffa040', 4, { roughness: 0.45 }), belly = PM(T, 'stripes', '#ffd890', '#e8b060', 2, { roughness: 0.6 });
       const r = quadruped(T, { bodyMat: sc, bellyMat: belly, legMat: sc, headR: 0.16, snout: 0.07, snoutLen: 1.3, len: 0.42, height: 0.24, legR: 0.05, neck: 0.12, tail: { r: 0.04, len: 0.36, lift: 0.2 }, iris: '#1a1a1a', noseColor: '#a03010' });
       [-1, 1].forEach(sd => { const h = mesh(T, new T.ConeGeometry(0.025, 0.12, 6), M(T, '#fff2c8'), sd * 0.07, 0.14, -0.04, r.head); h.rotation.x = -0.5; });
-      const wm = M(T, '#c03a1a', { side: T.DoubleSide }); const wings = [-1, 1].map(sd => { const w = new T.Group(); w.position.set(sd * 0.12, 0.55, 0); r.body.add(w); const m = mesh(T, new T.CircleGeometry(0.1, 3), wm, sd * 0.06, 0.05, 0, w); m.rotation.set(0, sd * 0.4, sd > 0 ? 0.5 : Math.PI - 0.5); return w; });
+      const wm = M(T, '#c03a1a', { side: T.DoubleSide }); const wings = [-1, 1].map(sd => { const w = new T.Group(); w.position.set(sd * 0.12, 0.55, 0); r.body.add(w); const shp = new T.Shape(); shp.moveTo(0, 0); shp.lineTo(0.05, 0.14); shp.lineTo(0.09, 0.06); shp.lineTo(0.13, 0.11); shp.lineTo(0.15, 0.02); shp.lineTo(0.11, -0.02); shp.closePath(); const m = mesh(T, new T.ShapeGeometry(shp), wm, 0, 0, 0, w); m.scale.x = sd; m.rotation.y = sd * 0.5; return w; });
       const fl = mesh(T, new T.ConeGeometry(0.05, 0.14, 8), M(T, '#ffd23a', { emissive: '#ff8a00', emissiveIntensity: 2.5 }), 0, 0.04, -0.38, r.tail); fl.rotation.x = -1.2;
+      for (let k = 0; k < 6; k++) { const sp = mesh(T, new T.ConeGeometry(0.03 - k * 0.003, 0.08, 6), M(T, '#ffd890'), 0, 0.5 - k * 0.01, 0.2 - k * 0.09, r.body); sp.rotation.x = -0.4; }
       r.tick = (t) => { wings.forEach((w, k) => w.rotation.z = (k ? -1 : 1) * Math.sin(t * 6) * 0.35); fl.scale.setScalar(1 + Math.sin(t * 14) * 0.2); };
       return r;
     }
@@ -474,7 +511,7 @@
       return r;
     }
     if (i === 6) { // 人馬：馬身＋人類上半身＋弓
-      const coat = M(T, '#7a4a2a', { roughness: 0.8 }), skin = M(T, '#c89a72');
+      const coat = PM(T, 'fur', '#7a4a2a', '#9a6a40', 2, { roughness: 0.85 }), skin = M(T, '#c89a72');
       const r = quadruped(T, { bodyMat: coat, legMat: coat, headR: 0.001, len: 0.5, height: 0.36, legR: 0.045, neck: 0, tail: { r: 0.04, len: 0.3, lift: 0.3, mat: M(T, '#2a1a10') } });
       r.head.visible = false;
       const up = humanoid(T, { bodyMat: skin, legMat: coat, armMat: skin, headMat: skin, iris: '#2a1a0a' });
@@ -482,11 +519,12 @@
       mesh(T, new T.SphereGeometry(0.137, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.7), M(T, '#3a2414'), 0, 0.02, -0.02, up.head);
       const bow = mesh(T, new T.TorusGeometry(0.22, 0.012, 6, 20, Math.PI), M(T, '#5a3a1a'), 0, 0.02, 0, up.handL); bow.rotation.z = Math.PI / 2;
       const sash = mesh(T, new T.TorusGeometry(0.13, 0.02, 6, 18), M(T, color), 0, 0.64, 0, up.body); sash.rotation.set(Math.PI / 2.4, 0, 0.6);
+      const qv = mesh(T, new T.CylinderGeometry(0.045, 0.04, 0.26, 10), PM(T, 'brocade', '#5a3018', '#c89040', 1), 0.06, 0.72, -0.12, up.body); qv.rotation.z = 0.4; for (let k = 0; k < 3; k++) { const ar = mesh(T, new T.CylinderGeometry(0.006, 0.006, 0.12, 4), M(T, '#e8e0d0'), 0.12 + k * 0.015, 0.87 + k * 0.01, -0.12, up.body); ar.rotation.z = 0.4; mesh(T, new T.ConeGeometry(0.015, 0.04, 3), M(T, '#c82020'), 0.15 + k * 0.015, 0.93 + k * 0.01, -0.12, up.body).rotation.z = 0.4; }
       r.head = up.head; r.arms = up.arms; r.eyes = up.eyes; r.skull = up.skull;
       return r;
     }
     if (i === 7) { // 狼人：灰毛、駝背、狼頭、利爪
-      const fur = M(T, '#5a5a66', { roughness: 0.95 }), pale = M(T, '#9a9aa6', { roughness: 0.95 });
+      const fur = PM(T, 'fur', '#55555f', '#8a8a98', 2, { roughness: 0.95 }), pale = PM(T, 'fur', '#9a9aa6', '#c8c8d0', 2, { roughness: 0.95 });
       const r = humanoid(T, { bodyMat: fur, legMat: fur, armMat: fur, headMat: fur, handMat: pale, iris: '#ffb000', eyes: false, scale: 1.12 });
       r.body.rotation.x = 0.25; r.torso.scale.set(1.25, 1.1, 0.9);
       const sn = mesh(T, new T.ConeGeometry(0.06, 0.18, 8), pale, 0, -0.03, 0.15, r.head); sn.rotation.x = Math.PI / 2;
@@ -496,10 +534,12 @@
       [r.handL, r.handR].forEach(h => { for (let k = 0; k < 3; k++) { const c = mesh(T, new T.ConeGeometry(0.008, 0.06, 4), M(T, '#eee'), (k - 1) * 0.02, -0.04, 0.02, h); c.rotation.x = Math.PI; } });
       for (let k = 0; k < 7; k++) { const m = mesh(T, new T.ConeGeometry(0.04, 0.14, 5), fur, (k - 3) * 0.04, 0.88, -0.08, r.body); m.rotation.x = -2.2; }
       mesh(T, new T.TorusGeometry(0.13, 0.02, 6, 18), M(T, color), 0, 0.47, 0, r.body).rotation.x = Math.PI / 2;
+      // 被撐破的褲子
+      r.legs.forEach((l, k) => { const pt = mesh(T, new T.CylinderGeometry(0.075, 0.068, 0.16, 8, 1, true), M(T, '#3a3060', { side: T.DoubleSide, roughness: 0.9 }), 0, -0.06, 0, l); for (let q = 0; q < 4; q++) { const tr = mesh(T, new T.ConeGeometry(0.02, 0.05, 3), M(T, '#3a3060'), Math.cos(q * 1.6) * 0.06, -0.16, Math.sin(q * 1.6) * 0.06, l); tr.rotation.x = Math.PI; } });
       return r;
     }
     // 0 見習巫師：尖帽、長袍、圍巾、發光魔杖
-    const robe = M(T, '#2a2050', { roughness: 0.8 }), skin = M(T, '#f0cfb0');
+    const robe = PM(T, 'stars', '#241a48', '#e8c46a', 2, { roughness: 0.8 }), skin = M(T, '#f0cfb0');
     const r = humanoid(T, { bodyMat: robe, legMat: robe, armMat: robe, headMat: skin, iris: '#3a6a3a' });
     mesh(T, new T.CylinderGeometry(0.13, 0.22, 0.34, 16, 1, true), M(T, '#2a2050', { side: T.DoubleSide, roughness: 0.8 }), 0, 0.36, 0, r.body);
     mesh(T, new T.SphereGeometry(0.137, 14, 10, 0, Math.PI * 2, 0, Math.PI / 1.8), M(T, '#7a3a1a', { roughness: 0.9 }), 0, 0.01, -0.01, r.head);
@@ -507,12 +547,32 @@
     const hat = mesh(T, new T.ConeGeometry(0.13, 0.36, 16), robe, 0.02, 0.27, -0.02, r.head); hat.rotation.z = -0.2;
     [0, 1, 2].forEach(k => mesh(T, new T.TorusGeometry(0.075, 0.025, 6, 16), M(T, k % 2 ? '#e8c46a' : color), 0, 0.84 - k * 0.0, 0, r.body).rotation.x = Math.PI / 2);
     const wand = mesh(T, new T.CylinderGeometry(0.008, 0.012, 0.28, 6), M(T, '#4a2a14'), 0, 0.08, 0.06, r.handR); wand.rotation.x = 0.8;
+    mesh(T, new T.TorusGeometry(0.135, 0.015, 6, 20), M(T, '#7a4a20'), 0, 0.52, 0, r.body).rotation.x = Math.PI / 2; mesh(T, new T.BoxGeometry(0.06, 0.07, 0.03), M(T, '#8a5a28'), 0.09, 0.47, 0.12, r.body);
+    const book = mesh(T, new T.BoxGeometry(0.1, 0.13, 0.035), PM(T, 'brocade', '#6a1a1a', '#e8c46a', 1), 0, -0.02, 0.04, r.handL); book.rotation.y = 0.3;
     const tip = mesh(T, new T.SphereGeometry(0.02, 8, 6), M(T, '#bfe8ff', { emissive: '#8ad0ff', emissiveIntensity: 3 }), 0, 0.17, 0.17, r.handR);
     r.tick = (t) => { tip.scale.setScalar(1 + Math.sin(t * 6) * 0.3); };
     return r;
   }
 
   // ---------- 對外：建立角色 ----------
+  // ---------- 質感加工：所有角色共用 ----------
+  // 1. 邊緣光（菲涅耳）：輪廓有一圈主題色的亮邊，角色從背景跳出來，看起來像精緻的公仔
+  // 2. 細微凹凸：布料、皮毛、皮膚表面加一點噪點凹凸，不再像塑膠
+  const RIM = { ragnarok: [1.0, 0.85, 0.55, 0.55], cyber: [0.3, 0.9, 1.0, 0.7], animal: [1.0, 0.95, 0.8, 0.45], alien: [0.9, 0.5, 1.0, 0.6], buddha: [1.0, 0.75, 0.35, 0.6], magic: [0.55, 0.7, 1.0, 0.6] };
+  let bumpTex = null; const polished = new WeakMap();
+  function noiseTex(T) {
+    if (bumpTex) return bumpTex; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), im = g.createImageData(128, 128);
+    for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) { const v = 128 + (Math.random() - 0.5) * 70 + Math.sin(x * 0.7) * 10 + Math.sin(y * 0.9 + x * 0.3) * 10, i = (y * 128 + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+    g.putImageData(im, 0, 0); bumpTex = new T.CanvasTexture(c); bumpTex.wrapS = bumpTex.wrapT = T.RepeatWrapping; bumpTex.repeat.set(3, 3); return bumpTex;
+  }
+  function polish(T, r, theme) {
+    const rc = RIM[theme] || RIM.animal;
+    r.g.traverse(o => { const m = o.material; if (!m || !m.isMeshStandardMaterial || polished.has(m) || o.userData.tag) return; polished.set(m, 1);
+      if (m.roughness > 0.4 && m.metalness < 0.5 && !m.transparent) { m.bumpMap = noiseTex(T); m.bumpScale = 1.2; }
+      m.onBeforeCompile = sh => { sh.uniforms.rimC = { value: new T.Vector3(rc[0], rc[1], rc[2]) }; sh.uniforms.rimK = { value: rc[3] };
+        sh.fragmentShader = 'uniform vec3 rimC; uniform float rimK;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', 'float rimF = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 2.6);\n gl_FragColor.rgb += rimC * rimF * rimK;\n#include <dithering_fragment>'); };
+      m.customProgramCacheKey = () => 'rim-' + theme; m.needsUpdate = true; });
+  }
   C.make = function (T, theme, idx, color, avatarTex) {
     let r;
     if (avatarTex) { // 自畫角色：你畫的圖本身就是角色（紙板立牌，永遠面向鏡頭）
@@ -532,6 +592,7 @@
     const ring = new T.Mesh(new T.RingGeometry(0.2, 0.26, 28), new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; r.g.add(ring); r.ring = ring;
     // 頭上的箭頭（輪到時顯示）
     const arrow = new T.Mesh(new T.ConeGeometry(0.07, 0.15, 4), new T.MeshBasicMaterial({ color })); arrow.rotation.x = Math.PI; arrow.position.y = 1.35; arrow.visible = false; arrow.userData.tag = true; r.g.add(arrow); r.arrow = arrow;
+    if (!avatarTex) try { polish(T, r, theme); } catch (e) {}
     r.state = 'idle'; r.stateUntil = 0; r.phase = Math.random() * 6;
     return r;
   };
