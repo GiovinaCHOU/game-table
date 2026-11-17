@@ -296,39 +296,44 @@
   const H = root.MONO_HORROR, { cvs, rnd, ease, clamp } = H;
   // 側面的大烏鴉（嘴往左上張開）：羽毛一片一片疊出來，先畫成一張離屏圖
   let crow = null;
-  // 參考善知鳥神社的多眼鳥石雕：頭低低往前、粗短下勾的猛禽嘴、厚重的胸、像披風一樣往後平伸再垂下的大翅膀、粗腿
-  const EYES = [ // 眼睛位置（在 600×820 的圖上）＋大小；頭臉上一整排，翅膀上也有
-    [196, 214, 22], [262, 196, 16], [160, 280, 18], [236, 274, 24], [300, 250, 14], [190, 342, 17], [262, 352, 20], [214, 410, 18], [290, 420, 14], [236, 470, 16],
-    [380, 300, 14], [450, 296, 12], [520, 312, 13], [420, 372, 15], [500, 400, 12], [560, 450, 14], [440, 470, 13], [520, 540, 12], [300, 520, 13], [250, 560, 12]];
+  const EYES = [ // 眼睛位置（在 600×820 的烏鴉圖上）＋大小
+    [312, 190, 26], [372, 170, 16], [282, 262, 15], [350, 290, 22], [410, 262, 14], [300, 360, 15], [392, 352, 19], [452, 318, 13], [340, 420, 17], [430, 410, 15],
+    [280, 455, 13], [384, 478, 18], [470, 470, 14], [330, 530, 14], [420, 548, 16], [500, 520, 12], [262, 560, 12], [370, 610, 15], [470, 620, 13], [300, 660, 12], [410, 690, 14], [520, 680, 12]];
   function crowSprite() {
     if (crow) return crow; const Wc = 600, Hc = 820, [c, g] = cvs(Wc, Hc);
-    let sd = 5; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-    // 外形
-    const body = new Path2D(); body.moveTo(150, 190); body.bezierCurveTo(170, 130, 290, 120, 330, 190); body.lineTo(340, 238);
-    body.bezierCurveTo(430, 236, 540, 246, 600, 262); body.lineTo(598, 640); body.bezierCurveTo(560, 600, 520, 560, 450, 546); body.bezierCurveTo(400, 540, 360, 560, 330, 600);
-    body.lineTo(320, 760); body.lineTo(232, 760); body.bezierCurveTo(222, 640, 190, 560, 160, 480); body.bezierCurveTo(130, 400, 120, 320, 150, 190); body.closePath();
-    const beak = new Path2D(); beak.moveTo(158, 196); beak.bezierCurveTo(110, 186, 62, 206, 48, 246); beak.bezierCurveTo(38, 280, 60, 330, 92, 366); beak.bezierCurveTo(94, 336, 100, 312, 120, 300); beak.bezierCurveTo(132, 296, 148, 300, 156, 316); beak.closePath();
-    const talons = new Path2D(); [[228, 760], [262, 762], [296, 760]].forEach(([x, y], k) => { talons.moveTo(x - 8, y); talons.quadraticCurveTo(x - 20 + k * 6, y + 30, x - 30 + k * 14, y + 56); talons.lineTo(x + 6, y + 6); });
-    // 羽毛（隨機撒、由下往上疊）＋鑿刻感的斜線
-    g.save(); g.clip(body); g.fillStyle = '#140d1c'; g.fillRect(0, 0, Wc, Hc);
-    const fs = []; for (let k = 0; k < 2800; k++) fs.push([110 + R() * 500, 110 + R() * 680, R(), R(), R()]); fs.sort((a, b) => b[1] - a[1]);
-    fs.forEach(([x, y, r1, r2, r3]) => { const wing = x > 330 && y < 560, sz = (wing ? 12 + r1 * 14 : 7 + (y / Hc) * 18 + r1 * 8), l = 9 + r2 * 24, hue = 258 + r3 * 34;
-      g.fillStyle = `hsl(${hue},${20 + r1 * 25}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(wing ? -1.25 + (r2 - 0.5) * 0.3 : 0.3 + (r2 - 0.5) * 0.6);
-      g.beginPath(); g.moveTo(0, -sz); g.bezierCurveTo(sz * 0.6, -sz * 0.4, sz * 0.35, sz * (wing ? 1.4 : 0.5), 0, sz * (wing ? 1.8 : 0.9)); g.bezierCurveTo(-sz * 0.35, sz * 0.5, -sz * 0.6, -sz * 0.4, 0, -sz); g.fill();
-      g.strokeStyle = `hsla(${hue},45%,${l + 20}%,.45)`; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -sz * 0.85); g.lineTo(0, sz * (wing ? 1.6 : 0.7)); g.stroke(); g.restore(); });
-    g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 2; for (let k = 0; k < 60; k++) { const x = 130 + R() * 460, y = 140 + R() * 620; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 10 + R() * 30, y + 20 + R() * 40); g.stroke(); }
-    // 翅膀下緣的陰影、整體左上受光右下暗
-    g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.moveTo(330, 560); g.bezierCurveTo(400, 520, 520, 540, 600, 620); g.lineTo(600, 680); g.lineTo(330, 680); g.fill();
-    const lg = g.createLinearGradient(120, 120, 560, 760); lg.addColorStop(0, 'rgba(210,140,255,.25)'); lg.addColorStop(0.45, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = lg; g.fillRect(0, 0, Wc, Hc);
+    // 外輪廓：頭頂圓、後頸往下、喉嚨是一撮撮尖尖的蓑羽
+    const back = [[262, 168], [300, 126], [350, 108], [405, 116], [446, 150], [462, 200], [456, 262], [470, 320], [520, 400], [565, 520], [590, 660], [600, 820]];
+    const front = [[150, 820], [175, 690], [195, 600], [205, 520], [212, 450], [222, 380], [232, 320], [244, 268]];
+    const fb = H.furOutline(back, 3, 10), ff = H.furOutline(front, 8, 26);
+    const body = new Path2D(); body.moveTo(fb[0][0], fb[0][1]); fb.forEach(([x, y]) => body.lineTo(x, y)); body.lineTo(600, 820); ff.forEach(([x, y]) => body.lineTo(x, y)); body.lineTo(252, 238); body.closePath();
+    // 嘴喙：根部很寬、直接長在額頭上
+    const upper = new Path2D(); upper.moveTo(270, 160); upper.bezierCurveTo(215, 128, 120, 72, 36, 50); upper.bezierCurveTo(64, 72, 120, 112, 160, 146); upper.bezierCurveTo(190, 172, 222, 202, 250, 226); upper.closePath();
+    const lower = new Path2D(); lower.moveTo(250, 240); lower.bezierCurveTo(205, 214, 140, 178, 66, 140); lower.bezierCurveTo(118, 186, 180, 240, 246, 282); lower.closePath();
+    g.fillStyle = '#3a0a1c'; g.beginPath(); g.moveTo(252, 228); g.lineTo(150, 150); g.lineTo(90, 128); g.lineTo(120, 162); g.lineTo(248, 246); g.fill();
+    // 羽毛：隨機撒、由下往上畫（上面的蓋住下面），方向順著身體往右下
+    g.save(); g.clip(body); g.fillStyle = '#120c18'; g.fillRect(0, 0, Wc, Hc);
+    let sd = 5; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const fs = [];
+    for (let k = 0; k < 2600; k++) fs.push([140 + R() * 470, 100 + R() * 730, R(), R(), R()]); fs.sort((a, b) => b[1] - a[1]);
+    fs.forEach(([x, y, r1, r2, r3]) => { const sz = 7 + (y / Hc) * 22 + r1 * 8, l = 9 + r2 * 24, hue = 258 + r3 * 34;
+      g.fillStyle = `hsl(${hue},${20 + r1 * 25}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(0.35 + (r2 - 0.5) * 0.6 - (x < 260 ? 0.4 : 0));
+      g.beginPath(); g.moveTo(0, -sz); g.bezierCurveTo(sz * 0.6, -sz * 0.4, sz * 0.35, sz * 0.5, 0, sz * 0.9); g.bezierCurveTo(-sz * 0.35, sz * 0.5, -sz * 0.6, -sz * 0.4, 0, -sz); g.fill();
+      g.strokeStyle = `hsla(${hue},45%,${l + 20}%,.45)`; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -sz * 0.85); g.lineTo(0, sz * 0.7); g.stroke(); g.restore(); });
+    // 收起來的翅膀：大片、顏色更深的飛羽，邊緣一片片
+    const wing = new Path2D(); wing.moveTo(400, 420); wing.bezierCurveTo(470, 400, 560, 470, 600, 560); wing.lineTo(600, 820); wing.lineTo(380, 820); wing.bezierCurveTo(360, 680, 360, 520, 400, 420);
+    g.save(); g.clip(wing); g.fillStyle = '#0e0914'; g.fillRect(300, 380, 320, 460);
+    for (let row = 0; row < 7; row++) for (let k = 0; k < 9; k++) { const x = 370 + k * 28 + row * 6, y = 440 + row * 58 + k * 10, l = 14 + R() * 16; g.fillStyle = `hsl(${262 + R() * 20},${25 + R() * 15}%,${l}%)`; g.save(); g.translate(x, y); g.rotate(0.55);
+      g.beginPath(); g.moveTo(0, -30); g.quadraticCurveTo(16, 0, 4, 70); g.quadraticCurveTo(-4, 74, -10, 60); g.quadraticCurveTo(-14, 0, 0, -30); g.fill(); g.strokeStyle = 'rgba(190,150,230,.35)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, -26); g.lineTo(-2, 64); g.stroke(); g.restore(); }
+    g.restore(); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 4; g.beginPath(); g.moveTo(400, 420); g.bezierCurveTo(470, 400, 560, 470, 600, 560); g.stroke();
+    const lg = g.createLinearGradient(160, 120, 580, 760); lg.addColorStop(0, 'rgba(210,140,255,.25)'); lg.addColorStop(0.45, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = lg; g.fillRect(0, 0, Wc, Hc);
     g.restore();
-    // 嘴：厚、下勾，像石頭鑿出來的面
-    const bg = g.createLinearGradient(40, 190, 170, 360); bg.addColorStop(0, '#6a5c78'); bg.addColorStop(0.5, '#3a2e48'); bg.addColorStop(1, '#16101e'); g.fillStyle = bg; g.fill(beak);
-    g.strokeStyle = 'rgba(230,210,250,.35)'; g.lineWidth = 3; g.beginPath(); g.moveTo(152, 194); g.bezierCurveTo(108, 186, 64, 206, 52, 244); g.stroke();
-    g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(130, 240); g.quadraticCurveTo(100, 280, 92, 350); g.stroke();
-    g.fillStyle = '#0a060e'; g.beginPath(); g.ellipse(120, 226, 9, 4, -0.3, 0, 7); g.fill();
-    g.fillStyle = '#2a2034'; g.fill(talons);
+    // 嘴喙上色＋亮邊＋鼻孔
+    [upper, lower].forEach((p, k) => { const bg = g.createLinearGradient(40, 50, 260, 250); bg.addColorStop(0, '#6a5a78'); bg.addColorStop(0.6, '#3a2e48'); bg.addColorStop(1, '#1a1222'); g.fillStyle = bg; g.fill(p); });
+    g.strokeStyle = 'rgba(230,200,250,.4)'; g.lineWidth = 3; g.beginPath(); g.moveTo(266, 158); g.bezierCurveTo(212, 126, 120, 74, 40, 52); g.stroke();
+    g.fillStyle = '#0a060e'; g.beginPath(); g.ellipse(232, 168, 9, 4, -0.5, 0, 7); g.fill();
+    // 嘴根的鬚毛
+    g.strokeStyle = 'rgba(30,20,40,.9)'; g.lineWidth = 2; for (let k = 0; k < 14; k++) { g.beginPath(); g.moveTo(262 + R() * 10, 165 + k * 4); g.quadraticCurveTo(230, 160 + k * 4, 205 - R() * 20, 150 + k * 5); g.stroke(); }
     // 外緣被月光照到的紅邊
-    g.save(); g.globalCompositeOperation = 'destination-over'; g.shadowColor = 'rgba(255,90,60,.65)'; g.shadowBlur = 30; g.fillStyle = '#100a16'; g.fill(body); g.fill(beak); g.restore();
+    g.save(); g.globalCompositeOperation = 'destination-over'; g.shadowColor = 'rgba(255,90,60,.6)'; g.shadowBlur = 30; g.fillStyle = '#100a16'; g.fill(body); g.fill(upper); g.fill(lower); g.restore();
     return (crow = { c, W: Wc, H: Hc });
   }
   function eye(g, x, y, r, open, look, glow) { // 杏仁眼，橘紅色會發光的虹膜、直立的瞳孔
@@ -381,11 +386,11 @@
       // 繞著月亮盤旋的烏鴉
       flock.forEach(f => { const a = f.a + t * f.v, r = Math.min(W, Hh) * (f.r + Math.sin(t + f.p) * 0.03) * 1.35; flyer(g, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 1.15, f.s * U * 0.7, t * 9 + f.p, Math.sin(a) > 0 ? -1 : 1); });
       // 大烏鴉：慢慢靠近，最後低頭衝向鏡頭
-      const C = crowSprite(), sc = Math.min(W / C.W, Hh * 0.9 / C.H) * (0.92 + ease(t / 3.4) * 0.12);
-      const rot = t > 2.8 ? -ease((t - 2.8) / 0.6) * 0.12 : Math.sin(t * 0.8) * 0.015;
-      g.save(); g.translate(cx + W * 0.04, Hh * 0.97); g.rotate(rot); g.scale(sc, sc); g.translate(-C.W / 2, -C.H);
+      const C = crowSprite(), sc = Math.min(W / C.W, Hh / C.H) * (0.95 + ease(t / 3.4) * 0.1);
+      const rot = t > 2.8 ? ease((t - 2.8) / 0.6) * 0.12 : Math.sin(t * 0.8) * 0.02;
+      g.save(); g.translate(cx + W * 0.08, Hh + 10 * U); g.rotate(rot); g.scale(sc, sc); g.translate(-C.W / 2, -C.H);
       g.drawImage(C.c, 0, 0);
-      const look = t < 2.8 ? [Math.sin(t * 2.3) * 0.8, Math.cos(t * 1.7) * 0.6] : [0.5, 0.3];
+      const look = t < 2.8 ? [Math.sin(t * 2.3) * 0.8, Math.cos(t * 1.7) * 0.6] : [-0.2, 0.25];
       order.forEach((idx, k) => { const [ex, ey, er] = EYES[idx], o = clamp((t - 0.5 - k * 0.11) * 3.5), bl = (Math.sin(t * 3 + idx * 7) > 0.97) ? 0.1 : 1; eye(g, ex, ey, er, o * bl, look, t > 3.0 ? 0.8 : 0.2); });
       g.restore();
       // 結尾：眼睛眨呀眨、一顆顆放大，塞滿整個畫面
