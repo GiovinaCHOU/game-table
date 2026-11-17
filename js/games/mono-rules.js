@@ -108,7 +108,8 @@
     // 難度比例：簡單 55%、中等 35%、困難 10%；另外 35% 機率改出經典電影題（全主題共用）
     const Q = root.MONO_QUIZ || {}, tb = Q[st.theme] || {}, mv = Q.movie || {};
     const all = []; ['e', 'm', 'h'].forEach(lv => (tb[lv] || []).forEach((q, i) => all.push({ id: lv + i, lv, q, src: 't' })));
-    ['e', 'm'].forEach(lv => (mv[lv] || []).forEach((q, i) => all.push({ id: 'mv' + lv + i, lv, q, src: 'mv' })));
+    // 共用電影題先停用（跟主題沒關聯）；之後改成每個主題各自的相關電影題
+    if (st.theme === '__none__') ['e', 'm'].forEach(lv => (mv[lv] || []).forEach((q, i) => all.push({ id: 'mv' + lv + i, lv, q, src: 'mv' })));
     if (!all.length) { pay(st, s, o, amt, '過路費', tile); return; }
     st.qused = st.qused || []; let left = all.filter(x => !st.qused.includes(x.id)); if (!left.length) { st.qused = []; left = all; }
     const wantMv = Math.random() < 0.35 && left.some(x => x.src === 'mv'); left = left.filter(x => (x.src === 'mv') === wantMv) .length ? left.filter(x => (x.src === 'mv') === wantMv) : left;
