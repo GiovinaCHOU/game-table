@@ -149,6 +149,7 @@
   function mine(st, s) { return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s); }
 
   const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin', 'mandrake'];
+  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'mandrake', 'phoenix'];
   function drawCard(st, deck) {
     const th = TH()[st.theme]; const list = th[deck === 'luck' ? 'lucky' : 'bad'];
     if (!st.decks[deck] || !st.decks[deck].length) st.decks[deck] = U.shuffle(U.range(list.length));
@@ -158,7 +159,7 @@
     const p = st.players[s];
     const [k, v0] = card.eff.split(':');
     // 彩蛋卡的金額跟著通膨放大（最多 3 倍），一般卡不變
-    const mul = EGG_MONEY.includes(k) ? Math.min(3, inflation(st)) : 1, v = Math.round(+v0 * mul / 100) * 100;
+    const mul = EGG_MONEY.includes(k) ? Math.min(3, inflation(st)) : 1, v = MONEY_KEYS.includes(k) ? Math.round(+v0 * mul / 100) * 100 : +v0; // 只有金額取整到百；百分比、格數、回合數用原值
     ev(st, { t: 'card', seat: s, deck, text: card.text, eff: card.eff, mul });
     if (deck === 'bad' && p.immune > 0) { p.immune--; ev(st, { t: 'immune', seat: s }); return; }
     switch (k) {
@@ -172,7 +173,7 @@
       case 'goblin': st.anim += 1500; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '金庫妖精' }); break;
       case 'phoenix': { st.anim += 6800; const full = st.startCash || 50000; const add = p.cash < full ? full - p.cash : Math.round(v * Math.min(3, inflation(st)) / 100) * 100; p.cash += add; ev(st, { t: 'cash', seat: s, amt: add, why: '鳳凰重生' }); break; }
       case 'mandrake': st.anim += 4500; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, v, '曼德拉草'); break;
-      case 'frog': st.anim += 4500; p.skip += v; p.frog = true; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;
+      case 'frog': st.anim += 4500; p.skip += v; p.frog = true; p.frogT = 3; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;
       case 'gm': p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '星門彼端' }); break;
       case 'again': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
       case 'gagain': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
@@ -303,7 +304,9 @@
         if (st.inflate && st.round === doomRound(st)) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' });
         if (cap !== SAFETY_CAP && cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` }); }
       const p = st.players[s]; if (!p.alive) continue;
-      if (p.skip > 0) { p.skip--; if (!p.skip && p.frog) { p.frog = false; ev(st, { t: 'unfrog', seat: s }); } ev(st, { t: 'skip', seat: s }); continue; }
+      // 蟾蜍：抽到後接下來 3 個自己的回合都是蟾蜍（前 2 回合停住），第 4 回合變回原本的角色（含自畫角色）
+      if (p.frog) { if (!(p.frogT > 0)) { p.frog = false; ev(st, { t: 'unfrog', seat: s }); } else p.frogT--; }
+      if (p.skip > 0) { p.skip--; ev(st, { t: 'skip', seat: s }); continue; }
       break;
     }
     st.turn = s;
@@ -324,7 +327,7 @@
   }
 
   const R = {
-    BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;

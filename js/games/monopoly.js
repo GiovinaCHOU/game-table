@@ -289,6 +289,8 @@
       b.setTurn(v.phase === 'over' ? -1 : v.turn);
       // 換人時鏡頭自動切到輪到的人（自己拖地圖後，這一輪就不再自動跟）；輪到自己一定拉回來
       if (!mid && v.phase !== 'over' && this._camTurn !== v.turn) { this._camTurn = v.turn; this._camFree = false; b.focusSeat(v.turn, true); }
+      // 卡片提示：換人或輪到我擲骰時自動收起（至少顯示 2 秒）
+      if (!this.playing && this._cardAt && Date.now() - this._cardAt > 2000 && (v.turn !== this._cardTurn || (v.seat >= 0 && v.turn === v.seat && v.phase === 'roll'))) this.closeCard();
       const myTurn = v.seat >= 0 && v.turn === v.seat && v.phase === 'roll';
       if (!mid && myTurn && this._lastMyTurn !== v.evId) { this._lastMyTurn = v.evId; this._camFree = false; b.focusSeat(v.seat, true); }
       if (first && v.seat < 0) b.overview(true);
@@ -432,12 +434,12 @@
         <div class="mcard-head">${good ? th.luckName : th.badName}</div>
         <div class="mcard-who">${this.faceHTML(v, e.seat, 52)}<b>${U.esc(v.names[e.seat])}</b>${e.seat === v.seat ? '<em>（你）</em>' : ''}</div>
         <p>${U.esc(e.text)}</p><div class="mcard-eff">${this.effText(e.eff, th, e.mul)}</div></div></div>`;
-      L.classList.add('on'); L.onclick = () => this.closeCard();
-      clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 25000);
+      L.classList.add('on'); L.onclick = () => this.closeCard(); this._cardTurn = v.turn; this._cardAt = Date.now();
+      clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 9000);
       await sleep(2200);
     },
     ungrey() { if (!this._grey) return; this._grey = false; const st = this.el && this.el.querySelector('.mono-stage'); if (st) { st.style.transition = 'filter 1.2s'; st.style.filter = ''; } },
-    closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
+    closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); this._cardAt = 0; },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
     quickLog(e, $, why) {
       const L = window.gameLog; if (!L) return; const v = this.v, tn = (i) => U.esc(R().tileName(v.theme, i));
@@ -482,10 +484,10 @@
       };
     },
     effText(eff, th, mul) {
-      const [k, v0] = eff.split(':'); const v = Math.round(+v0 * (mul || 1) / 100) * 100; const u = th.unit;
+      const [k, v0] = eff.split(':'); const v = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'mandrake', 'phoenix'].includes(k) ? Math.round(+v0 * (mul || 1) / 100) * 100 : +v0; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，-${fmt(-v)} ${u}`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合', again: '⏳ 再擲一次', sync: `+${fmt(v)} ${u}，下一次過路費免付`, trance: '下一次擲骰自己選點數（2～12）', ghost: `失去 ${v}% 現金`, birds: `接下來 ${v} 次過路費加倍`, bag: `+${fmt(v)} ${u}`, goblin: `+${fmt(v)} ${u}`, phoenix: '現金補回開局金額（已經比開局多就再加一筆）', mandrake: `停 1 回合，賠 ${fmt(v)} ${u}`, frog: `變成蟾蜍，停 ${v} 回合` }[k] || '';
+        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，-${fmt(-v)} ${u}`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合', again: '⏳ 再擲一次', sync: `+${fmt(v)} ${u}，下一次過路費免付`, trance: '下一次擲骰自己選點數（2～12）', ghost: `失去 ${v}% 現金`, birds: `接下來 ${v} 次過路費加倍`, bag: `+${fmt(v)} ${u}`, goblin: `+${fmt(v)} ${u}`, phoenix: '現金補回開局金額（已經比開局多就再加一筆）', mandrake: `停 1 回合，賠 ${fmt(v)} ${u}`, frog: `變成蟾蜍 3 回合（前 ${v} 回合停住不能動）` }[k] || '';
     },
     // ===== 道具 =====
     itemName(k) { const I = root.MONO_ITEMS.NAMES[this.v.theme][k]; return I[1] + ' ' + I[0]; },
