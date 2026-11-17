@@ -36,9 +36,10 @@
     if (t.type === 'luck') return th.luckName; return th.badName;
   }
   // 「打到有人破產／剩一人」模式：第 8 回合後過路費每回合漲 20%（最多 6 倍），避免無限拖長
-  // 通膨：第 8 回合起每回合 +20%，最多 6 倍（跟原本一樣）；撐到第 51 回合還沒人破產才進入「末日通膨」每回合再 +60%
+  // 通膨：第 15 回合起每回合 +6%，最多 3 倍；第 51 回合起「末日通膨」每回合再 +60%
   const DOOM_ROUND = 51;
-  function inflation(st) { if (!st.inflate) return 1; const r = st.round; return r < DOOM_ROUND ? Math.min(6, 1 + Math.max(0, r - 8) * 0.2) : Math.min(20, 6 + (r - DOOM_ROUND + 1) * 0.6); }
+  const INF = (globalThis.__INF || { start: 15, rate: 0.06, max: 3 }); // 第 15 回合起每回合 +6%，最多 3 倍（讓破產大多落在末日通膨前後）
+  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); return r < DOOM_ROUND ? base : Math.min(20, INF.max + (r - DOOM_ROUND + 1) * 0.6); }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
     if (lv === 0) { const same = BOARD.filter(b => b.type === 'prop' && b.g === t.g); if (same.every(b => st.owners[b.i] === st.owners[i])) r *= 2; }
@@ -208,13 +209,21 @@
     animal: { tile: '松鼠的寶藏', trap: ['香蕉皮', '🍌'], steal: ['浣熊順手牽羊', '🦝'], invest: ['松鼠存糧', '🐿️'], bomb: ['河馬踩踏', '🦛'], shield: ['龜殼護盾', '🐢'] },
     alien: { tile: '遺落艙', trap: ['寄生卵', '🥚'], steal: ['觸手竊取', '🦑'], invest: ['孢子培養', '🍄'], bomb: ['孢子腐蝕', '☣️'], shield: ['幾丁質護甲', '🪲'] }
   };
-  const ITEM_DESC = { trap: '選一位玩家，讓他下回合停一輪', steal: '從一位玩家身上拿走他現金的 10%（最多 5,000）', invest: '現在付 3,000，3 回合後拿回 6,000（期間破產就拿不回來）', bomb: '選別人一塊有建築的地，建築降一級', shield: '拿在手上就生效：自動擋下下一次別人對你用的道具' };
+  const ITEM_DESC = { trap: '選一位玩家，讓他下回合停一輪', steal: '拿走對方現金的 15%：偷比你有錢的人最多 3 萬，偷比你窮的人最多 3,000', invest: '用了之後 3 回合拿回 6,000（後期會跟著通膨變多；期間破產就拿不回來）', bomb: '選別人一塊有建築的地，建築降一級', shield: '拿在手上就生效：自動擋下下一次別人對你用的道具' };
   root.MONO_ITEMS = { KEYS: ITEM_KEYS, MAX: ITEM_MAX, NAMES: ITEMS, DESC: ITEM_DESC };
   // 價格：依道具強度分級 × 自己第幾次購買（越買越貴），每 25 回合歸零；錢最少的人 5 折；後期跟著通膨（最多 3 倍）
   const ITEM_BASE = { invest: 1000, shield: 1500, trap: 2000, bomb: 2500, steal: 3000 }, ITEM_MULT = [1, 2, 3.5, 5], ITEM_RESET = 25;
   root.MONO_ITEMS.BASE = ITEM_BASE; root.MONO_ITEMS.MULT = ITEM_MULT; root.MONO_ITEMS.RESET = ITEM_RESET;
   function itemBought(st, s) { const p = st.players[s], era = Math.floor((st.round - 1) / ITEM_RESET); if (p.buyEra !== era) { p.buyEra = era; p.bought = 0; } return p.bought || 0; }
   function itemPrice(st, s, k) { const n = itemBought(st, s); return Math.round(ITEM_BASE[k] * ITEM_MULT[Math.min(n, ITEM_MULT.length - 1)] * Math.min(3, inflation(st)) * (isLast(st, s) ? 0.5 : 1) / 100) * 100; }
+  // 投資：買道具的錢就是本金，3 回合後拿回 6,000（跟著通膨，最多 3 倍）
+  function investAmt(st) { return Math.round(6000 * Math.min(3, inflation(st)) / 100) * 100; }
+  // 偷錢：拿對方現金的 15%；偷比自己有錢的人上限高（翻盤用），偷比自己窮的人上限很低（不欺負弱勢）
+  function stealAmt(st, s, t) {
+    const tp = st.players[t], richer = worth(st, t) > worth(st, s), m = Math.min(3, inflation(st));
+    return Math.max(0, Math.min(richer ? 30000 * m : 3000 * m, Math.floor(tp.cash * 0.15 / 100) * 100));
+  }
+  root.MONO_ITEMS.stealAmt = (st, s, t) => stealAmt(st, s, t);
   function openShop(st, s, free) {
     const p = st.players[s]; p.items = p.items || [];
     if (p.items.length >= ITEM_MAX) { ev(st, { t: 'note', seat: s, text: `道具已滿（最多 ${ITEM_MAX} 張）` }); return false; }
@@ -269,7 +278,7 @@
     }
     st.turn = s;
     const np = st.players[s]; np.usedItem = false;
-    if (np.invest && np.invest.length) { const due = np.invest.filter(r => r <= st.round); if (due.length) { np.invest = np.invest.filter(r => r > st.round); np.cash += 6000 * due.length; ev(st, { t: 'cash', seat: s, amt: 6000 * due.length, why: '投資回收' }); } }
+    if (np.invest && np.invest.length) { const dd = (x) => typeof x === 'number' ? x : x.due, due = np.invest.filter(x => dd(x) <= st.round); if (due.length) { np.invest = np.invest.filter(x => dd(x) > st.round); const got = due.reduce((a, x) => a + (typeof x === 'number' ? 6000 : x.amt), 0); np.cash += got; ev(st, { t: 'cash', seat: s, amt: got, why: '投資回收' }); } }
     setDeadline(st, now, 15000);
   }
   function finish(st, why) {
@@ -370,14 +379,14 @@
         let tgt = -1;
         if (k === 'trap' || k === 'steal') { tgt = a.target | 0; if (tgt === s || !st.players[tgt] || !st.players[tgt].alive) return '請選一位還在場上的對手'; }
         if (k === 'bomb') { const tl = a.tile | 0; if (!BOARD[tl] || BOARD[tl].type !== 'prop' || st.owners[tl] < 0 || st.owners[tl] === s || !st.players[st.owners[tl]].alive || st.levels[tl] < 1) return '請選別人有建築的地'; tgt = st.owners[tl]; }
-        if (k === 'invest' && p.cash < 3000) return '錢不夠投資（要 3,000）';
+        
         items.splice(i, 1); p.usedItem = true;
         const tp = tgt >= 0 ? st.players[tgt] : null, si = tp && tp.items ? tp.items.indexOf('shield') : -1;
         if (si >= 0) { tp.items.splice(si, 1); st.anim += 2600; ev(st, { t: 'item', seat: s, k, target: tgt, tile: a.tile, blocked: true }); setDeadline(st, now, 15000); return; }
         st.anim += 2600;
         if (k === 'trap') { tp.skip += 1; ev(st, { t: 'item', seat: s, k, target: tgt }); }
-        else if (k === 'steal') { const amt = Math.min(5000, Math.floor(tp.cash * 0.1 / 100) * 100); tp.cash -= amt; p.cash += amt; ev(st, { t: 'item', seat: s, k, target: tgt, amt }); }
-        else if (k === 'invest') { p.cash -= 3000; (p.invest = p.invest || []).push(st.round + 3); ev(st, { t: 'item', seat: s, k, amt: 3000, due: st.round + 3 }); }
+        else if (k === 'steal') { const amt = stealAmt(st, s, tgt); tp.cash -= amt; p.cash += amt; ev(st, { t: 'item', seat: s, k, target: tgt, amt }); }
+        else if (k === 'invest') { const amt = investAmt(st); (p.invest = p.invest || []).push({ due: st.round + 3, amt }); ev(st, { t: 'item', seat: s, k, amt, due: st.round + 3 }); }
         else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
         setDeadline(st, now, 15000); return;
       }

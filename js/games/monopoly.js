@@ -112,7 +112,7 @@
     options: [
       { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
-      { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 25～30 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
+      { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
     init(n, o, names, now) { return R().init(n, o, now); },
     action(st, seat, a, ctx) {
@@ -350,7 +350,7 @@
               if (e.k === 'bomb') { SFX.thunder(); this.vfx('doom'); b.itemFx('bomb', e.tile); b.mood(e.target, 'scared', 1400); this.syncBoard(false, true); this.fx(`建築降到 Lv${e.level}`, 'loss', null, e.tile); }
               else if (e.k === 'trap') { SFX.hiss(); b.itemFx('trap', null, e.target); b.mood(e.target, 'scared', 1400); this.fx('⏸ 下回合停一輪', 'loss', e.target); }
               else if (e.k === 'steal') { SFX.coin(); b.itemFx('steal', null, e.target); b.mood(e.target, 'sad', 1300); b.mood(e.seat, 'joy', 1300); this.fx(`-${$(e.amt)}`, 'loss', e.target); setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.seat), 400); }
-              else if (e.k === 'invest') { SFX.build(); b.itemFx('invest', null, e.seat); this.fx(`-${$(e.amt)}・第 ${e.due} 回合拿回 ${$(6000)}`, 'gain', e.seat); }
+              else if (e.k === 'invest') { SFX.build(); b.itemFx('invest', null, e.seat); this.fx(`第 ${e.due} 回合拿回 ${$(e.amt)}`, 'gain', e.seat); }
               await sleep(1400); break;
             }
             case 'immune': this.fx('🛡 抵擋了厄運！', 'gain', e.seat); SFX.glory(); this.vfx('glory'); b.mood(e.seat, 'joy', 1200); await sleep(900); break;
@@ -489,10 +489,10 @@
       const ok = this.canAct('roll') && !p.usedItem && k !== 'shield';
       const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = (e) => { if (e.target === m) m.hidden = true; };
       let pick = '';
-      if (ok && (k === 'trap' || k === 'steal')) pick = `<div class="mi-targets">${v.players.map((q, s) => s !== v.seat && q.alive ? `<button class="btn ghost" data-tg="${s}">${this.faceHTML(v, s, 24)} ${U.esc(v.names[s])}${k === 'steal' ? `<small>可拿 ${fmt(Math.min(5000, Math.floor(q.cash * 0.1 / 100) * 100))}</small>` : ''}</button>` : '').join('')}</div>`;
+      if (ok && (k === 'trap' || k === 'steal')) pick = `<div class="mi-targets">${v.players.map((q, s) => s !== v.seat && q.alive ? `<button class="btn ghost" data-tg="${s}">${this.faceHTML(v, s, 24)} ${U.esc(v.names[s])}${k === 'steal' ? `<small>可拿約 ${fmt(Math.max(0, Math.min((v.assets[s].total > v.assets[v.seat].total ? 30000 : 3000) * Math.min(3, v.infl || 1), Math.floor(q.cash * 0.15 / 100) * 100)))}</small>` : ''}</button>` : '').join('')}</div>`;
       else if (ok && k === 'bomb') { const tl = R().BOARD.filter(t => t.type === 'prop' && v.owners[t.i] >= 0 && v.owners[t.i] !== v.seat && v.players[v.owners[t.i]].alive && v.levels[t.i] > 0);
         pick = tl.length ? `<div class="mi-targets">${tl.map(t => `<button class="btn ghost" data-tl="${t.i}"><span class="tile-dot" style="background:${t.color}"></span>${U.esc(R().tileName(v.theme, t.i))} <small>Lv${v.levels[t.i]}・${U.esc(v.names[v.owners[t.i]])}</small></button>`).join('')}</div>` : '<p class="hint">現在沒有別人蓋了建築的地，先留著吧</p>'; }
-      else if (ok && k === 'invest') pick = `<div class="act-row"><button class="btn" data-inv ${p.cash < 3000 ? 'disabled' : ''}>投資 3,000 ${th.unit}</button></div>`;
+      else if (ok && k === 'invest') pick = `<div class="act-row"><button class="btn" data-inv>開始投資（3 回合後拿回 ${fmt(Math.round(6000 * Math.min(3, v.infl || 1) / 100) * 100)} ${th.unit}）</button></div>`;
       const why = k === 'shield' ? '' : !this.canAct('roll') ? '<p class="hint">輪到你、擲骰子之前才能用</p>' : p.usedItem ? '<p class="hint">這回合已經用過道具了</p>' : '';
       m.innerHTML = `<div class="mm-card mi-card"><div class="mi-big">${I[1]}</div><h3>${I[0]}</h3><p>${MI.DESC[k].replace(/[0-9,]+(?=（|$| 拿| 後)/g, x => x)}</p>${why}${pick}<div class="act-row"><button class="btn ghost" data-x>${ok ? '先不用' : '關閉'}</button></div></div>`;
       const send = (extra) => { this.ui.send(Object.assign({ type: 'item', i }, extra)); m.hidden = true; };
