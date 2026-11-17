@@ -743,3 +743,7 @@ body.res-open.res-peek .res-pill { display: block; }
 .nett td small { display: block; font-size: 10.5px; color: var(--muted); }
 .nett .ok { color: #7fe08d; } .nett .mid { color: #ffd36e; } .nett .bad { color: #ff8a7d; }
 .nett tr.off { opacity: .55; }
+
+/* 畫圖區不要被當成文字選取（iPhone 長按放大鏡、選取泡泡） */
+[data-g="draw"] .dr-area, [data-g="draw"] .dr-tools, [data-g="draw"] .dr-canvas-wrap, .pad, .mono-modal .pad-wrap { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+[data-g="draw"] .dr-canvas-wrap canvas, [data-g="draw"] .dr-overlay { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

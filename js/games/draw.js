@@ -251,6 +251,10 @@
       const c = this._canvas; let cur = null, sent = 0, lastSend = 0;
       const pos = (e) => { const r = c.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 1000)]; };
       const can = () => this._v && this._v.seat === this._v.drawer && this._v.phase === 'draw';
+      // iPhone 長按會跳出「選取文字／放大鏡」：在畫布區把觸控的預設行為全部擋掉
+      const wrap = c.parentElement;
+      ['touchstart', 'touchmove', 'touchend'].forEach(t => wrap.addEventListener(t, (e) => { if (can() && e.target === c) e.preventDefault(); }, { passive: false }));
+      ['contextmenu', 'selectstart', 'dragstart'].forEach(t => wrap.addEventListener(t, (e) => e.preventDefault()));
       c.addEventListener('pointerdown', (e) => {
         if (!can()) return; e.preventDefault(); c.setPointerCapture(e.pointerId);
         this._drawing = true; cur = { c: this._ui.color, w: this._ui.w, p: pos(e) }; sent = 0; this._stroke(cur);
