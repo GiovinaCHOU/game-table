@@ -21,6 +21,14 @@
   // 清掉超過 6 小時的舊房間
   try { Object.keys(localStorage).forEach(k => { if (/^(snap|seat|av):/.test(k)) { const v = LS.get(k); if (!v || Date.now() - (v.t || 0) > KEEP_MS) LS.del(k); } }); } catch (e) {}
   // 同一個 PIN 用固定身分，重新整理或被系統關掉分頁後回來，還是坐回原本的位子
+  // 裝置簡稱（給「連線狀態」看）
+  function devName() {
+    const u = navigator.userAgent || '';
+    const os = /iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : '其他';
+    const br = /Instagram/.test(u) ? 'IG 內建' : /FBAN|FBAV/.test(u) ? 'FB 內建' : /\bLine\//.test(u) ? 'LINE 內建' : /GSA\//.test(u) ? 'Google App' : /CriOS|Chrome/.test(u) && !/Edg/.test(u) ? 'Chrome' : /Edg/.test(u) ? 'Edge' : /Firefox|FxiOS/.test(u) ? 'Firefox' : /Safari/.test(u) ? 'Safari' : '瀏覽器';
+    const net = navigator.connection && navigator.connection.type ? ({ wifi: '・Wi‑Fi', cellular: '・行動網路' }[navigator.connection.type] || '') : '';
+    return `${os} ${br}${net}`;
+  }
   const TEST_PIN = '777777'; // 測試房：可以加電腦玩家
   function cidFor(pin) { if (window.Net.LOCAL) return myCid(); const v = LS.get('seat:' + pin); if (v && v.cid) { LS.set('seat:' + pin, { cid: v.cid, t: Date.now() }); return v.cid; } const c = rid(); LS.set('seat:' + pin, { cid: c, t: Date.now() }); return c; }
 
@@ -44,13 +52,16 @@
     // 手機網路切換（5G／Wi‑Fi）後，連線元件可能已經壞掉：壞了就換一個新的
     // 連線元件出事（被系統關掉、網路切換）：不等心跳逾時，馬上修
     _watchPeer(p) {
-      const fix = () => { if (this._leaving || this.isHost || this.peer !== p) return; setTimeout(() => this._ensurePeer().then(() => this._connect()).catch(() => {}), 200); };
+      // 配對伺服器斷線不代表遊戲連線斷了：跟房主的連線還活著就先不要動它
+      const healthy = () => this.conn && this.conn.open && Date.now() - (this._lastHost || 0) < 4000;
+      const fix = () => { if (this._leaving || this.isHost || this.peer !== p) return; setTimeout(() => { if (healthy()) return; this._ensurePeer().then(() => this._connect()).catch(() => {}); }, 200); };
       p.on('close', fix); p.on('error', (e) => { if (e && /network|disconnected|server-error|socket/.test(e.type || '')) fix(); });
       p.on('disconnected', () => { setTimeout(() => { try { if (this.peer === p && !p.destroyed) p.reconnect(); } catch (e) {} }, 500); });
     },
     async _ensurePeer() {
       if (this.isHost) return;
       const p = this.peer;
+      if (p && !p.destroyed && this.conn && this.conn.open && Date.now() - (this._lastHost || 0) < 4000) return; // 遊戲連線還好好的：不要為了配對伺服器的問題把它拆掉
       if (p && !p.destroyed && !p.disconnected) { this._discSince = 0; return; }
       if (p && !p.destroyed && p.disconnected) {
         if (!this._discSince) this._discSince = Date.now();
@@ -81,7 +92,7 @@
         case 'chat': this.cb.chat(msg); break;
         case 'quick': this.cb.quick(msg); break;
         case 'err': this.cb.status(msg.msg, true); break;
-        case 'ping': this.clockOffset = msg.now - Date.now(); this._lastHost = Date.now(); this.send({ t: 'pong' }); break;
+        case 'ping': this.clockOffset = msg.now - Date.now(); this._lastHost = Date.now(); this.send({ t: 'pong', now: msg.now, dev: devName(), pd: this.diagPd || null }); break;
         case 'kick': this.cb.status('你被房主請出房間', true); this.leave(); break;
         case 'snap': this._snap = msg.s; this._snapAt = Date.now(); this.saveSnap(msg.s); break;
       }
@@ -122,7 +133,12 @@
       throw new Error('建立房間失敗，請再試一次');
     },
     _hostPeerEvents(peer) {
-      peer.on('disconnected', () => { if (this._leaving || !this.isHost) return; this.cb.status('與配對伺服器斷線，重新連線中…'); setTimeout(() => { try { peer.reconnect(); } catch (e) {} }, 1000); });
+      // 配對伺服器斷線：已經在玩的人不受影響，但新加入／重連要靠它，所以每 3 秒重試直到接回
+      peer.on('disconnected', () => {
+        if (this._leaving || !this.isHost) return; this.cb.status('與配對伺服器斷線（遊戲照常），重新連線中…');
+        clearInterval(this._sigT); this._sigT = setInterval(() => { if (!this.isHost || peer.destroyed || this.peer !== peer) return clearInterval(this._sigT); if (!peer.disconnected) { clearInterval(this._sigT); this.cb.status(''); return; } try { peer.reconnect(); } catch (e) {} }, 3000);
+      });
+      peer.on('open', () => { if (this.isHost) { clearInterval(this._sigT); this.cb.status(''); } });
       peer.on('error', (e) => {
         // 斷線太久，房號已被候補房主接手 → 自己改當一般玩家重新加入
         if (e && e.type === 'unavailable-id' && this.isHost && !this._leaving) this._demote();
@@ -299,6 +315,7 @@
       clearInterval(this.timer);
       this.timer = setInterval(() => this.tick(), 200);
       this._pingT = setInterval(() => this.ping(), 2000); // 每 2 秒心跳：斷線 6～8 秒內就會發現
+      clearInterval(this._relayT); this._relayT = setInterval(() => this.checkRelay(), 10000);
     },
     stop() { clearInterval(this.timer); clearInterval(this._pingT); },
     restore(R, pin, snap, msg) {
@@ -356,6 +373,14 @@
       const c = this.conns[cid]; if (c && c.open) { try { c.send(msg); } catch (e) {} }
     },
     all(msg, except) { this.members.forEach(m => { if (m.online && m.cid !== except) this.to(m.cid, msg); }); },
+    // 連線方式：直連還是透過中繼伺服器（中繼比較慢、而且會用到免費額度）
+    async checkRelay() {
+      for (const m of this.members) {
+        const c = this.conns[m.cid], pc = c && c.peerConnection; if (!pc || !pc.getStats) continue;
+        try { const st = await pc.getStats(); let pair = null; st.forEach(r => { if (r.type === 'candidate-pair' && (r.nominated || r.selected) && r.state === 'succeeded') pair = r; });
+          if (pair) { const lc = st.get(pair.localCandidateId), rc = st.get(pair.remoteCandidateId); m.relay = (lc && lc.candidateType === 'relay') || (rc && rc.candidateType === 'relay') ? 1 : 0; } } catch (e) {}
+      }
+    },
     ping() {
       const now = Date.now();
       this.members.forEach(m => {
@@ -371,7 +396,7 @@
     roomInfo() {
       return {
         pin: this.pin, test: this.pin === TEST_PIN, hostCid: this.R.cid, heir: this.heir(), heirs: this.heirs(),
-        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, auto: !!m.auto, bot: !!m.bot, seat: this.seats().indexOf(m.cid) })),
+        members: this.members.map(m => ({ cid: m.cid, name: m.name, role: m.role, online: m.online, voice: m.voice, peerId: m.peerId, avatar: m.avatar || null, auto: !!m.auto, bot: !!m.bot, seat: this.seats().indexOf(m.cid), net: m.cid === this.R.cid ? { host: 1, dev: devName() } : { rtt: m.rtt || null, relay: m.relay, dev: m.dev || '', pd: m.pd || null } })),
         lobby: this.lobby,
         game: this.game ? { id: this.game.id, seats: this.game.seats, opts: this.game.opts } : null
       };
@@ -425,7 +450,8 @@
           this.pushRoom(); this.pushViews();
           break;
         }
-        case 'pong': break;
+        case 'diag': this.to(cid, { t: 'room', room: this.roomInfo() }); break;
+        case 'pong': if (m) { if (d.now) { const r = Date.now() - d.now; m.rtt = m.rtt ? Math.round(m.rtt * 0.6 + r * 0.4) : r; } if (d.dev) m.dev = String(d.dev).slice(0, 40); if (d.pd != null) m.pd = +d.pd || 0; } break;
         case 'chat': if (m) this.all({ t: 'chat', from: m.name, text: String(d.text || '').slice(0, 200) }); break;
         case 'avatar': if (m && typeof d.img === 'string' && d.img.startsWith('data:image/') && d.img.length < 60000) { m.avatar = d.img; this.pushRoom(); this.pushViews(); } break;
         case 'quick': if (m && Date.now() - (m.lastQ || 0) > 1200) { m.lastQ = Date.now(); this.all({ t: 'quick', from: m.name, cid, text: String(d.text || '').slice(0, 30) }); } break;

@@ -247,7 +247,7 @@
         const from = tk.r.g.position.clone(), to = this.slot(i, seat);
         const yaw = Math.atan2(to.x - from.x, to.z - from.z);
         if (this.onStep) this.onStep(i);
-        await this.tween(ms || 300, k => { tk.r.g.position.lerpVectors(from, to, k); let d = yaw - tk.r.g.rotation.y; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; tk.r.g.rotation.y += d * 0.3; });
+        await this.tween(ms || (path.length > 8 ? 190 : 230), k => { tk.r.g.position.lerpVectors(from, to, k); let d = yaw - tk.r.g.rotation.y; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; tk.r.g.rotation.y += d * 0.3; });
         tk.pos = i; this.pulseTile(i);
       }
       root.MONO_CHARS.set(tk.r, 'idle'); tk.busy = false;

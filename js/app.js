@@ -282,6 +282,24 @@
   const qLabel = () => { $('#qBtn').textContent = `🖥️ 大富翁畫質：${qNow() === 'high' ? '高（清楚、較耗電）' : '省電'}`; };
   qLabel(); $('#qBtn').onclick = () => { const nq = qNow() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (e) {} const M = window.GAMES.monopoly; if (M && M.board && M.board.setQuality) M.board.setQuality(nq === 'high'); const qb = document.querySelector('.mono-tools [data-t="q"]'); if (qb) qb.textContent = nq === 'high' ? '高' : '低'; qLabel(); };
   if (window.GFX) { sfxLabel(); $('#sfxBtn').onclick = () => { GFX.toggleSfx(); sfxLabel(); }; $('#bgmBtn').onclick = () => { GFX.toggleBgm(); sfxLabel(); }; }
+  // 連線狀態：每個人的延遲、直連／中繼、裝置、上次提示框等了多久（房主每 2 秒量一次）
+  let netT = null;
+  function netPanel() {
+    const sh = $('#sheet'); if (sh.hidden || !sh.querySelector('.netp')) { clearInterval(netT); netT = null; return; }
+    const room = R.isHost && window.Host && Host.roomInfo ? Host.roomInfo() : R.room;
+    const ms = (room && room.members || []).filter(m => !m.bot && m.role !== 'gone');
+    const q = (r) => r == null ? ['—', ''] : r < 150 ? [`${r} ms`, 'ok'] : r < 400 ? [`${r} ms`, 'mid'] : [`${r} ms`, 'bad'];
+    sh.querySelector('.netp').innerHTML = ms.map(m => { const n = m.net || {}; const [rt, cls] = n.host ? ['房主', 'ok'] : q(n.rtt);
+      return `<tr class="${m.online ? '' : 'off'}"><td><b>${U.esc(m.name)}</b><small>${U.esc(n.dev || '')}</small></td><td class="${m.online ? cls : 'bad'}">${m.online ? rt : '離線'}</td><td>${n.host ? '—' : n.relay == null ? '…' : n.relay ? '中繼' : '直連'}</td><td>${n.pd ? (n.pd / 1000).toFixed(1) + ' 秒' : '—'}</td></tr>`; }).join('');
+    if (!R.isHost) R.send({ t: 'diag' });
+  }
+  $('#netBtn').onclick = () => {
+    $('#menu').hidden = true;
+    const sh = $('#sheet'); sh.querySelector('.sheet-body').innerHTML = `<h3>📶 連線狀態</h3><table class="nett"><thead><tr><th>玩家</th><th>延遲</th><th>連線</th><th>上次提示</th></tr></thead><tbody class="netp"></tbody></table>
+      <p class="hint">延遲：訊息到房主再回來要多久，150 ms 以下很順、400 ms 以上會卡。<br>連線：「中繼」是透過中繼伺服器轉送，比較慢也會用到免費額度。<br>上次提示：從擲骰到買地等提示框出現花了多久（含動畫）。</p><button class="btn" id="sheetClose">關閉</button>`;
+    sh.hidden = false; $('#sheetClose').onclick = () => sh.hidden = true;
+    netPanel(); clearInterval(netT); netT = setInterval(netPanel, 2000);
+  };
   $('#rulesBtn').onclick = () => {
     $('#menu').hidden = true;
     const id = (R.room.game && R.room.game.id) || R.room.lobby.gameId; const g = window.GAMES[id];

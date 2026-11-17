@@ -163,6 +163,7 @@
       return `<span class="mface" style="width:${sz}px;height:${sz}px;border-color:${ch.color}">${img ? `<img src="${img}">` : `<i style="font-size:${sz * 0.6}px">${ch.emoji}</i>`}</span>`;
     },
     render(el, v, ui) {
+      if (v.seat >= 0 && v.turn === v.seat && ['buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase)) { const k = v.evId + ':' + v.phase; if (this._decKey !== k) { this._decKey = k; this._decAt = Date.now(); } }
       this.ui = ui; this.v = v;
       if (el.dataset.g !== 'monopoly' || this._theme !== v.theme) this.build(el, v);
       el.classList.toggle('dim-bg', false);
@@ -305,7 +306,7 @@
     // 換人前在剛剛那個人身上多停一下，讓買地、蓋房、進監獄的動畫看得完整（約 1.2 秒，不會停太久）
     holdCam() {
       const v = this.v; if (!v || v.phase === 'over' || this._camTurn === v.turn || this._camTurn == null || !this._played) return;
-      this._played = false; return sleep(1200);
+      this._played = false; return sleep(800);
     },
     async play(evs) {
       this._played = evs.some(e => ['buy', 'up', 'buyout', 'jail', 'pay', 'card', 'sell', 'down', 'skip', 'skipset', 'cash', 'immune'].includes(e.t));
@@ -313,6 +314,8 @@
       const v = this.v, b = this.board, unit = TH()[v.theme].unit, $ = (n) => fmt(n) + ' ' + unit, why = (w) => w ? (w === '卡片' ? '（卡片）' : ' ' + w) : ''; const watch = (s) => !this._camFree || b.following === s;
       try {
         for (const e of evs) {
+          // 追進度：後面還有排隊的畫面時（手機慢、網路一次送來好幾批），這批只記錄不播動畫，讓最新的提示框盡快出現
+          if (this._backlog > 1 && e.t !== 'bankrupt') { this.quickLog(e, $, why); continue; }
           if (e.t === 'bankrupt') this.cine(true);
           if (!this.board) break;
           switch (e.t) {
@@ -391,9 +394,9 @@
     },
     async rollDice(d) {
       const faces = this.el.querySelectorAll('.d6'); SFX.dice();
-      for (let k = 0; k < 8; k++) { faces.forEach(f => f.textContent = '⚀⚁⚂⚃⚄⚅'[Math.floor(Math.random() * 6)]); await sleep(60); }
+      for (let k = 0; k < 7; k++) { faces.forEach(f => f.textContent = '⚀⚁⚂⚃⚄⚅'[Math.floor(Math.random() * 6)]); await sleep(55); }
       faces[0].textContent = '⚀⚁⚂⚃⚄⚅'[d[0] - 1]; faces[1].textContent = '⚀⚁⚂⚃⚄⚅'[d[1] - 1];
-      this.fx(`${d[0] + d[1]} 步`, 'dice', this.v.turn); await sleep(350);
+      this.fx(`${d[0] + d[1]} 步`, 'dice', this.v.turn); await sleep(220);
     },
     // 卡片：所有人都看得到（頭像＋名字），可以自己關；下一位擲骰前自動收掉
     async showCard(e) {
@@ -422,6 +425,15 @@
     ungrey() { if (!this._grey) return; this._grey = false; const st = this.el && this.el.querySelector('.mono-stage'); if (st) { st.style.transition = 'filter 1.2s'; st.style.filter = ''; } },
     closeCard() { const L = this.el && this.el.querySelector('.mono-cardlayer'); if (L) { L.classList.remove('on'); L.innerHTML = ''; } clearTimeout(this._cardT); },
     who(s) { const v = this.v; return `<span class="who">${this.faceHTML(v, s, 22)}${U.esc(v.names[s])}</span>`; },
+    quickLog(e, $, why) {
+      const L = window.gameLog; if (!L) return; const v = this.v, tn = (i) => U.esc(R().tileName(v.theme, i));
+      const t = { pay: () => e.to >= 0 ? `${this.who(e.from)} 付給 ${this.who(e.to)} <b class="r">${$(e.amt)}</b>${U.esc(why(e.why))}` : `${this.who(e.from)} 付出 <b class="r">${$(e.amt)}</b>${U.esc(why(e.why))}`,
+        buy: () => `${this.who(e.seat)} 買下 <b>${tn(e.tile)}</b>`, up: () => `${this.who(e.seat)} 把 <b>${tn(e.tile)}</b> 蓋到 Lv${e.level}`,
+        buyout: () => `${this.who(e.seat)} 強制收購 ${this.who(e.from)} 的 <b>${tn(e.tile)}</b>`, cash: () => `${this.who(e.seat)} 獲得 <b class="g">+${$(e.amt)}</b>${U.esc(why(e.why))}`,
+        card: () => `${this.who(e.seat)} 抽到${e.deck === 'luck' ? '好運' : '厄運'}卡：${U.esc(e.text || '')}`, jail: () => `${this.who(e.seat)} 被送進監獄`,
+        item: () => `${this.who(e.seat)} 使用 <b>${U.esc(this.itemName(e.k))}</b>`, getitem: () => `${this.who(e.seat)} 拿到一張道具` }[e.t];
+      if (t) L(t());
+    },
     // 破產等大動畫播放時，通知先收起來，播完再顯示，不擋畫面
     cine(on) {
       this._cine = on; if (!this.el) return; this.el.classList.toggle('cine', on);
@@ -498,7 +510,7 @@
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
       if (!m.hidden && m.querySelector('.pad')) return;
       // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）
-      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); }
+      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); if (this._decAt && v.phase !== 'roll') root.Room.diagPd = Date.now() - this._decAt; }
       const th = TH()[v.theme];
       if (v.phase === 'over') {
         m.hidden = false;
