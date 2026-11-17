@@ -456,53 +456,86 @@
       }
       return g;
     }
-    if (theme === 'alien') {
-      const bone = M('#e3d9c0', { roughness: 0.32, metalness: 0.2 }), dark = M('#2a2034', { roughness: 0.15, metalness: 0.8 }), glow = M(ctx.color, { emissive: ctx.color, emissiveIntensity: 1.2 });
-      const pod = (s, x, z) => { // 卵囊
-        const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new T.Vector2(Math.sin(t * Math.PI) * 0.22 * s * (1 - t * 0.35), t * 0.6 * s)); }
-        const m = add(new T.LatheGeometry(pts, 14), dark, x, 0, z);
-        for (let r = 1; r < 5; r++) { const rg = add(new T.TorusGeometry(0.2 * s * Math.sin(r / 5 * Math.PI) * 0.95, 0.018 * s, 6, 16), bone, x, r / 5 * 0.58 * s, z); rg.rotation.x = Math.PI / 2; }
-        const top = add(new T.SphereGeometry(0.05 * s, 8, 6), glow, x, 0.6 * s, z); upd.push(t => { top.material.emissiveIntensity = 0.6 + Math.sin(t * 2 + x * 5) * 0.6; });
-        return m;
-      };
-      if (level === 1) pod(1.1, 0, 0);
-      else if (level === 2) { pod(1.2, -0.12, 0); pod(0.8, 0.2, 0.12); const a = add(new T.TorusGeometry(0.34, 0.03, 6, 18, Math.PI), bone, 0, 0, -0.18); a.rotation.y = 0.3; }
-      else if (level === 3) {
-        for (let k = 0; k < 9; k++) { const v = add(new T.TorusGeometry(0.16 - k * 0.008, 0.06, 6, 12), k % 2 ? bone : dark, 0, 0.08 + k * 0.14, 0); v.rotation.x = Math.PI / 2; }
-        for (let k = 0; k < 4; k++) { const rb = add(new T.TorusGeometry(0.35, 0.025, 6, 16, Math.PI * 0.9), bone, 0, 0.35 + k * 0.22, 0); rb.rotation.set(Math.PI / 2, 0, k * 0.9); }
-        add(new T.SphereGeometry(0.09, 10, 8), glow, 0, 1.4, 0);
-      } else {
-        for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI; const arch = add(new T.TorusGeometry(0.42, 0.035, 6, 20, Math.PI), bone, 0, 0, 0); arch.rotation.y = a; }
-        for (let k = 0; k < 12; k++) { const v = add(new T.TorusGeometry(0.11 - k * 0.005, 0.045, 6, 12), k % 2 ? bone : dark, 0, 0.1 + k * 0.13, 0); v.rotation.x = Math.PI / 2; }
-        const head = add(new T.CapsuleGeometry(0.1, 0.35, 4, 10), dark, 0.08, 1.75, 0); head.rotation.z = -1.1;
-        const L = new T.PointLight(ctx.color, 2.5, 2.2, 2); L.position.set(0, 0.6, 0); g.add(L); upd.push(t => { L.intensity = 1.8 + Math.sin(t * 1.7) * 1; });
+    if (theme === 'alien') { // 深空異種：發光卵囊群 → 生物蜂巢丘 → 肋骨尖塔＋跳動的心臟 → 半埋的異種母艦
+      const bone = M('#e3d9c0', { roughness: 0.32, metalness: 0.2 }), dark = M('#2a2034', { roughness: 0.15, metalness: 0.4 }), glow = (c, k) => M(c, { emissive: c, emissiveIntensity: k || 1.8 }), slime = M('#7affc8', { emissive: '#3affa0', emissiveIntensity: 1.2, transparent: true, opacity: 0.75, roughness: 0.1 });
+      const egg = (x, z, s) => { const pts = []; for (let i = 0; i <= 12; i++) { const t2 = i / 12; pts.push(new T.Vector2(Math.sin(t2 * Math.PI) * 0.12 * s * (1 - t2 * 0.25), t2 * 0.3 * s)); } const m = add(new T.LatheGeometry(pts, 14), dark, x, 0, z);
+        const core = add(new T.SphereGeometry(0.06 * s, 10, 8), glow(ctx.color, 1.6), x, 0.13 * s, z); for (let k = 0; k < 4; k++) { const v = add(new T.TorusGeometry(0.1 * s * Math.sin((k + 1) / 5 * Math.PI), 0.006, 4, 20), bone, x, 0.05 * s + k * 0.06 * s, z); v.rotation.x = Math.PI / 2; } void m; return core; };
+      if (level === 1) { // 卵囊群：四顆大小不同的卵，裡面的光一起呼吸；地上一灘發光黏液
+        const cores = [egg(0, 0, 1.2), egg(0.18, 0.1, 0.8), egg(-0.17, 0.08, 0.9), egg(0.05, -0.18, 0.7)];
+        const pool = add(new T.CircleGeometry(0.3, 24), slime, 0, 0.012, 0); pool.rotation.x = -Math.PI / 2;
+        upd.push(t => cores.forEach((c, k) => c.scale.setScalar(1 + Math.sin(t * 3 + k) * 0.18)));
+      } else if (level === 2) { // 生物蜂巢丘：一團長滿孔洞的丘，孔裡透出紫光，表面有血管
+        const mound = add(new T.SphereGeometry(0.32, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), M('#4a3a52', { roughness: 0.6, flatShading: true }), 0, 0, 0); mound.scale.y = 1.15;
+        const holes = []; for (let k = 0; k < 9; k++) { const a = k * 2.4, h = 0.08 + (k % 3) * 0.1, r = Math.sqrt(Math.max(0.01, 0.32 * 0.32 - (h / 1.15) ** 2)); const hl = add(new T.CircleGeometry(0.035 + (k % 2) * 0.015, 12), glow('#c060ff', 2), Math.cos(a) * r, h, Math.sin(a) * r); hl.lookAt(Math.cos(a) * 3, h, Math.sin(a) * 3); holes.push(hl); }
+        for (let k = 0; k < 6; k++) { const a = k * 1.05, vein = add(new T.TorusGeometry(0.3, 0.008, 4, 20, 1.2), M('#c03a6a', { emissive: '#801030', emissiveIntensity: 0.6 }), 0, 0, 0); vein.rotation.set(0, a, Math.PI / 2); }
+        add(new T.ConeGeometry(0.05, 0.22, 8), bone, 0, 0.42, 0); add(new T.SphereGeometry(0.03, 8, 6), glow(ctx.color, 2.2), 0, 0.54, 0);
+        upd.push(t => holes.forEach((h, k) => h.material.emissiveIntensity = 1.4 + Math.sin(t * 4 + k) * 0.8));
+      } else if (level === 3) { // 肋骨尖塔：一根根彎曲的骨頭圍成尖塔，中間吊著一顆跳動的心臟
+        for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283, pts = []; for (let q = 0; q <= 8; q++) { const u = q / 8; pts.push(new T.Vector3(Math.cos(a) * 0.28 * (1 - u * 0.85) + Math.cos(a + 1.57) * Math.sin(u * 3) * 0.03, u * 1.25, Math.sin(a) * 0.28 * (1 - u * 0.85))); }
+          add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 16, 0.025 * 1, 6), bone, 0, 0, 0); }
+        const mem = add(new T.ConeGeometry(0.24, 1.0, 7, 1, true), M('#5a2a4a', { transparent: true, opacity: 0.55, side: T.DoubleSide, roughness: 0.3 }), 0, 0.55, 0); void mem;
+        const heart = add(new T.SphereGeometry(0.09, 14, 12), M('#d02a4a', { emissive: '#ff2a50', emissiveIntensity: 1.2, roughness: 0.3 }), 0, 0.55, 0); heart.scale.y = 1.25;
+        add(new T.SphereGeometry(0.04, 10, 8), glow(ctx.color, 2.6), 0, 1.32, 0);
+        upd.push(t => { const b = Math.pow(Math.max(0, Math.sin(t * 5)), 6); heart.scale.set(1 + b * 0.25, 1.25 + b * 0.3, 1 + b * 0.25); heart.material.emissiveIntensity = 1 + b * 2; });
+      } else { // 異種母艦：半埋在地裡的生物機械飛碟，觸手垂地、發光環、往天上打的信號光柱
+        g.userData.s = 0.9;
+        const ship = new T.Group(); ship.position.set(0, 0.32, 0); ship.rotation.z = 0.28; g.add(ship);
+        const disc = new T.Mesh(new T.SphereGeometry(0.5, 24, 12), dark); disc.scale.set(1, 0.22, 1); ship.add(disc);
+        const dome = new T.Mesh(new T.SphereGeometry(0.22, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), M('#8a6aff', { emissive: '#5a3aff', emissiveIntensity: 1.2, transparent: true, opacity: 0.8, roughness: 0.1 })); dome.position.y = 0.08; ship.add(dome);
+        const ring = new T.Mesh(new T.TorusGeometry(0.46, 0.02, 8, 48), glow(ctx.color, 2.4)); ring.rotation.x = Math.PI / 2; ship.add(ring);
+        const lights = []; for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283, l = new T.Mesh(new T.SphereGeometry(0.022, 8, 6), glow('#7affc8', 2)); l.position.set(Math.cos(a) * 0.4, -0.05, Math.sin(a) * 0.4); ship.add(l); lights.push(l); }
+        for (let k = 0; k < 5; k++) { const a = k / 5 * 6.283 + 0.3, pts = []; for (let q = 0; q <= 8; q++) { const u = q / 8; pts.push(new T.Vector3(Math.cos(a) * (0.3 + u * 0.25), -u * 0.5, Math.sin(a) * (0.3 + u * 0.25) + Math.sin(u * 5) * 0.04)); } ship.add(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 16, 0.025, 6), bone)); }
+        for (let k = 0; k < 8; k++) add(new T.DodecahedronGeometry(0.07 + (k % 3) * 0.03, 0), M('#4a3a52', { flatShading: true }), Math.cos(k * 0.8) * 0.4 + 0.25, 0.04, Math.sin(k * 0.8) * 0.35);
+        const beam = add(new T.CylinderGeometry(0.05, 0.12, 2.2, 16, 1, true), new T.MeshBasicMaterial({ color: '#b080ff', transparent: true, opacity: 0.22, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending }), -0.08, 1.5, 0);
+        upd.push(t => { ring.rotation.z = t * 0.8; dome.material.emissiveIntensity = 1 + Math.sin(t * 2) * 0.4; lights.forEach((l, k) => l.visible = (Math.floor(t * 6) + k) % 4 !== 0); beam.material.opacity = 0.16 + Math.sin(t * 3) * 0.08; });
       }
-      // 地主顏色的發光血管
-      const vein = add(new T.TorusGeometry(0.5, 0.012, 4, 32), M(ctx.color, { emissive: ctx.color, emissiveIntensity: 1 }), 0, 0.02, 0); vein.rotation.x = Math.PI / 2;
-    } else if (theme === 'buddha') {
-      const red = M('#b3191c', { roughness: 0.45 }), gold = M('#e0b040', { metalness: 0.85, roughness: 0.25 }), roofM = M('#2a4a3a', { roughness: 0.5 }), stone = M('#8a7a70', { roughness: 0.9 });
-      if (level === 1) { // 土地公小廟（泰式神龕）
-        add(new T.CylinderGeometry(0.03, 0.03, 0.45, 6), stone, 0, 0.22, 0);
-        add(new T.BoxGeometry(0.3, 0.22, 0.26), red, 0, 0.55, 0);
-        const r = add(new T.ConeGeometry(0.26, 0.22, 4), gold, 0, 0.77, 0); r.rotation.y = Math.PI / 4;
-        add(new T.SphereGeometry(0.04, 8, 6), M('#ffd84a', { emissive: '#ff9a00', emissiveIntensity: 1.5 }), 0, 0.55, 0.14);
-      } else if (level === 2) { // 鳥居＋小社
-        const or = M('#e2401c'); [-0.25, 0.25].forEach(x => add(new T.CylinderGeometry(0.03, 0.035, 0.6, 8), or, x, 0.3, 0.28));
-        add(new T.BoxGeometry(0.7, 0.05, 0.07), M('#1c1416'), 0, 0.62, 0.28); add(new T.BoxGeometry(0.56, 0.04, 0.05), or, 0, 0.52, 0.28);
-        add(new T.BoxGeometry(0.4, 0.3, 0.32), M('#e8dcc4'), 0, 0.15, -0.12); const r = add(new T.ConeGeometry(0.36, 0.2, 4), roofM, 0, 0.4, -0.12); r.rotation.y = Math.PI / 4; r.scale.z = 0.8;
-      } else { // 層塔：3 = 三層、4 = 金色佛塔
-        if (level === 3) {
-          for (let k = 0; k < 3; k++) { const s = 1 - k * 0.22, y = 0.05 + k * 0.38; add(new T.BoxGeometry(0.42 * s, 0.3, 0.42 * s), red, 0, y + 0.15, 0); const r = add(new T.ConeGeometry(0.42 * s, 0.14, 4), roofM, 0, y + 0.36, 0); r.rotation.y = Math.PI / 4; }
-          add(new T.ConeGeometry(0.03, 0.3, 6), gold, 0, 1.35, 0);
-        } else {
-          const pts = []; for (let i = 0; i <= 20; i++) { const t2 = i / 20; pts.push(new T.Vector2(t2 < 0.25 ? 0.42 - t2 * 0.3 : t2 < 0.5 ? 0.36 - (t2 - 0.25) * 0.2 : Math.max(0.01, 0.31 * (1 - (t2 - 0.5) / 0.5) ** 1.5), t2 * 1.7)); }
-          add(new T.LatheGeometry(pts, 20), gold, 0, 0, 0);
-          const L = new T.PointLight('#ffd27a', 2.2, 2.2, 2); L.position.set(0, 0.8, 0.4); g.add(L); upd.push(t => { L.intensity = 1.8 + Math.sin(t * 3) * 0.5; });
-        }
+    } else if (theme === 'buddha') { // 神佛之境：土地公小廟 → 神社 → 三層寶塔 → 金色佛寺群
+      const red = M('#b3191c', { roughness: 0.45 }), gold = M('#e0b040', { metalness: 0.85, roughness: 0.25 }), green = M('#2a6a4a', { roughness: 0.4 }), tile = M('#d0702a', { roughness: 0.35, metalness: 0.2 }), stone = M('#a09a90', { roughness: 0.9 }), lampM = M('#ffcf6a', { emissive: '#ffa030', emissiveIntensity: 2 });
+      const eave = (y, w, d, h, mat, parent) => { // 兩端往上翹的屋頂
+        const r = add(new T.CylinderGeometry(0.01, 1, h, 4, 1), mat, 0, y, 0, parent); r.rotation.y = Math.PI / 4; r.scale.set(w * 0.72, 1, d * 0.72);
+        [-1, 1].forEach(sd => { const tail = add(new T.ConeGeometry(0.012, 0.09, 6), gold, sd * w * 0.47, y - h * 0.32, 0, parent); tail.rotation.z = sd * 0.9; }); };
+      const banner = (x, z) => { add(new T.CylinderGeometry(0.008, 0.008, 0.6, 5), M('#5a4a3a'), x, 0.3, z); const f = add(new T.PlaneGeometry(0.1, 0.32), M(ctx.color, { side: T.DoubleSide }), x + 0.055, 0.42, z); upd.push(t => { f.rotation.y = Math.sin(t * 2.5 + x) * 0.35; }); };
+      if (level === 1) { // 土地公小廟：紅牆小廟、燕尾屋頂、香爐冒煙、兩盞燈籠
+        add(new T.BoxGeometry(0.34, 0.06, 0.3), stone, 0, 0.03, 0); add(new T.BoxGeometry(0.26, 0.24, 0.22), red, 0, 0.18, 0);
+        add(new T.BoxGeometry(0.12, 0.14, 0.01), M('#2a0a0a'), 0, 0.15, 0.111); add(new T.SphereGeometry(0.02, 8, 6), lampM, 0, 0.16, 0.1);
+        eave(0.36, 0.42, 0.34, 0.12, tile);
+        add(new T.CylinderGeometry(0.04, 0.03, 0.05, 10), M('#6a5a3a', { metalness: 0.7 }), 0, 0.03, 0.23);
+        [-0.17, 0.17].forEach(x => { const l = add(new T.SphereGeometry(0.03, 10, 8), M('#ff3a2a', { emissive: '#ff2a10', emissiveIntensity: 1.6 }), x, 0.28, 0.14); l.scale.y = 1.3; });
+        const sm = []; for (let k = 0; k < 3; k++) { const s2 = add(new T.SphereGeometry(0.02, 8, 6), new T.MeshBasicMaterial({ color: '#e0d8e0', transparent: true, opacity: 0.3, depthWrite: false }), 0, 0.08, 0.23); s2.userData.o = k / 3; sm.push(s2); }
+        upd.push(t => sm.forEach(s2 => { const p = (t * 0.3 + s2.userData.o) % 1; s2.position.set(Math.sin(t + p * 6) * 0.03, 0.08 + p * 0.4, 0.23); s2.scale.setScalar(1 + p * 2); s2.material.opacity = 0.3 * (1 - p); }));
+        banner(-0.3, -0.2);
+      } else if (level === 2) { // 神社：朱紅鳥居、注連繩、石燈籠一對、白牆小社殿
+        const or = M('#e2401c', { roughness: 0.5 });
+        [-0.18, 0.18].forEach(x => add(new T.CylinderGeometry(0.022, 0.026, 0.44, 10), or, x, 0.22, 0.24));
+        add(new T.BoxGeometry(0.5, 0.035, 0.05), M('#1c1416'), 0, 0.46, 0.24).rotation.z = 0; add(new T.BoxGeometry(0.42, 0.025, 0.04), or, 0, 0.38, 0.24);
+        const rope = add(new T.TorusGeometry(0.15, 0.012, 6, 20, Math.PI), M('#e8d8a0'), 0, 0.36, 0.24); rope.rotation.z = Math.PI; for (let k = 0; k < 3; k++) add(new T.PlaneGeometry(0.02, 0.05), M('#ffffff', { side: T.DoubleSide }), -0.08 + k * 0.08, 0.2, 0.245);
+        add(new T.BoxGeometry(0.3, 0.06, 0.26), stone, 0, 0.03, -0.12); add(new T.BoxGeometry(0.24, 0.2, 0.2), M('#f0e8d8'), 0, 0.16, -0.12);
+        [-0.08, 0.08].forEach(x => add(new T.BoxGeometry(0.02, 0.2, 0.02), or, x, 0.16, -0.015));
+        const rf = add(new T.CylinderGeometry(0.01, 0.24, 0.16, 4), M('#3a3a42', { roughness: 0.5 }), 0, 0.34, -0.12); rf.rotation.y = Math.PI / 4; rf.scale.z = 0.8;
+        [-0.3, 0.3].forEach(x => { add(new T.CylinderGeometry(0.03, 0.04, 0.12, 8), stone, x, 0.06, 0.12); add(new T.BoxGeometry(0.08, 0.06, 0.08), stone, x, 0.15, 0.12); add(new T.BoxGeometry(0.05, 0.035, 0.05), lampM, x, 0.15, 0.12); add(new T.ConeGeometry(0.07, 0.05, 4), stone, x, 0.205, 0.12).rotation.y = Math.PI / 4; });
+        banner(-0.32, -0.25);
+      } else if (level === 3) { // 三層寶塔：翹簷、每層掛風鈴、金色相輪、塔邊經幡串
+        add(new T.BoxGeometry(0.42, 0.06, 0.42), stone, 0, 0.03, 0);
+        const bells = [];
+        for (let k = 0; k < 3; k++) { const s2 = 1 - k * 0.2, y = 0.06 + k * 0.34; add(new T.BoxGeometry(0.28 * s2, 0.24, 0.28 * s2), red, 0, y + 0.12, 0); add(new T.BoxGeometry(0.1 * s2, 0.14, 0.01), M('#2a0a0a'), 0, y + 0.1, 0.141 * s2);
+          eave(y + 0.29, 0.5 * s2, 0.5 * s2, 0.1, green);
+          [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b2]) => { const bl = add(new T.ConeGeometry(0.012, 0.03, 6), gold, a * 0.2 * s2, y + 0.22, b2 * 0.2 * s2); bells.push(bl); }); }
+        add(new T.CylinderGeometry(0.012, 0.02, 0.3, 6), gold, 0, 1.2, 0); for (let k = 0; k < 5; k++) add(new T.TorusGeometry(0.03 - k * 0.003, 0.006, 4, 12), gold, 0, 1.1 + k * 0.05, 0).rotation.x = Math.PI / 2;
+        const cols = ['#2a5bd7', '#ffffff', '#d7262a', '#2a9a4a', '#f2c230']; for (let k = 0; k < 7; k++) { const u = k / 6; const f = add(new T.PlaneGeometry(0.05, 0.07), M(cols[k % 5], { side: T.DoubleSide }), -0.3 + u * 0.28, 0.9 - u * 0.75 - Math.sin(u * Math.PI) * 0.05, 0.25); upd.push(t => { f.rotation.x = Math.sin(t * 3 + k) * 0.3; }); }
+        upd.push(t => bells.forEach((b2, k) => { b2.rotation.z = Math.sin(t * 4 + k) * 0.3; }));
+        banner(0.32, -0.25);
+      } else { // 金色佛寺群：中央大金佛塔＋四座小塔、那伽欄杆、蓮花燈飄浮、金光
+        add(new T.BoxGeometry(0.62, 0.08, 0.62), M('#e8e0d0', { roughness: 0.7 }), 0, 0.04, 0); add(new T.BoxGeometry(0.46, 0.06, 0.46), M('#e8e0d0'), 0, 0.11, 0);
+        const stupa = (x, z, s) => { const pts = []; for (let i = 0; i <= 24; i++) { const t2 = i / 24; pts.push(new T.Vector2(t2 < 0.18 ? 0.42 - t2 * 0.25 : t2 < 0.45 ? 0.37 + Math.sin((t2 - 0.18) / 0.27 * Math.PI) * 0.05 - (t2 - 0.18) * 0.4 : Math.max(0.006, 0.28 * Math.pow(1 - (t2 - 0.45) / 0.55, 1.7)), t2 * 1.7)); } const m = add(new T.LatheGeometry(pts, 24), gold, x, 0.14, z); m.scale.setScalar(s); return m; };
+        stupa(0, 0, 0.62); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b2]) => stupa(a * 0.25, b2 * 0.25, 0.3));
+        for (let k = 0; k < 3; k++) add(new T.CylinderGeometry(0.2 - k * 0.04, 0.22 - k * 0.04, 0.05, 20), M('#f2ece0', { roughness: 0.6 }), 0, 0.165 + k * 0.05, 0);
+        for (let k = 0; k < 3; k++) add(new T.TorusGeometry(0.22 - k * 0.04, 0.01, 6, 30), M('#c8302a', { roughness: 0.4 }), 0, 0.42 + k * 0.1, 0).rotation.x = Math.PI / 2;
+        [-1, 1].forEach(sd => { const pts = []; for (let q = 0; q <= 8; q++) { const u = q / 8; pts.push(new T.Vector3(sd * 0.1, 0.12 + u * 0.03, 0.42 - u * 0.2 + Math.sin(u * 7) * 0.01)); } add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 10, 0.02, 6), M('#3a9a6a', { metalness: 0.5, roughness: 0.3 }), 0, 0, 0); const hd = add(new T.SphereGeometry(0.035, 10, 8), gold, sd * 0.1, 0.17, 0.44); hd.scale.set(1, 1.2, 0.7); });
+        const lotus = []; for (let k = 0; k < 6; k++) { const lg = new T.Group(); g.add(lg); for (let q = 0; q < 6; q++) { const pt = new T.Mesh(new T.SphereGeometry(0.025, 8, 6), M('#ffb0c8', { emissive: '#ff6a9a', emissiveIntensity: 0.8 })); pt.scale.set(0.5, 1, 0.3); pt.position.set(Math.cos(q) * 0.015, 0.015, Math.sin(q) * 0.015); pt.rotation.z = Math.cos(q) * 0.6; pt.rotation.x = Math.sin(q) * 0.6; lg.add(pt); } const c = new T.Mesh(new T.SphereGeometry(0.012, 6, 4), lampM); c.position.y = 0.02; lg.add(c); lg.userData = { a: k / 6 * 6.28, r: 0.5 }; lotus.push(lg); }
+        const L = new T.PointLight('#ffd27a', 2.2, 2.4, 2); L.position.set(0, 0.9, 0.4); g.add(L);
+        upd.push(t => { L.intensity = 1.8 + Math.sin(t * 3) * 0.5; lotus.forEach((lg, k) => { const a = lg.userData.a + t * 0.25; lg.position.set(Math.cos(a) * 0.48, 0.5 + Math.sin(t * 1.3 + k) * 0.12 + k * 0.05, Math.sin(a) * 0.48); }); });
+        banner(-0.36, 0.36);
       }
-      // 地主色的幡旗
-      add(new T.CylinderGeometry(0.012, 0.012, 0.7, 5), M('#5a4a3a'), -0.36, 0.35, -0.36);
-      const fl = add(new T.PlaneGeometry(0.14, 0.4), M(ctx.color, { side: T.DoubleSide }), -0.29, 0.5, -0.36); upd.push(t => { fl.rotation.y = Math.sin(t * 2.5) * 0.35; });
     } else if (theme === 'magic') { // 魔法學院：魔藥攤 → 歪斜魔杖店 → 觀星塔 → 浮空魔法城堡
       const stone = M('#8a8496', { roughness: 0.85 }), wood = M('#5a3a22', { roughness: 0.85 }), brass = M('#c8a050', { metalness: 0.85, roughness: 0.3 }), win = M('#ffcf6a', { emissive: '#ffb030', emissiveIntensity: 1.6 }), roofM = M('#2e3550', { roughness: 0.55, metalness: 0.25 });
       const pennant = (x, y, z) => { add(new T.CylinderGeometry(0.006, 0.006, 0.2, 4), M('#c8c8d0', { metalness: 0.6 }), x, y + 0.1, z); const f = add(new T.PlaneGeometry(0.1, 0.05), M(ctx.color, { side: T.DoubleSide, emissive: ctx.color, emissiveIntensity: 0.3 }), x + 0.05, y + 0.17, z); upd.push(t => { f.rotation.y = Math.sin(t * 3 + x * 9) * 0.4; }); };
@@ -550,20 +583,50 @@
         const L = new T.PointLight('#ffc070', 1.6, 2, 2); L.position.set(0, 0.6, 0.5); g.add(L);
         upd.push(t => { fl.rotation.y = Math.sin(t * 3) * 0.4; cry.rotation.y = t; cry.position.y = 2.3 + Math.sin(t * 1.5) * 0.06; halo.position.y = 0.5 + Math.sin(t) * 0.15; halo.scale.setScalar(1 + Math.sin(t * 2) * 0.05); motes.forEach(m => { const a = m.userData.a + t * 0.8; m.position.set(Math.cos(a) * m.userData.r, 0.4 + Math.sin(t * 2 + m.userData.a) * 0.3, Math.sin(a) * m.userData.r); }); });
       }
-    } else if (theme === 'ragnarok') {
-      const marble = M('#f6f2e8', { roughness: 0.3 }), gold = M('#d4af37', { metalness: 0.9, roughness: 0.2 });
-      if (level === 1) { // 雕像
-        add(new T.BoxGeometry(0.34, 0.2, 0.34), marble, 0, 0.1, 0); add(new T.CylinderGeometry(0.09, 0.13, 0.5, 10), marble, 0, 0.45, 0); add(new T.SphereGeometry(0.08, 12, 10), marble, 0, 0.78, 0);
-        const sp = add(new T.CylinderGeometry(0.012, 0.012, 0.7, 6), gold, 0.14, 0.55, 0); sp.rotation.z = 0.1;
-      } else {
-        const cols = level === 2 ? 2 : level === 3 ? 3 : 4, W = 0.28 + cols * 0.13, D = level === 2 ? 0.38 : 0.55, H = 0.32 + level * 0.12;
-        for (let s = 0; s < 3; s++) add(new T.BoxGeometry(W + 0.2 - s * 0.06, 0.05, D + 0.2 - s * 0.06), marble, 0, 0.025 + s * 0.05, 0);
-        for (let i = 0; i < cols; i++) for (const z of [-D / 2, D / 2]) add(new T.CylinderGeometry(0.035, 0.04, H, 10), marble, -W / 2 + 0.05 + i * (W - 0.1) / (cols - 1), 0.15 + H / 2, z);
-        add(new T.BoxGeometry(W + 0.06, 0.06, D + 0.08), marble, 0, 0.18 + H, 0);
-        const ped = add(new T.CylinderGeometry(0.01, (W + 0.1) * 0.72, 0.2, 4), level >= 3 ? gold : marble, 0, 0.31 + H, 0); ped.rotation.y = Math.PI / 4; ped.scale.z = D / W + 0.1;
-        if (level === 4) { add(new T.SphereGeometry(0.2, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), gold, 0, 0.36 + H, 0); const L = new T.PointLight('#ffe39a', 2, 2, 2); L.position.set(0, H + 0.6, 0); g.add(L); }
-        // 地主色帷幔
-        const cl = add(new T.PlaneGeometry(W * 0.6, H * 0.6), M(ctx.color, { side: T.DoubleSide }), 0, 0.15 + H * 0.55, 0); void cl;
+    } else if (theme === 'ragnarok') { // 諸神黃昏：殘柱雕像 → 圓形小神殿 → 大神殿 → 浮空的阿斯嘉宮殿＋彩虹橋
+      const marble = M('#f6f2e8', { roughness: 0.3 }), gold = M('#d4af37', { metalness: 0.9, roughness: 0.2 }), bronze = M('#8a6a3a', { metalness: 0.8, roughness: 0.35 });
+      const col = (x, z, h, r) => { add(new T.CylinderGeometry(r, r * 1.08, h, 12), marble, x, h / 2 + 0.06, z); add(new T.BoxGeometry(r * 2.6, 0.03, r * 2.6), marble, x, h + 0.075, z); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; add(new T.BoxGeometry(0.004, h * 0.9, 0.004), M('#d8d0c0'), x + Math.cos(a) * r, h / 2 + 0.06, z + Math.sin(a) * r); } };
+      const fire = (x, y, z) => { add(new T.CylinderGeometry(0.05, 0.03, 0.05, 10), bronze, x, y, z); const f = add(new T.ConeGeometry(0.035, 0.1, 8), M('#ffb040', { emissive: '#ff7a10', emissiveIntensity: 2.5, transparent: true, opacity: 0.9 }), x, y + 0.07, z); upd.push(t => { f.scale.set(1 + Math.sin(t * 13 + x) * 0.15, 1 + Math.sin(t * 9 + z) * 0.25, 1); }); };
+      if (level === 1) { // 殘柱與雕像：底座、持矛雕像、倒下的斷柱、銅火盆
+        add(new T.BoxGeometry(0.3, 0.16, 0.3), marble, 0, 0.08, 0); add(new T.BoxGeometry(0.34, 0.03, 0.34), marble, 0, 0.175, 0);
+        add(new T.CylinderGeometry(0.06, 0.09, 0.32, 10), marble, 0, 0.35, 0); add(new T.SphereGeometry(0.055, 12, 10), marble, 0, 0.56, 0);
+        add(new T.TorusGeometry(0.05, 0.01, 6, 14), M('#6a8a3a'), 0, 0.59, 0).rotation.x = Math.PI / 2;
+        const sp = add(new T.CylinderGeometry(0.008, 0.008, 0.6, 5), bronze, 0.09, 0.45, 0); sp.rotation.z = -0.1; add(new T.ConeGeometry(0.02, 0.06, 6), gold, 0.12, 0.77, 0);
+        const br = add(new T.CylinderGeometry(0.045, 0.045, 0.24, 12), marble, -0.26, 0.05, 0.16); br.rotation.set(0, 0.6, Math.PI / 2);
+        fire(0.26, 0.03, 0.22);
+      } else if (level === 2) { // 圓形小神殿：一圈柱子、圓頂、中間的小雕像與聖火
+        add(new T.CylinderGeometry(0.3, 0.32, 0.06, 20), marble, 0, 0.03, 0);
+        for (let k = 0; k < 8; k++) { const a = k / 8 * 6.28; col(Math.cos(a) * 0.24, Math.sin(a) * 0.24, 0.42, 0.025); }
+        add(new T.CylinderGeometry(0.29, 0.29, 0.05, 20), marble, 0, 0.53, 0); add(new T.SphereGeometry(0.27, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), M('#c8d8e0', { metalness: 0.3, roughness: 0.4 }), 0, 0.55, 0);
+        add(new T.ConeGeometry(0.03, 0.1, 8), gold, 0, 0.86, 0);
+        add(new T.CylinderGeometry(0.04, 0.05, 0.12, 8), marble, 0, 0.12, 0); fire(0, 0.2, 0);
+      } else if (level === 3) { // 大神殿：前廊雙排柱、三角山牆與浮雕、屋頂金色雕像、兩邊火盆
+        add(new T.BoxGeometry(0.62, 0.05, 0.5), marble, 0, 0.025, 0); add(new T.BoxGeometry(0.56, 0.04, 0.44), marble, 0, 0.07, 0);
+        for (let k = 0; k < 6; k++) { col(-0.24 + k * 0.096, 0.17, 0.46, 0.022); col(-0.24 + k * 0.096, -0.17, 0.46, 0.022); }
+        add(new T.BoxGeometry(0.4, 0.4, 0.26), M('#e8e0d0'), 0, 0.29, 0);
+        add(new T.BoxGeometry(0.6, 0.05, 0.46), marble, 0, 0.58, 0);
+        const ped = new T.Shape(); ped.moveTo(-0.3, 0); ped.lineTo(0.3, 0); ped.lineTo(0, 0.14); ped.closePath(); const pg = add(new T.ExtrudeGeometry(ped, { depth: 0.46, bevelEnabled: false }), marble, 0, 0.605, -0.23); void pg;
+        const fr = add(new T.ShapeGeometry(ped), M('#d4b060', { metalness: 0.6, roughness: 0.3 }), 0, 0.6, 0.235); fr.scale.set(0.8, 0.7, 1);
+        add(new T.CylinderGeometry(0.02, 0.03, 0.12, 8), gold, 0, 0.8, 0.0); add(new T.SphereGeometry(0.025, 10, 8), gold, 0, 0.88, 0);
+        [-0.34, 0.34].forEach(x => { add(new T.CylinderGeometry(0.02, 0.03, 0.2, 8), bronze, x, 0.1, 0.24); fire(x, 0.22, 0.24); });
+      } else { // 阿斯嘉宮殿：浮在雲上的岩島、金頂宮殿、彩虹橋、偶爾打一道閃電
+        g.userData.s = 0.95;
+        const isle = new T.Group(); isle.position.y = 0.45; g.add(isle); upd.push(t => { isle.position.y = 0.45 + Math.sin(t * 1.2) * 0.04; });
+        const rock = new T.Mesh(new T.ConeGeometry(0.36, 0.5, 9), M('#6a6470', { flatShading: true, roughness: 0.9 })); rock.rotation.x = Math.PI; rock.position.y = -0.25; isle.add(rock);
+        const top = new T.Mesh(new T.CylinderGeometry(0.36, 0.36, 0.06, 9), M('#7a9a5a', { flatShading: true })); isle.add(top);
+        const ia = (geo, mat, x, y, z) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; isle.add(m); return m; };
+        ia(new T.BoxGeometry(0.36, 0.26, 0.26), marble, 0, 0.16, -0.02);
+        for (let k = 0; k < 5; k++) ia(new T.CylinderGeometry(0.018, 0.02, 0.26, 10), marble, -0.14 + k * 0.07, 0.16, 0.13);
+        const dome = ia(new T.SphereGeometry(0.17, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), gold, 0, 0.3, -0.02); void dome;
+        [-0.2, 0.2].forEach(x => { ia(new T.CylinderGeometry(0.05, 0.06, 0.42, 10), marble, x, 0.24, -0.08); ia(new T.ConeGeometry(0.07, 0.14, 10), gold, x, 0.52, -0.08); });
+        for (let k = 0; k < 6; k++) { const sh = ia(new T.CircleGeometry(0.035, 14), k % 2 ? gold : bronze, -0.15 + k * 0.06, 0.3, 0.111); void sh; }
+        const L = new T.PointLight('#ffe6a0', 1.6, 2.2, 2); L.position.set(0, 0.4, 0.4); isle.add(L);
+        // 彩虹橋：從島邊往下彎到地面
+        const cols = ['#ff4a4a', '#ff9a3a', '#ffe04a', '#5ae07a', '#4ab0ff', '#9a6aff'];
+        cols.forEach((c, k) => { const pts = []; for (let q = 0; q <= 16; q++) { const u = q / 16; pts.push(new T.Vector3(0.25 + u * 0.2, 0.48 - u * 0.47 + Math.sin(u * Math.PI) * 0.14, 0.15 + u * 0.2 + k * 0.03)); } const m = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 24, 0.016, 5), M(c, { emissive: c, emissiveIntensity: 1.1 })); g.add(m); });
+        const clouds = []; for (let k = 0; k < 5; k++) { const c = add(new T.SphereGeometry(0.1 + (k % 2) * 0.04, 10, 8), M('#ffffff', { transparent: true, opacity: 0.85, roughness: 1 }), Math.cos(k * 1.3) * 0.3, 0.12, Math.sin(k * 1.3) * 0.25); c.scale.y = 0.5; clouds.push(c); }
+        const bolt = add(new T.CylinderGeometry(0.008, 0.008, 0.5, 4), new T.MeshBasicMaterial({ color: '#d8f0ff' }), -0.3, 0.95, 0); bolt.rotation.z = 0.4;
+        upd.push(t => { bolt.visible = (t % 4) < 0.12 || ((t % 4) > 0.2 && (t % 4) < 0.28); clouds.forEach((c, k) => { c.position.x = Math.cos(k * 1.3 + t * 0.2) * 0.3; }); });
       }
     } else { // 動物：樹樁小窩 → 圓木小屋 → 樹屋 → 叢林神木（地主的物種決定門口的小動物剪影）
       const wood = M('#6b4a2e', { roughness: 0.9 }), bark = M('#5a3e26', { flatShading: true, roughness: 1 }), leaf = M('#4f7a3a', { flatShading: true, roughness: 0.9 }), leaf2 = M('#6a9a40', { flatShading: true }), hole = M('#1a120b', { roughness: 1 }), lamp = M('#ffd27a', { emissive: '#ffb040', emissiveIntensity: 1.6 });
