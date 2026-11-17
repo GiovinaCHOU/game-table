@@ -660,7 +660,7 @@
         const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
         const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
         // 動畫裡不放字（結束後會有通知卡片），只有特別標記的字（g.keepText）才畫
-        g.keepText = g.fillText.bind(g); g.fillText = () => {}; g.strokeText = () => {};
+        const ft = g.fillText.bind(g), st2 = g.strokeText.bind(g); g.keepText = ft; g.fillText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) ft(s, ...a); }; g.strokeText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) st2(s, ...a); }; // 只擋文字，emoji 圖案照畫
         const cx = W / 2, cy = H / 2, R0 = Math.min(W, H) * 0.32, D = Math.hypot(W, H) / 2;
         const PAL = ['#ff4fa3', '#39e8ff', '#ffb347', '#a66bff', '#7dffb0', '#ffffff'];
         const P = Array.from({ length: 520 }, () => ({ a: Math.random() * 6.283, z: Math.random(), c: PAL[Math.floor(Math.random() * PAL.length)], w: 1 + Math.random() * 2.5 }));
@@ -742,7 +742,7 @@
         const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
         const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
         // 動畫裡不放字（結束後會有通知卡片），只有特別標記的字（g.keepText）才畫
-        g.keepText = g.fillText.bind(g); g.fillText = () => {}; g.strokeText = () => {};
+        const ft = g.fillText.bind(g), st2 = g.strokeText.bind(g); g.keepText = ft; g.fillText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) ft(s, ...a); }; g.strokeText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) st2(s, ...a); }; // 只擋文字，emoji 圖案照畫
         const t0 = performance.now();
         const frame = () => { const ms = performance.now() - t0; g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.setTransform(1, 0, 0, 1, 0, 0); draw(g, W, H, dpr, ms / 1000, ms / T); if (ms > T - 700) { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.fillStyle = `rgba(0,0,0,${Math.min(1, (ms - (T - 700)) / 650)})`; g.fillRect(0, 0, W, H); } cv.style.opacity = String(Math.min(1, ms / 250, (T - ms) / 300));
           if (ms < T) requestAnimationFrame(frame); else { cv.style.transition = 'opacity .6s'; cv.style.opacity = '0'; setTimeout(() => cv.remove(), 650); if (this.board) this.board.paused = false; res(); } };
