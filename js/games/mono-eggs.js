@@ -337,6 +337,9 @@
     drawFace(g, f, 0, -24 * U, 48 * U); g.restore();
   }
   E.hell = function (SFX, e) {
+    if (root.MONO_HORROR && root.MONO_HORROR.hell) { const nm = s => this.v && this.v.names && s >= 0 ? this.v.names[s] : ''; return root.MONO_HORROR.hell(this, SFX, { byName: e.by >= 0 ? nm(e.by) : '', vName: nm(e.seat) }); }
+    return E._hellOld.call(this, SFX, e); };
+  E._hellOld = function (SFX, e) {
     const ui = this, vf = face(ui, e.seat), bf = e.by >= 0 ? face(ui, e.by) : null, kind = Math.floor(Math.random() * 4);
     const PUN = ['上刀山', '下油鍋', '拔舌地獄', '石磨地獄'][kind];
     let bl = [];

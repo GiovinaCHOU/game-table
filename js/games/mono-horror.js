@@ -498,3 +498,199 @@
     }, snd);
   };
 })(typeof window !== 'undefined' ? window : globalThis);
+
+// ======================= 十八層地獄（重做） =======================
+(function (root) {
+  const H = root.MONO_HORROR, { rnd, ease, clamp, cvs } = H;
+  // 一層層的火舌（暗紅→橘→黃），像中世紀地獄畫裡塞滿畫面的火
+  H.flames = function (g, x0, x1, base, hgt, t, dens, seed, alpha) {
+    // 每一根火舌是三層同心的形狀（外暗紅、中橘、內黃），寬度高度都不一樣，尖端會左右擺
+    const n = Math.max(5, Math.round((x1 - x0) / dens)); let sd = seed || 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const list = []; for (let i = 0; i < n; i++) list.push({ x: x0 + (i + R()) / n * (x1 - x0), w: (x1 - x0) / n * (0.7 + R() * 1.2), h: 0.45 + R() * 0.75, ph: R() * 6.28, sp: 4 + R() * 5 });
+    g.save(); g.globalAlpha = alpha == null ? 1 : alpha;
+    [['rgba(120,12,6,.95)', 1, 1], ['rgba(235,90,20,.9)', 0.72, 0.8], ['rgba(255,200,70,.85)', 0.45, 0.55], ['rgba(255,245,200,.7)', 0.22, 0.3]].forEach(([col, ws, hs]) => {
+      g.fillStyle = col;
+      list.forEach(f => { const hh = hgt * f.h * hs * (0.85 + Math.sin(t * f.sp + f.ph) * 0.12 + Math.sin(t * f.sp * 2.3 + f.ph) * 0.05), w = f.w * ws, sw = (Math.sin(t * 3.1 + f.ph) * 0.6 + Math.sin(t * 7.7 + f.ph * 2) * 0.25) * f.w * 0.9;
+        g.beginPath(); g.moveTo(f.x - w, base); g.bezierCurveTo(f.x - w * 1.1, base - hh * 0.35, f.x - w * 0.5 + sw * 0.4, base - hh * 0.6, f.x + sw, base - hh);
+        g.bezierCurveTo(f.x + w * 0.5 + sw * 0.4, base - hh * 0.62, f.x + w * 1.1, base - hh * 0.35, f.x + w, base); g.fill(); }); });
+    g.restore();
+  };
+  function limb(g, x0, y0, x1, y1, w0, w1) { const a = Math.atan2(y1 - y0, x1 - x0), n = a + Math.PI / 2, c = Math.cos(n), sn = Math.sin(n); g.beginPath(); g.moveTo(x0 + c * w0, y0 + sn * w0); g.lineTo(x1 + c * w1, y1 + sn * w1); g.lineTo(x1 - c * w1, y1 - sn * w1); g.lineTo(x0 - c * w0, y0 - sn * w0); g.closePath(); g.fill(); g.beginPath(); g.arc(x0, y0, w0, 0, 7); g.fill(); g.beginPath(); g.arc(x1, y1, w1, 0, 7); g.fill(); }
+  // 受刑的人：蒼白、瘦、四肢可以擺姿勢；p = { a: 手臂角度…}
+  function sinner(g, x, y, s, pose, t, col) {
+    g.save(); g.translate(x, y); g.scale(s, s); const base = col || '#e8d6c0'; const gr = g.createLinearGradient(-30, -100, 30, 60); gr.addColorStop(0, base); gr.addColorStop(0.55, base); gr.addColorStop(1, '#b0603a'); g.fillStyle = gr;
+    const P = Object.assign({ la: -2.4, ra: -0.7, ll: 1.9, rl: 1.2, lean: 0, head: 0 }, pose);
+    g.rotate(P.lean); const sh = [0, -62], hp = [0, 0];
+    g.beginPath(); g.moveTo(-10, 2); g.bezierCurveTo(-12, -24, -18, -48, -14, -62); g.quadraticCurveTo(0, -70, 14, -62); g.bezierCurveTo(18, -48, 12, -24, 10, 2); g.closePath(); g.fill();
+    [[P.la, -1], [P.ra, 1]].forEach(([a, sd]) => { const e = [sh[0] + sd * 10 + Math.cos(a) * 26, sh[1] + 4 + Math.sin(a) * 26], h = [e[0] + Math.cos(a + sd * 0.4) * 24, e[1] + Math.sin(a + sd * 0.4) * 24]; limb(g, sh[0] + sd * 10, sh[1] + 4, e[0], e[1], 5, 4); limb(g, e[0], e[1], h[0], h[1], 4, 3); });
+    [[P.ll, -1], [P.rl, 1]].forEach(([a, sd]) => { const k = [hp[0] + sd * 6 + Math.cos(a) * 30, hp[1] + Math.sin(a) * 30], f = [k[0] + Math.cos(a - sd * 0.3) * 30, k[1] + Math.sin(a - sd * 0.3) * 30]; limb(g, hp[0] + sd * 6, hp[1], k[0], k[1], 6, 5); limb(g, k[0], k[1], f[0], f[1], 5, 3.5); });
+    g.save(); g.translate(sh[0], sh[1] - 16); g.rotate(P.head); g.fillStyle = base; g.beginPath(); g.ellipse(0, 0, 10, 12, 0, 0, 7); g.fill();
+    g.fillStyle = '#1a0606'; g.beginPath(); g.ellipse(-4, -2, 2, 2.6, 0, 0, 7); g.ellipse(4, -2, 2, 2.6, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(0, 6, 3, 4 + Math.abs(Math.sin(t * 9)) * 2, 0, 0, 7); g.fill();
+    g.fillStyle = '#2a1408'; g.beginPath(); g.arc(0, -4, 10.5, Math.PI * 1.05, Math.PI * 1.95); g.fill(); g.restore();
+    g.restore();
+  }
+  // 牛頭／馬面：黑色剪影、發光的眼睛、手持武器（kind 0 牛頭 1 馬面），w 武器角度
+  function guard(g, x, y, s, kind, w, t, weapon) {
+    g.save(); g.translate(x, y); g.scale(s, s); g.fillStyle = '#0a0303';
+    limb(g, -14, -70, -30, 0, 13, 10); limb(g, 14, -70, 30, 0, 13, 10);
+    g.beginPath(); g.moveTo(-34, -70); g.bezierCurveTo(-46, -120, -48, -150, -40, -170); g.lineTo(40, -170); g.bezierCurveTo(48, -150, 46, -120, 34, -70); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(-40, -85); g.lineTo(40, -85); g.lineTo(50, -50); g.lineTo(-50, -50); g.fill(); // 裙甲
+    // 頭
+    g.save(); g.translate(0, -185);
+    if (!kind) { g.beginPath(); g.ellipse(0, 0, 30, 26, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(0, 18, 18, 14, 0, 0, 7); g.fill();
+      [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 22, -14); g.bezierCurveTo(sd * 52, -20, sd * 66, -40, sd * 58, -66); g.bezierCurveTo(sd * 52, -44, sd * 38, -30, sd * 22, -2); g.fill(); g.beginPath(); g.ellipse(sd * 32, -2, 12, 6, sd * 0.4, 0, 7); g.fill(); });
+      g.strokeStyle = 'rgba(200,150,60,.7)'; g.lineWidth = 2.5; g.beginPath(); g.arc(0, 26, 6, 0.2, Math.PI - 0.2); g.stroke(); }
+    else { g.beginPath(); g.moveTo(-18, -24); g.bezierCurveTo(-22, 10, -16, 40, -6, 52); g.quadraticCurveTo(0, 56, 6, 52); g.bezierCurveTo(16, 40, 22, 10, 18, -24); g.quadraticCurveTo(0, -36, -18, -24); g.fill();
+      [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 8, -28); g.lineTo(sd * 18, -56); g.lineTo(sd * 20, -24); g.fill(); });
+      for (let k = 0; k < 8; k++) { g.beginPath(); g.moveTo(-2, -30 + k * 8); g.lineTo(-22 - k * 2, -20 + k * 10); g.lineTo(-4, -24 + k * 8); g.fill(); } }
+    const eo = 0.75 + Math.sin(t * 6 + kind) * 0.2; g.globalCompositeOperation = 'lighter';
+    [-1, 1].forEach(sd => { const ex = sd * (kind ? 12 : 13), ey = kind ? -6 : -4, gr = g.createRadialGradient(ex, ey, 0, ex, ey, 12); gr.addColorStop(0, `rgba(255,240,170,${eo})`); gr.addColorStop(0.3, `rgba(255,90,20,${eo})`); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = gr; g.fillRect(ex - 12, ey - 12, 24, 24); });
+    g.globalCompositeOperation = 'source-over'; g.restore();
+    // 手臂＋武器
+    const sx = 36, sy = -160, ex = sx + Math.cos(w) * 46, ey = sy + Math.sin(w) * 46; limb(g, sx, sy, ex, ey, 11, 9); const hx = ex + Math.cos(w + 0.5) * 40, hy = ey + Math.sin(w + 0.5) * 40; limb(g, ex, ey, hx, hy, 9, 8);
+    limb(g, -36, -160, -60, -110, 11, 9); limb(g, -60, -110, -50, -70, 9, 8);
+    if (weapon) { g.save(); g.translate(hx, hy); g.rotate(w + 0.5 + Math.PI / 2); g.fillStyle = '#1a1414'; g.fillRect(-3, -110, 6, 220);
+      if (weapon === 'fork') { g.fillStyle = '#8a8a96'; g.fillRect(-18, -118, 36, 6); [-16, 0, 16].forEach(d => { g.beginPath(); g.moveTo(d - 3, -118); g.lineTo(d, -146); g.lineTo(d + 3, -118); g.fill(); }); }
+      if (weapon === 'pincer') { g.fillStyle = '#6a6a74'; g.fillRect(-8, -125, 5, 30); g.fillRect(3, -125, 5, 30); }
+      g.restore(); }
+    g.restore();
+    return [x + hx * s, y + hy * s];
+  }
+  // 閻羅判官：巨大的背光剪影（烏紗帽、長鬚、寬袍），手指向破產的人
+  function judge(g, x, y, s, point, t) {
+    g.save(); g.translate(x, y); g.scale(s, s);
+    g.shadowColor = 'rgba(255,90,30,.85)'; g.shadowBlur = 40; g.fillStyle = '#0c0303';
+    g.beginPath(); g.moveTo(-90, -230); g.bezierCurveTo(-170, -150, -210, 0, -230, 260); g.lineTo(230, 260); g.bezierCurveTo(210, 0, 170, -150, 90, -230); g.closePath(); g.fill();
+    g.beginPath(); g.ellipse(0, -290, 58, 66, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(-48, -262); g.bezierCurveTo(-40, -150, -20, -100, 0, -70); g.bezierCurveTo(20, -100, 40, -150, 48, -262); g.fill(); // 長鬚
+    g.fillRect(-64, -390, 128, 70); g.beginPath(); g.ellipse(0, -390, 64, 22, 0, Math.PI, 0); g.fill(); // 帽
+    [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 112, -360, 54, 12, sd * 0.05, 0, 7); g.fill(); }); // 帽翅
+    // 指人的手（從袖子伸出）
+    const k = ease(point); g.save(); g.translate(120, -150); g.rotate(-0.15 - k * 0.25); g.beginPath(); g.moveTo(0, -40); g.lineTo(220 * k + 40, -26); g.lineTo(220 * k + 40, 26); g.lineTo(0, 50); g.fill();
+    g.beginPath(); g.ellipse(220 * k + 62, 0, 26, 20, 0, 0, 7); g.fill(); g.fillRect(220 * k + 80, -7, 62 * k + 6, 14); g.restore();
+    g.shadowBlur = 0;
+    // 怒目（白底紅瞳）＋粗眉
+    [-1, 1].forEach(sd => { g.fillStyle = 'rgba(255,230,190,.95)'; g.beginPath(); g.ellipse(sd * 22, -300, 13, 7, sd * -0.25, 0, 7); g.fill(); g.fillStyle = '#c00000'; g.beginPath(); g.arc(sd * 20 + 4, -300, 4.5, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(80,60,50,.9)'; g.lineWidth = 7; g.beginPath(); g.moveTo(sd * 40, -322); g.lineTo(sd * 8, -312); g.stroke(); });
+    g.restore();
+  }
+
+  H.hell = function (ui, SFX, info) {
+    const kind = Math.floor(Math.random() * 4), PUN = ['上刀山', '下油鍋', '拔舌地獄', '石磨地獄'][kind];
+    const smoke = H.smoke('hellsmoke', [90, 20, 10], 0.4, 37), emb = H.embers(140);
+    const crowd = Array.from({ length: 16 }, (_, i) => ({ x: rnd(0.05, 0.95), y: rnd(0.25, 0.5), s: rnd(0.5, 0.8), p: rnd(0, 6), f: i % 2 }));
+    const drops = [];
+    const addBlood = (x, y, n, sp, t0) => { for (let i = 0; i < n; i++) drops.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.3, sp * 0.2), r: rnd(1.5, 5), t: t0 + rnd(0, 0.25) }); };
+    const byName = info && info.byName, vName = info && info.vName;
+    const snd = () => { if (!SFX) return; const T = SFX.tone, N = SFX.noise;
+      T(33, 8.5, { type: 'sawtooth', vol: 0.07, lp: 150, attack: 0.4 }); T(34.6, 8.5, { type: 'sawtooth', vol: 0.06, lp: 150, attack: 0.4 });
+      [0.1, 2.9].forEach(d => { T(98, 3.5, { vol: 0.09, detune: -30, delay: d }); T(103.5, 3.5, { vol: 0.07, delay: d }); T(392, 2.4, { vol: 0.02, detune: 25, delay: d }); N(1.0, { f: 2400, type: 'bandpass', q: 2, vol: 0.07, delay: d }); });
+      // 判官大喝（低沉的嗓音）＋墜落的風聲＋落地撞擊
+      [0.8, 1.05].forEach((d, i) => { T(110 - i * 15, 0.4, { type: 'sawtooth', vol: 0.09, lp: 700, glide: 80, delay: d }); T(165 - i * 20, 0.4, { type: 'square', vol: 0.04, lp: 900, delay: d }); });
+      N(1.2, { f: 900, type: 'bandpass', q: 0.7, vol: 0.06, attack: 0.8, delay: 1.3 }); T(700, 1.2, { type: 'sawtooth', glide: 180, vol: 0.05, lp: 2500, delay: 1.4 }); N(0.5, { f: 200, vol: 0.2, delay: 2.5 }); T(50, 0.7, { glide: 28, vol: 0.2, wet: false, delay: 2.5 });
+      // 地獄裡的哀嚎此起彼落
+      for (let i = 0; i < 16; i++) { const f = 400 + Math.random() * 900; T(f, 0.5 + Math.random() * 0.8, { type: i % 2 ? 'sawtooth' : 'square', glide: f * (0.5 + Math.random() * 0.3), vol: 0.02 + Math.random() * 0.02, lp: 2400, delay: 3.0 + i * 0.32 }); }
+      N(5.4, { f: 600, type: 'lowpass', vol: 0.05, attack: 0.5, delay: 2.8 }); // 火焰聲
+      if (kind === 0) for (let i = 0; i < 10; i++) T(2600 + Math.random() * 900, 0.35, { type: 'square', vol: 0.018, lp: 6000, delay: 3.3 + i * 0.45 });
+      if (kind === 1) { N(4.5, { f: 5200, type: 'highpass', vol: 0.08, attack: 0.3, delay: 3.6 }); N(0.6, { f: 500, vol: 0.18, delay: 4.1 }); }
+      if (kind === 2) for (let i = 0; i < 5; i++) T(260, 0.6, { type: 'sawtooth', glide: 1000, vol: 0.05, lp: 2200, delay: 3.6 + i * 0.85 });
+      if (kind === 3) for (let i = 0; i < 8; i++) N(0.6, { f: 140, vol: 0.15, delay: 3.4 + i * 0.6 });
+      T(1500, 1.4, { type: 'sawtooth', glide: 700, vol: 0.06, lp: 4000, delay: 4.2 }); T(1580, 1.4, { type: 'square', glide: 760, vol: 0.03, lp: 4000, delay: 4.2 });
+    };
+    return ui.overlay(8400, (g, W, Hh, dpr, t) => {
+      const U = Math.min(W, Hh) / 420, cx = W / 2;
+      const tt = (txt, y, px, col, a) => { g.save(); g.globalAlpha = a; g.font = `900 ${Math.round(px * dpr)}px "Songti TC","Noto Serif TC","Noto Serif CJK TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#000'; g.shadowBlur = 14 * dpr; g.fillStyle = col; g.fillText(txt, W / 2, y); g.restore(); };
+      // ===== 第一段：判決（0～2.9 秒）=====
+      if (t < 2.9) {
+        const shk = t > 0.8 && t < 1.3 ? 8 : t > 2.45 && t < 2.7 ? 14 : 0; g.save(); g.translate(rnd(-shk, shk) * dpr, rnd(-shk, shk) * dpr);
+        const bg = g.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#120202'); bg.addColorStop(0.55, '#3a0806'); bg.addColorStop(1, '#0a0101'); g.fillStyle = bg; g.fillRect(-20, -20, W + 40, Hh + 40);
+        H.cloudLayer(g, smoke, W, Hh, 2.4 * U, t * 20 * U, -t * 10 * U, 0.7);
+        // 地上的裂縫：從中間裂開，透出岩漿光
+        const crack = ease((t - 1.2) / 0.6), gy = Hh * 0.86;
+        if (crack > 0) { const cg = g.createRadialGradient(cx, gy, 0, cx, gy, W * 0.5 * crack); cg.addColorStop(0, 'rgba(255,230,140,.95)'); cg.addColorStop(0.3, 'rgba(255,90,20,.8)'); cg.addColorStop(1, 'rgba(80,0,0,0)'); g.fillStyle = cg; g.beginPath(); g.ellipse(cx, gy, W * 0.5 * crack, 40 * U * crack, 0, 0, 7); g.fill();
+          H.flames(g, cx - W * 0.35 * crack, cx + W * 0.35 * crack, gy + 10 * U, 90 * U * crack, t, 18 * U, 3); }
+        if (!byName) judge(g, W * 0.3, Hh * 0.62, U * 0.62, clamp((t - 0.6) / 0.4), t);
+        // 破產的人：站著發抖，裂縫打開後往下掉
+        const fall = ease((t - 1.6) / 0.9), vx = byName ? cx : W * 0.72, vy = Hh * 0.84 + fall * fall * 140 * U;
+        if (fall < 0.98) { g.save(); g.globalAlpha = 1 - Math.max(0, fall - 0.7) * 3; sinner(g, vx + Math.sin(t * 40) * 1.5 * U, vy - 40 * U, U * 1.1, fall > 0 ? { la: -2.6 - Math.sin(t * 20) * 0.4, ra: -0.5 + Math.sin(t * 22) * 0.4, ll: 1.3, rl: 1.9, lean: fall * 1.4, head: -0.3 } : { la: 1.8, ra: 1.3, ll: 1.75, rl: 1.4 }, t); g.restore(); }
+        if (!byName && t > 0.95 && t < 1.6) { g.strokeStyle = 'rgba(255,200,120,.6)'; g.lineWidth = 3 * dpr; g.setLineDash([10 * dpr, 8 * dpr]); g.beginPath(); g.moveTo(W * 0.3 + 230 * U * 0.62 * 1.2, Hh * 0.62 - 150 * U * 0.62 - 40 * U); g.lineTo(vx, vy - 90 * U); g.stroke(); g.setLineDash([]); }
+        H.drawEmbers(g, emb, W, Hh, t, dpr, 'rgba(255,140,50,A)', 1.4);
+        g.restore();
+        H.vignette(g, W, Hh, 0.92); H.grain(g, W, Hh, 0.1);
+        if (byName) tt(`欠 ${byName} 的錢還不出來`, Hh * 0.12, 24, '#ffcfb0', ease(t / 0.5));
+        else if (t > 0.9) tt('打 入 地 獄 ！', Hh * 0.12, 40, '#ffd070', ease((t - 0.9) / 0.2));
+        if (t > 2.45 && t < 2.6) { g.fillStyle = 'rgba(255,240,220,.85)'; g.fillRect(0, 0, W, Hh); }
+        if (t > 2.6) { g.fillStyle = `rgba(0,0,0,${(t - 2.6) * 3.4})`; g.fillRect(0, 0, W, Hh); }
+        return;
+      }
+      // ===== 第二段：地獄畫卷（2.9～8.4 秒）=====
+      const k = t - 2.9, push = 1.05 + k * 0.02;
+      g.save(); g.translate(cx, Hh / 2); g.scale(push, push); g.translate(-cx, -Hh / 2);
+      const bg = g.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#3a0603'); bg.addColorStop(0.5, '#7a1606'); bg.addColorStop(1, '#2a0402'); g.fillStyle = bg; g.fillRect(0, 0, W, Hh);
+      // 後面整片的火海＋在火裡掙扎的小人（上排）
+      H.flames(g, -20, W + 20, Hh * 0.62, Hh * 0.55, t, 26 * U, 11, 0.9);
+      crowd.forEach((c, i) => sinner(g, c.x * W, Hh * (0.36 + c.y * 0.35) + Math.sin(t * 3 + c.p) * 3 * U, U * c.s * 0.75, { la: -2.2 + Math.sin(t * 6 + c.p) * 0.6, ra: -0.9 - Math.sin(t * 5 + c.p) * 0.6, ll: 1.6, rl: 1.3, lean: Math.sin(t * 2 + c.p) * 0.2, head: -0.4 }, t, '#c88a68'));
+      H.flames(g, -20, W + 20, Hh * 0.7, Hh * 0.3, t + 1, 20 * U, 12, 0.95);
+      const fl = g.createLinearGradient(0, Hh * 0.62, 0, Hh); fl.addColorStop(0, '#5a0e04'); fl.addColorStop(1, '#1a0302'); g.fillStyle = fl; g.fillRect(0, Hh * 0.69, W, Hh * 0.31);
+      // 岩壁框（像壁畫的邊）
+      g.fillStyle = '#1a0806'; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0); g.lineTo(W, Hh); g.lineTo(0, Hh); g.closePath();
+      g.moveTo(26 * U, 40 * U); for (let i = 0; i <= 12; i++) g.lineTo(26 * U + Math.sin(i * 2.1) * 10 * U, 40 * U + i / 12 * (Hh - 80 * U)); for (let i = 12; i >= 0; i--) g.lineTo(W - 26 * U + Math.sin(i * 1.7) * 10 * U, 40 * U + i / 12 * (Hh - 80 * U)); g.closePath(); g.fill('evenodd');
+      // 前景：刑罰
+      const fy = Hh * 0.9, mid = Hh * 0.72;
+      if (kind === 0) { // 上刀山
+        g.fillStyle = '#20100c'; g.beginPath(); g.moveTo(cx - 190 * U, fy); g.quadraticCurveTo(cx - 40 * U, Hh * 0.45, cx + 10 * U, Hh * 0.4); g.quadraticCurveTo(cx + 60 * U, Hh * 0.45, cx + 200 * U, fy); g.fill();
+        let sd = 4; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+        for (let i = 0; i < 70; i++) { const u = R(), side = R() - 0.5, y = fy - u * (fy - Hh * 0.42), w2 = (1 - u) * 190 * U, x = cx + side * 2 * w2; const bl = g.createLinearGradient(x, y, x, y - 30 * U); bl.addColorStop(0, '#5a5a66'); bl.addColorStop(1, '#f0f0ff'); g.fillStyle = bl; g.beginPath(); g.moveTo(x - 4 * U, y); g.lineTo(x + (R() - 0.5) * 6 * U, y - (24 + R() * 18) * U); g.lineTo(x + 4 * U, y); g.fill(); }
+        const up = ease(k / 3.4), sy2 = fy - 40 * U - up * (fy - Hh * 0.48 - 40 * U), sx2 = cx - 120 * U + up * 110 * U;
+        sinner(g, sx2, sy2, U * 1.25, { la: -2.4 + Math.sin(t * 9) * 0.5, ra: -0.6 + Math.sin(t * 11) * 0.5, ll: 1.0, rl: 2.0, lean: 0.5, head: -0.5 }, t);
+        guard(g, sx2 - 95 * U, sy2 + 80 * U, U * 0.62, 0, -0.9 + Math.sin(t * 5) * 0.15, t, 'fork');
+        if (k > 0.4 && Math.random() < 0.5) addBlood(sx2, sy2 - 30 * U, 2, 3, t);
+        g.fillStyle = 'rgba(130,0,0,.85)'; for (let i = 0; i < 12; i++) { const x = cx + (i - 6) * 26 * U, l = clamp(k / 4) * (40 + (i * 37 % 50)) * U; g.fillRect(x, Hh * 0.55 + (i * 23 % 60) * U, 3 * U, l); }
+      } else if (kind === 1) { // 下油鍋
+        H.flames(g, cx - 160 * U, cx + 160 * U, fy + 6 * U, 110 * U, t, 16 * U, 5);
+        g.fillStyle = '#16100e'; g.beginPath(); g.moveTo(cx - 175 * U, mid); g.lineTo(cx + 175 * U, mid); g.quadraticCurveTo(cx + 165 * U, fy - 10 * U, cx, fy); g.quadraticCurveTo(cx - 165 * U, fy - 10 * U, cx - 175 * U, mid); g.fill();
+        g.strokeStyle = '#3a2a24'; g.lineWidth = 6 * U; g.beginPath(); g.ellipse(cx, mid, 175 * U, 26 * U, 0, 0, 7); g.stroke();
+        const og = g.createRadialGradient(cx, mid, 0, cx, mid, 170 * U); og.addColorStop(0, '#ffe08a'); og.addColorStop(0.6, '#e08a20'); og.addColorStop(1, '#7a3a08'); g.fillStyle = og; g.beginPath(); g.ellipse(cx, mid, 170 * U, 23 * U, 0, 0, 7); g.fill();
+        for (let i = 0; i < 26; i++) { const bx = cx + Math.sin(i * 7.3) * 150 * U, ph = (t * 2.5 + i * 0.27) % 1; g.fillStyle = `rgba(255,245,200,${0.9 * (1 - ph)})`; g.beginPath(); g.arc(bx, mid - ph * 14 * U, (2 + ph * 7) * U, 0, 7); g.fill(); }
+        const drop = ease(k / 1.3), into = k > 1.3; const vx = cx + 170 * U - drop * 160 * U, vy = Hh * 0.4 + drop * drop * (mid - Hh * 0.4);
+        if (!into) sinner(g, vx, vy, U * 1.2, { la: -2.8, ra: -0.3, ll: 0.6, rl: 2.6, lean: drop * 2.2, head: 0.5 }, t);
+        else { g.save(); g.beginPath(); g.rect(0, 0, W, mid + 4 * U); g.clip(); sinner(g, cx + Math.sin(t * 7) * 20 * U, mid + 30 * U - Math.abs(Math.sin(t * 6)) * 14 * U, U * 1.2, { la: -2.0 + Math.sin(t * 14) * 0.6, ra: -1.1 - Math.sin(t * 13) * 0.6, ll: 1.5, rl: 1.5, head: -0.6 }, t, '#e8a88a'); g.restore(); if (Math.random() < 0.6) addBlood(cx, mid - 6 * U, 2, 4, t); }
+        guard(g, cx + 240 * U, fy + 4 * U, U * 0.7, 1, -2.2 + Math.min(1, k / 1.3) * 0.9, t, 'fork');
+        for (let i = 0; i < 6; i++) { const ph = (t * 0.4 + i / 6) % 1; g.fillStyle = `rgba(230,220,210,${0.18 * (1 - ph)})`; g.beginPath(); g.arc(cx + Math.sin(i * 3 + t) * 100 * U, mid - ph * 220 * U, (30 + ph * 60) * U, 0, 7); g.fill(); }
+      } else if (kind === 2) { // 拔舌
+        const vx = cx - 100 * U, vy = fy - 30 * U; sinner(g, vx, vy, U * 1.5, { la: 0.9, ra: 2.2, ll: 2.4, rl: 0.7, lean: 0.25, head: 0.35 + Math.sin(t * 15) * 0.06 }, t);
+        g.strokeStyle = '#4a4a54'; g.lineWidth = 4 * U; g.setLineDash([7 * U, 4 * U]); g.beginPath(); g.moveTo(vx - 30 * U, vy - 40 * U); g.lineTo(cx - 220 * U, fy); g.stroke(); g.setLineDash([]);
+        const pull = ease(k / 3) * 115 * U + Math.sin(t * 22) * 3 * U, sc = U * 1.5, mx = vx + Math.sin(0.25) * 78 * sc + 6 * sc, my = vy - Math.cos(0.25) * 78 * sc + 6 * sc;
+        g.fillStyle = '#c0283a'; g.strokeStyle = '#3a0606'; g.lineWidth = 2 * U; g.beginPath(); g.moveTo(mx, my - 4 * U); g.quadraticCurveTo(mx + pull * 0.5, my - 20 * U - Math.sin(t * 6) * 8 * U, mx + pull, my - 10 * U); g.lineTo(mx + pull, my + 8 * U); g.quadraticCurveTo(mx + pull * 0.5, my + 2 * U, mx, my + 5 * U); g.closePath(); g.fill(); g.stroke();
+        guard(g, Math.min(W - 40 * U, mx + pull + 50 * U), my + 135 * U, U * 0.66, 0, Math.PI - 0.35, t, 'pincer');
+        if (Math.random() < 0.7) addBlood(mx + 4 * U, my + 4 * U, 2, 2.5, t);
+        g.fillStyle = 'rgba(120,0,0,.9)'; g.beginPath(); g.ellipse(vx + 10 * U, fy + 4 * U, (40 + k * 18) * U, 9 * U, 0, 0, 7); g.fill();
+      } else { // 石磨
+        const mx = cx + 20 * U, my = fy - 70 * U, rot = t * 2.4;
+        g.fillStyle = '#3a3430'; g.beginPath(); g.ellipse(mx, my + 40 * U, 160 * U, 38 * U, 0, 0, 7); g.fill();
+        const sg = g.createLinearGradient(mx - 140 * U, 0, mx + 140 * U, 0); sg.addColorStop(0, '#2a2622'); sg.addColorStop(0.5, '#6a645c'); sg.addColorStop(1, '#2a2622'); g.fillStyle = sg; g.fillRect(mx - 140 * U, my - 50 * U, 280 * U, 82 * U);
+        g.strokeStyle = 'rgba(20,16,14,.7)'; g.lineWidth = 3 * U; for (let i = 0; i < 10; i++) { const x = ((i * 28 + rot * 50) % 280) - 140; g.beginPath(); g.moveTo(mx + x * U, my - 50 * U); g.lineTo(mx + x * U, my + 32 * U); g.stroke(); }
+        g.fillStyle = '#5a5048'; g.beginPath(); g.ellipse(mx, my - 50 * U, 140 * U, 26 * U, 0, 0, 7); g.fill();
+        const hx = mx + Math.cos(rot) * 120 * U, hz = Math.sin(rot); g.strokeStyle = '#2a1a10'; g.lineWidth = 9 * U; g.beginPath(); g.moveTo(mx, my - 50 * U); g.lineTo(hx, my - 50 * U + hz * 20 * U); g.stroke();
+        guard(g, hx + 40 * U, my + 30 * U, U * 0.6, 1, Math.PI + 0.4, t, null);
+        const sink = ease(k / 3); if (sink < 1) { g.save(); g.beginPath(); g.rect(0, 0, W, my - 52 * U); g.clip(); sinner(g, mx - 20 * U, my - 100 * U + sink * 120 * U, U * 1.3, { la: -2.9 + Math.sin(t * 13) * 0.3, ra: -0.2 - Math.sin(t * 12) * 0.3, ll: 1.5, rl: 1.6, head: -0.5 }, t); g.restore(); }
+        g.fillStyle = '#7a0000'; for (let i = 0; i < 12; i++) { const ph = (t * 0.7 + i * 0.083) % 1; g.beginPath(); g.ellipse(mx - 150 * U + i * 27 * U, my + 30 * U + ph * 60 * U, 4 * U, (6 + ph * 14) * U, 0, 0, 7); g.fill(); }
+        g.fillStyle = '#5a0000'; g.beginPath(); g.ellipse(mx, fy + 12 * U, 200 * U * ease(k / 3), 14 * U, 0, 0, 7); g.fill();
+      }
+      // 血
+      drops.forEach(d => { const a = t - d.t; if (a < 0 || a > 1.6) return; g.fillStyle = '#8a0000'; g.beginPath(); g.ellipse(d.x + d.vx * a * 60 * U, d.y + (d.vy * a * 60 + a * a * 260) * U, d.r * U, d.r * U * (1 + a), 0, 0, 7); g.fill(); });
+      while (drops.length > 400) drops.shift();
+      H.drawEmbers(g, emb, W, Hh, t, dpr, 'rgba(255,170,60,A)', 1.6);
+      H.cloudLayer(g, smoke, W, Hh, 2 * U, t * 30 * U, -t * 20 * U, 0.35);
+      g.restore();
+      // 金色邊框＋標題（像寺廟壁畫的題字）
+      g.strokeStyle = 'rgba(200,150,60,.85)'; g.lineWidth = 5 * U; g.strokeRect(10 * U, 10 * U, W - 20 * U, Hh - 20 * U); g.lineWidth = 1.5 * U; g.strokeRect(18 * U, 18 * U, W - 36 * U, Hh - 36 * U);
+      g.fillStyle = 'rgba(80,0,0,.12)'; g.fillRect(0, 0, W, Hh);
+      H.vignette(g, W, Hh, 0.8); H.grain(g, W, Hh, 0.1);
+      tt(`十八層地獄・${PUN}`, Hh * 0.08, 30, '#ffd890', ease(k / 0.6));
+      if (vName) tt(`${vName} 破產了`, Hh * 0.94, 20, '#ffb8a0', ease((k - 0.8) / 0.5));
+      if (k < 0.35) { g.fillStyle = `rgba(0,0,0,${1 - k / 0.35})`; g.fillRect(0, 0, W, Hh); }
+      if (t > 7.9) { g.fillStyle = `rgba(0,0,0,${(t - 7.9) * 2})`; g.fillRect(0, 0, W, Hh); }
+    }, snd);
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
