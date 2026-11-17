@@ -250,9 +250,10 @@
     // 變青蛙：把角色藏起來，換成一隻綠色青蛙（頭上的名牌、光圈保留）
     frogify(tk, on) {
       const T = THREE, r = tk.r;
-      if (!tk.frogG) { const M = (c, e) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.4 }, e || {})); const g = new T.Group(); const sk = M('#4caf3a');
+      if (!tk.frogG) { const M = (c, e) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.4 }, e || {})); const g = new T.Group(); const sk = M('#7a6a38', { roughness: 0.9 });
         const b = new T.Mesh(new T.SphereGeometry(0.22, 18, 14), sk); b.scale.set(1.15, 0.75, 1); b.position.y = 0.17; g.add(b);
-        const bl = new T.Mesh(new T.SphereGeometry(0.16, 14, 10), M('#c8e890')); bl.scale.set(1.1, 0.6, 0.9); bl.position.set(0, 0.12, 0.08); g.add(bl);
+        const bl = new T.Mesh(new T.SphereGeometry(0.16, 14, 10), M('#d8c890'));
+        for (let k = 0; k < 16; k++) { const w = new T.Mesh(new T.SphereGeometry(0.022, 6, 4), M('#5a4a24', { roughness: 1 })); const a = k * 2.4, h = 0.2 + (k % 4) * 0.03; w.position.set(Math.cos(a) * 0.2, h, Math.sin(a) * 0.17); g.add(w); } bl.scale.set(1.1, 0.6, 0.9); bl.position.set(0, 0.12, 0.08); g.add(bl);
         [-1, 1].forEach(sd => { const e = new T.Mesh(new T.SphereGeometry(0.075, 12, 10), sk); e.position.set(sd * 0.1, 0.34, 0.1); g.add(e); const w = new T.Mesh(new T.SphereGeometry(0.05, 10, 8), M('#ffffff')); w.position.set(sd * 0.1, 0.35, 0.16); g.add(w); const pu = new T.Mesh(new T.SphereGeometry(0.025, 8, 6), M('#111')); pu.position.set(sd * 0.1, 0.35, 0.205); g.add(pu);
           const lg = new T.Mesh(new T.SphereGeometry(0.08, 10, 8), sk); lg.scale.set(0.8, 0.5, 1.4); lg.position.set(sd * 0.2, 0.05, -0.02); g.add(lg); });
         const m = new T.Mesh(new T.TorusGeometry(0.1, 0.012, 6, 16, Math.PI), M('#2a4a1a')); m.rotation.z = Math.PI; m.position.set(0, 0.22, 0.2); g.add(m);

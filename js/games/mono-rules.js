@@ -167,7 +167,7 @@
       case 'birds': st.anim += 5500; p.curse = (p.curse || 0) + v; ev(st, { t: 'note', seat: s, text: `👁️ 被多眼鳥盯上：接下來 ${v} 次過路費加倍` }); break;
       // ===== 魔法學院 =====
       case 'bag': st.anim += 5000; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '無底魔法包' }); break;
-      case 'goblin': st.anim += 5000; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '金庫妖精' }); break;
+      case 'goblin': st.anim += 1500; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '金庫妖精' }); break;
       case 'phoenix': { st.anim += 5000; const full = st.startCash || 50000; const add = p.cash < full ? full - p.cash : Math.round(v * Math.min(3, inflation(st)) / 100) * 100; p.cash += add; ev(st, { t: 'cash', seat: s, amt: add, why: '鳳凰重生' }); break; }
       case 'mandrake': st.anim += 4500; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, v, '曼德拉草'); break;
       case 'frog': st.anim += 4500; p.skip += v; p.frog = true; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;

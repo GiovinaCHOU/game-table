@@ -234,7 +234,7 @@
       if (t > 3.8) { g.fillStyle = `rgba(255,240,200,${(t - 3.8) * 2})`; g.fillRect(0, 0, W, H); }
     }, () => S.phoenix(SFX));
   };
-  E.goblin = function (SFX, e) {
+  E._goblinUnused = function (SFX, e) {
     const amt = amtText(this, e);
     return this.overlay(4200, (g, W, H, dpr, t) => {
       const cx = W / 2, cy = H * 0.56, U = Math.min(W, H) / 400;
@@ -294,7 +294,7 @@
       else if (t < 1.0) { const k = (t - 0.6) / 0.4; for (let j = 0; j < 14; j++) { g.fillStyle = `rgba(230,240,230,${0.8 * (1 - k)})`; g.beginPath(); g.arc(cx + Math.cos(j) * 60 * U * k, cy + Math.sin(j * 1.7) * 50 * U * k, (40 + k * 40) * U, 0, 7); g.fill(); } }
       else { const hop = Math.abs(Math.sin((t - 1) * 4)) * 40 * U; emoji(g, '🐸', cx, cy - hop, 150 * U); emoji(g, ch, cx + 60 * U, cy - hop - 70 * U, 34 * U, Math.sin(t * 5) * 0.3);
         [0.9, 1.5, 2.2, 2.8].forEach((d, k) => { const z = t - d; if (z < 0 || z > 0.9) return; g.globalAlpha = 1 - z; font(g, 30 * dpr); g.fillStyle = '#d8ffb0'; g.textAlign = 'center'; g.fillText('呱！', cx + (k % 2 ? 1 : -1) * 120 * U, cy - 80 * U - z * 60 * U); g.globalAlpha = 1; }); }
-      title(g, W, H, dpr, '變青蛙！', '#b8ff90', H * 0.12, 38);
+      title(g, W, H, dpr, '變蟾蜍！', '#b8ff90', H * 0.12, 38);
       if (t > 1.4) title(g, W, H, dpr, '兩回合後才變回來', '#fff', H * 0.9, 22);
     }, () => S.frog(SFX));
   };
