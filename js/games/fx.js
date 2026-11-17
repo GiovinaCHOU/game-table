@@ -56,6 +56,7 @@
     win() { if (!ok()) return; const t = ctx.currentTime; [[523, 0], [659, 0.12], [784, 0.24], [1046, 0.36], [784, 0.52], [1046, 0.62]].forEach(([f, d]) => { tone(f, t + d, d > 0.5 ? 0.7 : 0.18, 'square', 0.07); tone(f / 2, t + d, 0.2, 'triangle', 0.08); }); S.cheer(); },
     lose() { if (!ok()) return; const t = ctx.currentTime; [[392, 0, 0.35], [370, 0.4, 0.35], [349, 0.8, 0.35], [330, 1.2, 1.1]].forEach(([f, d, l]) => { const o = tone(f, t + d, l, 'sawtooth', 0.1, null, d > 1 ? f * 0.85 : null); if (d > 1) { const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 7; lg.gain.value = 9; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t + d); lfo.stop(t + d + l); } }); },
     splat() { if (!ok()) return; const t = ctx.currentTime; hit(t, 500, 0.6, 0.25, 0.9, 'lowpass'); hit(t + 0.02, 1800, 2, 0.12, 0.3); tone(180, t, 0.15, 'sine', 0.3, null, 60); },
+    myturn() { if (!ok()) return; const t = ctx.currentTime; tone(988, t, 0.35, 'sine', 0.2); tone(1319, t + 0.14, 0.55, 'sine', 0.2); tone(1976, t + 0.14, 0.4, 'triangle', 0.05); },
     tick() { if (!ok()) return; const t = ctx.currentTime; tone(1500, t, 0.03, 'square', 0.04); }
   };
 

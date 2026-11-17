@@ -148,12 +148,20 @@
   }
   function mine(st, s) { return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s); }
 
-  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin', 'mandrake'];
-  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'mandrake', 'phoenix'];
+  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin'];
+  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix'];
+  const PLAIN_CARD = ['m', 'up', 'mv', 'go', 'jailfree', 'each', 'immune', 'teleport', 'jail', 'skip', 'house', 'down', 'give', 'pct', 'gonb', 'again'];
   function drawCard(st, deck) {
     const th = TH()[st.theme]; const list = th[deck === 'luck' ? 'lucky' : 'bad'];
     if (!st.decks[deck] || !st.decks[deck].length) st.decks[deck] = U.shuffle(U.range(list.length));
-    const idx = st.decks[deck].pop(); return { idx, text: list[idx][0], eff: list[idx][1] };
+    // 彩蛋卡另外加權：每抽一張有 min(30%, 彩蛋張數×12%) 機率直接抽彩蛋（同一疊不會連續兩次同一張彩蛋）
+    const eggs = U.range(list.length).filter(i => !PLAIN_CARD.includes(list[i][1].split(':')[0]));
+    const last = (st.lastEgg || {})[deck];
+    const pool = eggs.length > 1 ? eggs.filter(i => i !== last) : eggs;
+    if (pool.length && Math.random() < Math.min(0.3, eggs.length * 0.12)) { const idx = pool[Math.floor(Math.random() * pool.length)]; (st.lastEgg = st.lastEgg || {})[deck] = idx; return { idx, text: list[idx][0], eff: list[idx][1] }; }
+    let idx = st.decks[deck].pop(); while (eggs.includes(idx) && st.decks[deck].length) idx = st.decks[deck].pop(); // 一般牌堆裡的彩蛋略過，彩蛋只從上面的機率出
+    if (eggs.includes(idx)) { st.decks[deck] = U.shuffle(U.range(list.length).filter(i => !eggs.includes(i))); idx = st.decks[deck].pop(); }
+    return { idx, text: list[idx][0], eff: list[idx][1] };
   }
   function applyCard(st, s, deck, card, depth) {
     const p = st.players[s];
@@ -172,7 +180,7 @@
       case 'bag': st.anim += 5000; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '無底魔法包' }); break;
       case 'goblin': st.anim += 1500; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '金庫妖精' }); break;
       case 'phoenix': { st.anim += 6800; const full = st.startCash || 50000; const add = p.cash < full ? full - p.cash : Math.round(v * Math.min(3, inflation(st)) / 100) * 100; p.cash += add; ev(st, { t: 'cash', seat: s, amt: add, why: '鳳凰重生' }); break; }
-      case 'mandrake': st.anim += 4500; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, v, '曼德拉草'); break;
+      case 'mandrake': st.anim += 4500; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, Math.floor(p.cash * v / 100), '曼德拉草'); break;
       case 'frog': st.anim += 4500; p.skip += v; p.frog = true; p.frogT = 3; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;
       case 'gm': p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '星門彼端' }); break;
       case 'again': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
@@ -183,7 +191,7 @@
       case 'war': { // 人神對決：看抽卡者是人類陣營（人類勇者、自畫角色）還是神的陣營
         const human = p.char && (p.char.kind === 'custom' || p.char.i === 7); st.anim += 5500;
         ev(st, { t: 'note', seat: s, text: v > 0 ? (human ? '人類勝利！' : '眾神勝利！') : (human ? '人類戰敗……' : '眾神戰敗……') });
-        if (v > 0) { p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '戰利品' }); } else pay(st, s, -1, -v, '戰敗賠償');
+        if (v > 0) { p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '戰利品' }); } else pay(st, s, -1, Math.min(-v, Math.floor(p.cash * 0.35)), '戰敗賠償'); // 輸的時候最多賠現金的 35%，避免一張卡直接破產
         break;
       }
       case 'link': st.anim += 5000; p.cash += v; p.immune++; ev(st, { t: 'cash', seat: s, amt: v, why: '意識共鳴' }); break;

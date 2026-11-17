@@ -133,6 +133,27 @@
     let pill = document.getElementById('resPill');
     if (!pill) { pill = document.createElement('button'); pill.id = 'resPill'; pill.className = 'btn res-pill'; pill.textContent = '📋 看結算'; pill.onclick = () => document.body.classList.remove('res-peek'); document.body.appendChild(pill); }
   }
+  // ===== 輪到你了：整個畫面金色呼吸外框＋大字提示＋叮咚聲＋震動（牌類遊戲共用）=====
+  const MYTURN = {
+    bigtwo: (v) => v.phase === 'play' && v.turn === v.seat ? '輪到你出牌' : '',
+    rummi: (v) => v.phase === 'play' && v.turn === v.seat ? '輪到你了' : '',
+    dice: (v) => v.phase === 'bid' && v.turn === v.seat ? '輪到你喊' : '',
+    mahjong: (v) => !v.me ? '' : v.me.claim ? '可以' + [v.me.claim.hu && '胡', v.me.claim.kong && '槓', v.me.claim.pong && '碰', v.me.claim.chi && '吃'].filter(Boolean).join('／') + '！' : v.phase === 'discard' && v.turn === v.me.p ? '輪到你打牌' : ''
+  };
+  let turnKey = '';
+  function yourTurn(id, v) {
+    const f = MYTURN[id]; const txt = f ? f(v) : '';
+    document.body.classList.toggle('my-turn', !!txt);
+    if (!txt) { turnKey = ''; if (document.title.startsWith('🔔')) document.title = document.title.replace(/^🔔 [^｜]*｜/, ''); return; }
+    const k = id + ':' + txt + ':' + (v.turnId != null ? v.turnId : (v.history ? v.history.length : '')) + ':' + (v.round || '') + ':' + (v.handNo || '');
+    if (turnKey === k) return; turnKey = k;
+    try { window.GFX && GFX.S.myturn(); } catch (e) {}
+    try { navigator.vibrate && navigator.vibrate([90, 60, 90]); } catch (e) {}
+    if (document.hidden && !document.title.startsWith('🔔')) document.title = '🔔 ' + txt + '｜' + document.title;
+    let b = document.getElementById('turnBanner'); if (!b) { b = document.createElement('div'); b.id = 'turnBanner'; document.body.appendChild(b); }
+    b.textContent = txt; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && document.title.startsWith('🔔')) document.title = document.title.replace(/^🔔 [^｜]*｜/, ''); });
   R.cb.view = (v) => {
     const room = R.room; if (!room || !room.game) return;
     const mod = window.GAMES[room.game.id];
@@ -143,6 +164,7 @@
     prevView = v; lastPhaseOver = ['over', 'end'].includes(v.phase); if (room.game) $('#endBtn').hidden = !(R.isHost || lastPhaseOver);
     try { mod.render(el, v, gameUI(v)); } catch (e) { console.error(e); }
     resultLayer(el);
+    yourTurn(room.game.id, v);
     tickTimers();
   };
   R.cb.ev = (ev) => { const room = R.room; if (!room || !room.game) return; const mod = window.GAMES[room.game.id]; if (mod.onEvent) mod.onEvent(ev); };
