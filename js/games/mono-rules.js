@@ -105,11 +105,15 @@
   const QUIZ_MS = 10000;
   function startQuiz(st, s, o, amt, tile) {
     // 隨機挑一個難度（簡單／中等／困難），同一場遊戲盡量不重複；全部出過一輪才重來
-    const tb = (root.MONO_QUIZ || {})[st.theme] || {};
-    const all = []; ['e', 'm', 'h'].forEach(lv => (tb[lv] || []).forEach((q, i) => all.push({ id: lv + i, lv, q })));
+    // 難度比例：簡單 55%、中等 35%、困難 10%；另外 35% 機率改出經典電影題（全主題共用）
+    const Q = root.MONO_QUIZ || {}, tb = Q[st.theme] || {}, mv = Q.movie || {};
+    const all = []; ['e', 'm', 'h'].forEach(lv => (tb[lv] || []).forEach((q, i) => all.push({ id: lv + i, lv, q, src: 't' })));
+    ['e', 'm'].forEach(lv => (mv[lv] || []).forEach((q, i) => all.push({ id: 'mv' + lv + i, lv, q, src: 'mv' })));
     if (!all.length) { pay(st, s, o, amt, '過路費', tile); return; }
     st.qused = st.qused || []; let left = all.filter(x => !st.qused.includes(x.id)); if (!left.length) { st.qused = []; left = all; }
-    const lvs = [...new Set(left.map(x => x.lv))], lv = lvs[Math.floor(Math.random() * lvs.length)], pool = left.filter(x => x.lv === lv);
+    const wantMv = Math.random() < 0.35 && left.some(x => x.src === 'mv'); left = left.filter(x => (x.src === 'mv') === wantMv) .length ? left.filter(x => (x.src === 'mv') === wantMv) : left;
+    const r = Math.random(), want = r < 0.55 ? 'e' : r < 0.9 ? 'm' : 'h';
+    const lvs = [...new Set(left.map(x => x.lv))], lv = lvs.includes(want) ? want : lvs.includes('e') ? 'e' : lvs[0], pool = left.filter(x => x.lv === lv);
     const pick = pool[Math.floor(Math.random() * pool.length)]; st.qused.push(pick.id);
     const bank = [pick.q], qi = 0;
     const q = bank[qi]; const order = U.shuffle([0, 1, 2, 3]);
