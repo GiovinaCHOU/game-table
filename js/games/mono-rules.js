@@ -105,16 +105,16 @@
   const QUIZ_MS = 10000;
   function startQuiz(st, s, o, amt, tile) {
     // 隨機挑一個難度（簡單／中等／困難），同一場遊戲盡量不重複；全部出過一輪才重來
-    // 難度比例：簡單 55%、中等 35%、困難 10%；另外 35% 機率改出經典電影題（全主題共用）
+    // 難度比例：簡單 55%、中等 35%、困難 10%；另外 30% 機率改出主題相關的電影／動畫題
     const Q = root.MONO_QUIZ || {}, tb = Q[st.theme] || {}, mv = Q.movie || {};
     const all = []; ['e', 'm', 'h'].forEach(lv => (tb[lv] || []).forEach((q, i) => all.push({ id: lv + i, lv, q, src: 't' })));
-    // 共用電影題先停用（跟主題沒關聯）；之後改成每個主題各自的相關電影題
-    if (st.theme === '__none__') ['e', 'm'].forEach(lv => (mv[lv] || []).forEach((q, i) => all.push({ id: 'mv' + lv + i, lv, q, src: 'mv' })));
+    // 主題相關的電影／動畫／影集題（難度算中等以下），約 30% 機率出
+    (tb.f || []).forEach((q, i) => all.push({ id: 'f' + i, lv: 'f', q, src: 'mv' })); void mv;
     if (!all.length) { pay(st, s, o, amt, '過路費', tile); return; }
     st.qused = st.qused || []; let left = all.filter(x => !st.qused.includes(x.id)); if (!left.length) { st.qused = []; left = all; }
-    const wantMv = Math.random() < 0.35 && left.some(x => x.src === 'mv'); left = left.filter(x => (x.src === 'mv') === wantMv) .length ? left.filter(x => (x.src === 'mv') === wantMv) : left;
+    const wantMv = Math.random() < 0.3 && left.some(x => x.src === 'mv'); left = left.filter(x => (x.src === 'mv') === wantMv) .length ? left.filter(x => (x.src === 'mv') === wantMv) : left;
     const r = Math.random(), want = r < 0.55 ? 'e' : r < 0.9 ? 'm' : 'h';
-    const lvs = [...new Set(left.map(x => x.lv))], lv = lvs.includes(want) ? want : lvs.includes('e') ? 'e' : lvs[0], pool = left.filter(x => x.lv === lv);
+    const lvs = [...new Set(left.map(x => x.lv))], lv = wantMv ? 'f' : lvs.includes(want) ? want : lvs.includes('e') ? 'e' : lvs[0], pool = left.filter(x => x.lv === lv);
     const pick = pool[Math.floor(Math.random() * pool.length)]; st.qused.push(pick.id);
     const bank = [pick.q], qi = 0;
     const q = bank[qi]; const order = U.shuffle([0, 1, 2, 3]);
@@ -146,6 +146,7 @@
   }
   function mine(st, s) { return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s); }
 
+  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin', 'mandrake'];
   function drawCard(st, deck) {
     const th = TH()[st.theme]; const list = th[deck === 'luck' ? 'lucky' : 'bad'];
     if (!st.decks[deck] || !st.decks[deck].length) st.decks[deck] = U.shuffle(U.range(list.length));
@@ -153,11 +154,25 @@
   }
   function applyCard(st, s, deck, card, depth) {
     const p = st.players[s];
-    ev(st, { t: 'card', seat: s, deck, text: card.text, eff: card.eff });
+    const [k, v0] = card.eff.split(':');
+    // 彩蛋卡的金額跟著通膨放大（最多 3 倍），一般卡不變
+    const mul = EGG_MONEY.includes(k) ? Math.min(3, inflation(st)) : 1, v = Math.round(+v0 * mul / 100) * 100;
+    ev(st, { t: 'card', seat: s, deck, text: card.text, eff: card.eff, mul });
     if (deck === 'bad' && p.immune > 0) { p.immune--; ev(st, { t: 'immune', seat: s }); return; }
-    const [k, v0] = card.eff.split(':'); const v = +v0;
     switch (k) {
+      // ===== 神佛之境 =====
+      case 'sync': st.anim += 6500; p.cash += v; p.freeRent = (p.freeRent || 0) + 1; ev(st, { t: 'cash', seat: s, amt: v, why: '與神同頻' }); break;
+      case 'trance': st.anim += 4500; p.trance = true; ev(st, { t: 'note', seat: s, text: '🔥 神明附身！下次擲骰自己選點數' }); break;
+      case 'ghost': st.anim += 5500; pay(st, s, -1, Math.floor(p.cash * v / 100), '鬼門開'); break;
+      case 'birds': st.anim += 5500; p.curse = (p.curse || 0) + v; ev(st, { t: 'note', seat: s, text: `👁️ 被多眼鳥盯上：接下來 ${v} 次過路費加倍` }); break;
+      // ===== 魔法學院 =====
+      case 'bag': st.anim += 5000; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '無底魔法包' }); break;
+      case 'goblin': st.anim += 5000; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '金庫妖精' }); break;
+      case 'phoenix': { st.anim += 5000; const full = st.startCash || 50000; const add = p.cash < full ? full - p.cash : Math.round(v * Math.min(3, inflation(st)) / 100) * 100; p.cash += add; ev(st, { t: 'cash', seat: s, amt: add, why: '鳳凰重生' }); break; }
+      case 'mandrake': st.anim += 4500; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, v, '曼德拉草'); break;
+      case 'frog': st.anim += 4500; p.skip += v; p.frog = true; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;
       case 'gm': p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '星門彼端' }); break;
+      case 'again': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
       case 'gagain': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
       case 'gtp': { const to = Math.floor(Math.random() * N); p.pos = to; ev(st, { t: 'tp', seat: s, to, gate: true }); land(st, s, depth + 1); break; }
       case 'gate': st.phase = 'gate'; st.pending = { gate: true }; break;
@@ -212,6 +227,8 @@
     ragnarok: { tile: '眾神寶庫', trap: ['洛基的詭計', '🐍'], steal: ['赫密士之手', '🪽'], invest: ['諾恩織命', '🧵'], bomb: ['雷神之鎚', '🔨'], shield: ['埃癸斯之盾', '🛡️'] },
     cyber: { tile: '地下黑市', trap: ['病毒植入', '🦠'], steal: ['駭入帳戶', '💻'], invest: ['加密貨幣', '📈'], bomb: ['無人機空襲', '🛩️'], shield: ['防火牆', '🧱'] },
     animal: { tile: '松鼠的寶藏', trap: ['香蕉皮', '🍌'], steal: ['浣熊順手牽羊', '🦝'], invest: ['松鼠存糧', '🐿️'], bomb: ['河馬踩踏', '🦛'], shield: ['龜殼護盾', '🐢'] },
+    buddha: { tile: '法器鋪', trap: ['下符咒', '📜'], steal: ['五鬼搬運', '👻'], invest: ['點光明燈', '🏮'], bomb: ['雷公電母', '⚡'], shield: ['平安符', '🧧'] },
+    magic: { tile: '魔法雜貨舖', trap: ['沉睡咒', '💤'], steal: ['隱形斗篷', '🧥'], invest: ['鍊金術', '⚗️'], bomb: ['火龍吐息', '🔥'], shield: ['守護結界', '🔰'] },
     alien: { tile: '遺落艙', trap: ['寄生卵', '🥚'], steal: ['觸手竊取', '🦑'], invest: ['孢子培養', '🍄'], bomb: ['孢子腐蝕', '☣️'], shield: ['幾丁質護甲', '🪲'] }
   };
   const ITEM_DESC = { trap: '讓一位玩家下回合停一輪', steal: '偷對方現金 15%（偷比你有錢的最多 3 萬，比你窮的最多 3 千）', invest: '3 回合後拿回 6,000（後期會變多）', bomb: '炸掉別人一塊地的一層房子', shield: '放著就生效：擋下別人對你用的下一個道具' };
@@ -245,7 +262,9 @@
       if (o === -1) { if (p.cash >= t.price) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } ev(st, { t: 'note', seat: s, text: '錢不夠買這塊地' }); return false; }
       if (o === s) { if (st.levels[t.i] < 4 && p.cash >= t.up) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } return false; }
       if (!st.players[o].alive) return false;
-      const rent = rentOf(st, t.i);
+      let rent = rentOf(st, t.i);
+      if (p.freeRent > 0) { p.freeRent--; ev(st, { t: 'note', seat: s, feed: true, text: '🪷 神明保佑：這次過路費免付' }); return false; }
+      if (p.curse > 0) { p.curse--; rent *= 2; ev(st, { t: 'note', seat: s, feed: true, text: `👁️ 多眼鳥的詛咒：過路費加倍（還剩 ${p.curse} 次）` }); }
       // 翻盤問答：付不起（賣光也不夠）就跟收錢者搶答，答贏免付、不出局
       if (!canPay(st, s, rent)) { startQuiz(st, s, o, rent, t.i); return true; }
       pay(st, s, o, rent, '過路費', t.i);
@@ -278,7 +297,7 @@
         if (st.inflate && st.round === DOOM_ROUND) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' });
         if (cap !== SAFETY_CAP && cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` }); }
       const p = st.players[s]; if (!p.alive) continue;
-      if (p.skip > 0) { p.skip--; ev(st, { t: 'skip', seat: s }); continue; }
+      if (p.skip > 0) { p.skip--; if (!p.skip && p.frog) { p.frog = false; ev(st, { t: 'unfrog', seat: s }); } ev(st, { t: 'skip', seat: s }); continue; }
       break;
     }
     st.turn = s;
@@ -306,7 +325,7 @@
       const st = {
         n, theme, maxRounds: o.rounds == null || o.rounds === '' ? 20 : +o.rounds, inflate: +o.rounds === 0 || +o.rounds >= 900, round: 1, first: 0, turn: 0, phase: 'pick',
         players: U.range(n).map(() => ({ cash, pos: 0, alive: true, skip: 0, immune: 0, jailfree: 0, char: null })),
-        owners: Array(N).fill(-1), levels: Array(N).fill(0), boLock: Array(N).fill(0), decks: {}, ev: [], evId: 0, anim: 0, pending: null, dice: null
+        startCash: cash, owners: Array(N).fill(-1), levels: Array(N).fill(0), boLock: Array(N).fill(0), decks: {}, ev: [], evId: 0, anim: 0, pending: null, dice: null
       };
       st.deadline = now + 90000;
       return st;
@@ -419,7 +438,14 @@
     // 輪到的人沒反應（逾時或斷線）時的預設動作
     autoAct(st) {
       if (st.phase === 'pick') return { seat: -1, a: { type: 'start' } };
-      if (st.phase === 'roll') return { seat: st.turn, a: { type: 'roll' } };
+      if (st.phase === 'roll') {
+        const p = st.players[st.turn];
+        if (p.trance) { // 附身時電腦會挑：自己的地 > 空地 > 好運 > 其他，避開別人的地
+          const score = n => { const t = BOARD[(p.pos + n) % N], o = st.owners[t.i]; return t.type === 'prop' ? (o === st.turn ? 3 : o === -1 ? 2 : -5) : t.type === 'luck' ? 1 : t.type === 'gotojail' || t.type === 'bad' ? -3 : 0; };
+          let best = 7; for (let n = 2; n <= 12; n++) if (score(n) > score(best)) best = n; return { seat: st.turn, a: { type: 'roll', pick: best } };
+        }
+        return { seat: st.turn, a: { type: 'roll' } };
+      }
       if (st.phase === 'gate') { // 代打：去能升級的自己的地 → 買得起的空地 → 休息站
         const p = st.players[st.turn];
         const up = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === st.turn && st.levels[t.i] < 4 && p.cash >= t.up).sort((a, b) => b.price - a.price)[0];

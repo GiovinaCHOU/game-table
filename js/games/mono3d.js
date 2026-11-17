@@ -7,6 +7,8 @@
     ragnarok: { start: '🏛️', jail: '💀', free: '🍷', gotojail: '⬇️', luck: '🌟', bad: '⚡', tax: '🪙', teleport: '🌈', item: '🏺' },
     cyber: { start: '🚉', jail: '🔒', free: '💉', gotojail: '🚨', luck: '💾', bad: '☠️', tax: '💰', teleport: '🚄', item: '🕶️' },
     animal: { start: '🌅', jail: '🦓', free: '💧', gotojail: '🪤', luck: '🌿', bad: '🔥', tax: '🌧️', teleport: '🌪️', item: '🌰' },
+    buddha: { start: '🏮', jail: '👹', free: '♨️', gotojail: '⛓️', luck: '🧧', bad: '👻', tax: '🪔', teleport: '☁️', item: '📿' },
+    magic: { start: '🏰', jail: '🔒', free: '🔥', gotojail: '🕯️', luck: '⭐', bad: '💥', tax: '📜', teleport: '🌀', item: '🧪' },
     alien: { start: '🛸', jail: '⛓️', free: '🛰️', gotojail: '🚨', luck: '🧬', bad: '☄️', tax: '📦', teleport: '🕳️', item: '🧰' }
   };
   const U = 1.5, N = 28;
@@ -157,7 +159,7 @@
       shape.lineTo(-s + rr, s); shape.quadraticCurveTo(-s, s, -s, s - rr); shape.lineTo(-s, -s + rr); shape.quadraticCurveTo(-s, -s, -s + rr, -s);
       const geo = new T.ExtrudeGeometry(shape, { depth: 0.24, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 });
       geo.rotateX(-Math.PI / 2); geo.translate(0, -0.27, 0);
-      const side = { ragnarok: ['#e9e2d2', 0.35, 0.1], cyber: ['#1a1830', 0.3, 0.7], animal: ['#6e5a3e', 0.95, 0], alien: ['#2a2232', 0.3, 0.6] }[this.theme];
+      const side = { ragnarok: ['#e9e2d2', 0.35, 0.1], cyber: ['#1a1830', 0.3, 0.7], animal: ['#6e5a3e', 0.95, 0], alien: ['#2a2232', 0.3, 0.6], buddha: ['#3a1012', 0.4, 0.2], magic: ['#3a3446', 0.8, 0.1] }[this.theme];
       const sideMat = new T.MeshStandardMaterial({ color: side[0], roughness: side[1], metalness: side[2] });
       for (let i = 0; i < N; i++) {
         const [x, z] = tileXZ(i), b = this.R.BOARD[i];
@@ -240,13 +242,33 @@
         }
         tk.color = p.color;
         if (p.evolved && !tk.evolved) { tk.evolved = true; this.metalize(tk.r); }
+        if (!!p.frog !== !!tk.frog) { tk.frog = !!p.frog; this.frogify(tk, tk.frog); }
         if (tk.eaten) tk.r.g.visible = false;
         else if (p.alive === false && tk.r.state !== 'fall') root.MONO_CHARS.set(tk.r, 'fall');
       });
     }
+    // 變青蛙：把角色藏起來，換成一隻綠色青蛙（頭上的名牌、光圈保留）
+    frogify(tk, on) {
+      const T = THREE, r = tk.r;
+      if (!tk.frogG) { const M = (c, e) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.4 }, e || {})); const g = new T.Group(); const sk = M('#4caf3a');
+        const b = new T.Mesh(new T.SphereGeometry(0.22, 18, 14), sk); b.scale.set(1.15, 0.75, 1); b.position.y = 0.17; g.add(b);
+        const bl = new T.Mesh(new T.SphereGeometry(0.16, 14, 10), M('#c8e890')); bl.scale.set(1.1, 0.6, 0.9); bl.position.set(0, 0.12, 0.08); g.add(bl);
+        [-1, 1].forEach(sd => { const e = new T.Mesh(new T.SphereGeometry(0.075, 12, 10), sk); e.position.set(sd * 0.1, 0.34, 0.1); g.add(e); const w = new T.Mesh(new T.SphereGeometry(0.05, 10, 8), M('#ffffff')); w.position.set(sd * 0.1, 0.35, 0.16); g.add(w); const pu = new T.Mesh(new T.SphereGeometry(0.025, 8, 6), M('#111')); pu.position.set(sd * 0.1, 0.35, 0.205); g.add(pu);
+          const lg = new T.Mesh(new T.SphereGeometry(0.08, 10, 8), sk); lg.scale.set(0.8, 0.5, 1.4); lg.position.set(sd * 0.2, 0.05, -0.02); g.add(lg); });
+        const m = new T.Mesh(new T.TorusGeometry(0.1, 0.012, 6, 16, Math.PI), M('#2a4a1a')); m.rotation.z = Math.PI; m.position.set(0, 0.22, 0.2); g.add(m);
+        tk.frogG = g; r.g.add(g); }
+      r.body.visible = !on; tk.frogG.visible = on;
+    }
     setTurn(seat) { Object.entries(this.tokens).forEach(([s, tk]) => { tk.r.arrow.visible = +s === seat; }); }
     slot(i, seat) { const [x, z] = tileXZ(i); const a = seat / 6 * Math.PI * 2 + 0.5; return new THREE.Vector3(x + Math.cos(a) * 0.3, 0.005, z + Math.sin(a) * 0.3); }
     place(seat, i) { const tk = this.tokens[seat]; if (!tk) return; tk.r.g.position.copy(this.slot(i, seat)); tk.pos = i; const [x, z] = tileXZ(i); tk.r.g.rotation.y = Math.atan2(-x, -z); }
+    // 債主衝向破產的人（短距離撲過去再回來）
+    async lunge(by, seat) {
+      const a = this.tokens[by], d = this.tokens[seat]; if (!a || !d) return;
+      const from = a.r.g.position.clone(), to = d.r.g.position.clone(); a.r.g.rotation.y = Math.atan2(to.x - from.x, to.z - from.z); this.follow(seat);
+      root.MONO_CHARS.set(a.r, 'walk'); await this.tween(380, k => a.r.g.position.lerpVectors(from, to, k * 0.85));
+      root.MONO_CHARS.set(d.r, 'scared', 600); await this.shake(seat); await this.tween(300, k => a.r.g.position.lerpVectors(to, from, 0.15 + k * 0.85).setY(from.y)); root.MONO_CHARS.set(a.r, 'idle');
+    }
     mood(seat, m, ms) { const tk = this.tokens[seat]; if (tk) root.MONO_CHARS.set(tk.r, m, ms); }
     async hop(seat, path, watch, ms) {
       const tk = this.tokens[seat]; if (!tk || !path.length) return;

@@ -110,7 +110,7 @@
     id: 'monopoly', name: '大富翁', icon: '🎩', min: 2, max: 6,
     desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢、房子越多繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
     options: [
-      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
+      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
@@ -137,7 +137,7 @@
     view(st, seat) {
       return {
         theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
         pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
@@ -280,7 +280,7 @@
     syncBoard(first, mid) {
       // mid＝播放中途呼叫：只更新棋盤，不換鏡頭
       const b = this.board, v = this.v; if (!b || !v || v.phase === 'pick') return;
-      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s], evolved: p.evolved }; }));
+      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s], evolved: p.evolved, frog: !!p.frog }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
       b.setTurn(v.phase === 'over' ? -1 : v.turn);
@@ -373,6 +373,16 @@
                 }
                 break;
               }
+              if ((v.theme === 'buddha' || v.theme === 'magic') && root.MONO_EGGS) {
+                SFX.doom(); this._played = true; const by = e.by >= 0 && b.tokens[e.by] ? e.by : -1;
+                if (v.theme === 'buddha') this.feed(by >= 0 ? `🔥 ${this.who(e.seat)} 破產了，被 ${this.who(by)} 打入十八層地獄` : `🔥 ${this.who(e.seat)} 破產了，閻羅判官判他下十八層地獄`, 'big');
+                else this.feed(by >= 0 ? `💀 ${this.who(e.seat)} 破產了，被 ${this.who(by)} 解決` : `💀 ${this.who(e.seat)} 破產了，被魔法書吸進去`, 'big');
+                if (by >= 0) { b.mood(by, 'joy', 2000); b.lunge && await b.lunge(by, e.seat); }
+                b.mood(e.seat, 'fall');
+                await root.MONO_EGGS[v.theme === 'buddha' ? 'hell' : 'magicDeath'].call(this, SFX, { seat: e.seat, by });
+                if (b.tokens[e.seat]) b.tokens[e.seat].r.g.visible = false;
+                break;
+              }
               if ((v.theme === 'alien' || v.theme === 'animal') && b.tokens[e.seat]) {
                 const snd = k => SFX[k] && SFX[k](); SFX.doom(); this.vfx('doom'); this._played = true;
                 if (e.by >= 0 && b.tokens[e.by]) { // 欠誰的錢，就被誰吃掉
@@ -409,6 +419,7 @@
       else if (k0 === 'war') { const ch = v.players[e.seat].char || {}; const human = ch.kind === 'custom' || ch.i === 7; await this.godWar(good ? human : !human); }
       else if (k0 === 'link') await this.mindLink();
       else if (k0 === 'evo') await this.evolution(e.seat);
+      else if (root.MONO_EGGS && root.MONO_EGGS[k0]) await root.MONO_EGGS[k0].call(this, SFX, e);
       if (good) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.seat, 'joy', 1800); }
       else if (e.eff === 'psycho') { SFX.glitch(); SFX.doom(); this.vfx('glitch'); this.board && this.board.mood(e.seat, 'scared', 2500); }
       else { SFX.doom(); this.vfx('doom'); this.board && this.board.mood(e.seat, 'scared', 1800); }
@@ -417,7 +428,7 @@
         <button class="mcard-x" aria-label="關閉">✕</button>
         <div class="mcard-head">${good ? th.luckName : th.badName}</div>
         <div class="mcard-who">${this.faceHTML(v, e.seat, 52)}<b>${U.esc(v.names[e.seat])}</b>${e.seat === v.seat ? '<em>（你）</em>' : ''}</div>
-        <p>${U.esc(e.text)}</p><div class="mcard-eff">${this.effText(e.eff, th)}</div></div></div>`;
+        <p>${U.esc(e.text)}</p><div class="mcard-eff">${this.effText(e.eff, th, e.mul)}</div></div></div>`;
       L.classList.add('on'); L.onclick = () => this.closeCard();
       clearTimeout(this._cardT); this._cardT = setTimeout(() => this.closeCard(), 25000);
       await sleep(2200);
@@ -467,11 +478,11 @@
         else if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); }
       };
     },
-    effText(eff, th) {
-      const [k, v0] = eff.split(':'); const v = +v0; const u = th.unit;
+    effText(eff, th, mul) {
+      const [k, v0] = eff.split(':'); const v = Math.round(+v0 * (mul || 1) / 100) * 100; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，-${fmt(-v)} ${u}`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合' }[k] || '';
+        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，-${fmt(-v)} ${u}`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合', again: '⏳ 再擲一次', sync: `+${fmt(v)} ${u}，下一次過路費免付`, trance: '下一次擲骰自己選點數（2～12）', ghost: `失去 ${v}% 現金`, birds: `接下來 ${v} 次過路費加倍`, bag: `+${fmt(v)} ${u}`, goblin: `+${fmt(v)} ${u}`, phoenix: '現金補回開局金額（已經比開局多就再加一筆）', mandrake: `停 1 回合，賠 ${fmt(v)} ${u}`, frog: `變成青蛙，停 ${v} 回合` }[k] || '';
     },
     // ===== 道具 =====
     itemName(k) { const I = root.MONO_ITEMS.NAMES[this.v.theme][k]; return I[1] + ' ' + I[0]; },
@@ -662,7 +673,7 @@
       box.hidden = false;
       const who = (s, tag) => `<div class="qz-p ${answered(s) ? 'done' : ''}">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b><small>${tag}${answered(s) ? ' ✓ 已作答' : ''}</small></div>`;
       box.innerHTML = `<div class="qz-card">
-        <div class="qz-top"><span>⚔️ 翻盤問答${pd.lv ? `<em class="qz-lv ${pd.lv}">${{ e: '簡單', m: '中等', h: '困難' }[pd.lv]}</em>` : ''}</span><span class="timer" data-deadline="${res ? '' : v.deadline}"></span></div>
+        <div class="qz-top"><span>⚔️ 翻盤問答${pd.lv ? `<em class="qz-lv ${pd.lv}">${{ e: '簡單', m: '中等', h: '困難', f: '影視題' }[pd.lv]}</em>` : ''}</span><span class="timer" data-deadline="${res ? '' : v.deadline}"></span></div>
         <div class="qz-vs">${who(pd.debtor, '破產危機')}<em>VS</em>${who(pd.cred, '收錢的人')}</div>
         <div class="qz-bar"><i style="animation-duration:${res ? 0 : Math.max(0.5, (v.deadline - this.now()) / 1000)}s"></i></div>
         <p class="qz-q">${U.esc(pd.q)}</p>
@@ -691,7 +702,7 @@
         const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
         const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
         const t0 = performance.now();
-        const frame = () => { const ms = performance.now() - t0; draw(g, W, H, dpr, ms / 1000, ms / T); cv.style.opacity = String(Math.min(1, ms / 250, (T - ms) / 300));
+        const frame = () => { const ms = performance.now() - t0; g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.setTransform(1, 0, 0, 1, 0, 0); draw(g, W, H, dpr, ms / 1000, ms / T); cv.style.opacity = String(Math.min(1, ms / 250, (T - ms) / 300));
           if (ms < T) requestAnimationFrame(frame); else { cv.remove(); if (this.board) this.board.paused = false; res(); } };
         requestAnimationFrame(frame);
       });

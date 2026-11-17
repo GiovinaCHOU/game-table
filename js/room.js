@@ -500,7 +500,7 @@
           setTimeout(() => this.R._stepDown(t.name), 400);
           break;
         }
-        case 'skin': if (isHost) { this.lobby.skin = ['nebula', 'classic', 'ragnarok', 'cyber', 'animal', 'alien'].includes(d.skin) ? d.skin : 'nebula'; this.pushRoom(); } break;
+        case 'skin': if (isHost) { this.lobby.skin = ['nebula', 'classic', 'ragnarok', 'cyber', 'animal', 'buddha', 'magic', 'alien'].includes(d.skin) ? d.skin : 'nebula'; this.pushRoom(); } break;
         case 'addbot': if (isHost && this.pin === TEST_PIN && !this.game) {
           const used = new Set(this.members.filter(x => x.bot).map(x => x.name)); let k = 1; while (used.has('電腦' + k)) k++;
           this.members.push({ cid: 'bot-' + Math.random().toString(36).slice(2, 8), name: '電腦' + k, role: 'player', online: true, auto: true, bot: true, seen: Date.now() });
