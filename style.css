@@ -304,7 +304,8 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .perk-list { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 10px 0; text-align: left; }
 @media (min-width: 720px) { .pick-card.perks { width: min(900px, 100%); } .perk-list { grid-template-columns: 1fr 1fr; } }
 .pk { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.07); border: 2px solid transparent; border-left: 5px solid var(--c); border-radius: 12px; padding: 8px 10px; color: var(--cream); text-align: left; font: inherit; }
-.pk i { font-style: normal; font-size: 30px; line-height: 1; flex: none; width: 36px; text-align: center; }
+.pk i { font-style: normal; font-size: 30px; line-height: 1; flex: none; width: 44px; text-align: center; }
+.pk i img.px, .mface img.px { image-rendering: pixelated; width: 100%; height: auto; display: block; } .pk i img.px { width: 44px; border-radius: 10px; background: rgba(255,255,255,.08); }
 .pk-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pk-t b { font-size: 15px; display: flex; gap: 6px; align-items: baseline; } .pk-t b em { font-style: normal; font-size: 11px; font-weight: 400; color: var(--muted); }
 .pk-t .pro, .perk-mini .pro { font-size: 12.5px; color: #8dffb0; line-height: 1.35; } .pk-t .con, .perk-mini .con { font-size: 12.5px; color: #ff9a9a; line-height: 1.35; }
@@ -313,6 +314,9 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .perk-mini { display: flex; flex-direction: column; gap: 2px; text-align: left; background: rgba(0,0,0,.25); border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px; font-size: 12.5px; }
 .pick-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 12px; color: var(--muted); } .pick-who .ok { color: #7dffa0; }
 .pad { width: 240px; height: 240px; border-radius: 14px; background: #fff; touch-action: none; border: 2px solid #e6dcc6; }
+.mono-modal.top { z-index: 12; }
+.pill-wrap { position: relative; width: 240px; height: 240px; margin: 0 auto; overflow: hidden; border-radius: 14px; } .pill-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgba(20,16,24,.55); pointer-events: none; outline: 2px dashed rgba(255,255,255,.7); outline-offset: -2px; } .pill-wrap .pad { border-radius: 14px; }
+.pad-tools button.on { outline: 3px solid var(--gold); }
 .pad-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; } .pad-tools button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #ccc; }
 
 

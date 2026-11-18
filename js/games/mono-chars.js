@@ -683,7 +683,7 @@
         sh.fragmentShader = 'uniform vec3 rimC; uniform float rimK;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', 'float rimF = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 2.6);\n gl_FragColor.rgb += rimC * rimF * rimK;\n#include <dithering_fragment>'); };
       m.customProgramCacheKey = () => 'rim-' + theme; m.needsUpdate = true; });
   }
-  C.make = function (T, theme, idx, color, avatarTex) {
+  C.make = function (T, theme, idx, color, avatarTex, extra) {
     let r;
     if (avatarTex) { // 自畫角色：你畫的圖本身就是角色（紙板立牌，永遠面向鏡頭）
       const g = new T.Group(), body = new T.Group(); g.add(body);
@@ -692,11 +692,11 @@
       pic.position.y = 0.52; pic.castShadow = true; card.add(pic);
       const base = new T.Mesh(new T.CylinderGeometry(0.17, 0.2, 0.06, 20), M(T, color, { roughness: 0.4, metalness: 0.2 })); base.position.y = 0.03; base.castShadow = true; g.add(base);
       r = { g, body, head: null, skull: null, legs: [], arms: [], kind: 'standee', billboard: card };
-    } else if (theme === 'town' && root.MONO_PIXEL) { // 怪奇小鎮：16-bit 像素小人立牌（永遠面向鏡頭，動作換影格）
-      const P = root.MONO_PIXEL, g = new T.Group(), body = new T.Group(); g.add(body);
+    } else if ((theme === 'town' || theme === 'gang') && root.MONO_PIXEL && (theme !== 'gang' || root.MONO_PIXEL.gangFrame)) { // 怪奇小鎮／幫派街區：16-bit 像素立牌（永遠面向鏡頭，動作換影格）
+      const P0 = root.MONO_PIXEL, pillIm = theme === 'gang' && extra && extra.pill ? Object.assign(new Image(), { src: extra.pill }) : null, P = theme === 'gang' ? { tokenFrame: (i, s, t) => P0.gangFrame(i, s, t, pillIm && pillIm.complete && pillIm.naturalWidth ? { img: pillIm } : null), SW: P0.SW, SH: P0.SH } : P0, g = new T.Group(), body = new T.Group(); g.add(body);
       const card = new T.Group(); body.add(card);
       const tx = new T.CanvasTexture(P.tokenFrame(idx, 'idle', 0)); tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.colorSpace = T.SRGBColorSpace;
-      const sc = idx === 7 ? 1.25 : 1, pic = new T.Mesh(new T.PlaneGeometry(0.78 * sc, 0.78 * sc * P.SH / P.SW), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide }));
+      const sc = theme === 'town' && idx === 7 ? 1.25 : 1, pic = new T.Mesh(new T.PlaneGeometry(0.78 * sc, 0.78 * sc * P.SH / P.SW), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide }));
       pic.position.y = 0.39 * sc * P.SH / P.SW - 0.02; pic.castShadow = true; card.add(pic);
       const shadow = new T.Mesh(new T.CircleGeometry(0.2, 16), new T.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.35, depthWrite: false })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.012; g.add(shadow);
       r = { g, body, head: null, skull: null, legs: [], arms: [], kind: 'standee', billboard: card };

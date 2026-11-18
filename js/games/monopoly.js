@@ -142,7 +142,7 @@
     view(st, seat) {
       return {
         theme: st.theme, layout: st.layout, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, pill: p.pill || null, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
         pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
@@ -161,11 +161,17 @@
       const room = root.Room && root.Room.room; if (!room || !room.game) return null;
       const cid = room.game.seats[s]; const m = room.members.find(x => x.cid === cid); return m && m.avatar || null;
     },
+    // 媽的媽啊的自畫藥丸：dataURL → Image（載入完重畫一次）
+    pillImg(url) {
+      if (!url) return null; const c = this._pills || (this._pills = {}); if (c[url]) return c[url].complete && c[url].naturalWidth ? c[url] : null;
+      const im = new Image(); im.onload = () => { if (this.v) { this.renderHud && this.renderHud(); this.renderPick && this.renderPick(); } }; im.src = url; c[url] = im; return null;
+    },
     faceHTML(v, s, size) {
       const ch = this.charOf(v, s); const img = ch && ch.custom ? this.avatarOf(s) : null;
       const sz = size || 34;
       if (!ch) return `<span class="mface" style="width:${sz}px;height:${sz}px">？</span>`;
-      return `<span class="mface" style="width:${sz}px;height:${sz}px;border-color:${ch.color}">${img ? `<img src="${img}">` : `<i style="font-size:${sz * 0.6}px">${ch.emoji}</i>`}</span>`;
+      const px = !img && v.theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFace && v.players[s].char ? root.MONO_PIXEL.gangFace(v.players[s].char.i, this.pillImg(v.players[s].pill)) : null;
+      return `<span class="mface" style="width:${sz}px;height:${sz}px;border-color:${ch.color}">${img ? `<img src="${img}">` : px ? `<img class="px" src="${px}">` : `<i style="font-size:${sz * 0.6}px">${ch.emoji}</i>`}</span>`;
     },
     render(el, v, ui) {
       R().useLayout(v.layout);
@@ -272,10 +278,33 @@
       const v = this.v, myI = mine && mine.kind === 'preset' ? mine.i : -1;
       box.innerHTML = `<div class="pick-card perks"><h3>${th.icon} ${th.name}：選角色</h3><p class="hint">每個角色都有一個優點和一個缺點，想清楚再選</p>
         <div class="perk-list">${th.chars.map((c, i) => { const k = th.perks[i], off = (taken.includes(i) && myI !== i) || v.seat < 0, who = v.players.findIndex(p => p.char && p.char.kind === 'preset' && p.char.i === i);
-          return `<button class="pk ${myI === i ? 'on' : ''}" data-i="${i}" ${off ? 'disabled' : ''} style="--c:${c[2]}"><i>${c[0]}</i><div class="pk-t"><b>${U.esc(c[1])}${who >= 0 && myI !== i ? `<em>${U.esc(v.names[who])} 選了</em>` : ''}</b><span class="pro">＋ ${U.esc(k.pro)}</span><span class="con">－ ${U.esc(k.con)}</span></div></button>`; }).join('')}</div>
+          const who2 = v.players.findIndex(p => p.char && p.char.kind === 'preset' && p.char.i === i), face = v.theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFace ? `<img class="px" src="${root.MONO_PIXEL.gangFace(i, who2 >= 0 ? this.pillImg(v.players[who2].pill) : null)}">` : c[0];
+          return `<button class="pk ${myI === i ? 'on' : ''}" data-i="${i}" ${off ? 'disabled' : ''} style="--c:${c[2]}"><i>${face}</i><div class="pk-t"><b>${U.esc(c[1])}${who >= 0 && myI !== i ? `<em>${U.esc(v.names[who])} 選了</em>` : ''}</b><span class="pro">＋ ${U.esc(k.pro)}</span><span class="con">－ ${U.esc(k.con)}</span></div></button>`; }).join('')}</div>
+        ${myI === 0 ? '<button class="btn sm" data-pill>🎨 畫我的藥丸（顏色、圖案）</button>' : ''}
         <div class="pick-who">${v.players.map((p, s) => `<span class="${p.char ? 'ok' : ''}">${p.char ? '✔' : '…'} ${U.esc(v.names[s])}</span>`).join('')}</div>
         <p class="hint">所有人選好就開始，<span class="timer" data-deadline="${v.deadline}"></span> 後自動分配</p></div>`;
-      box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => this.ui.send({ type: 'pick', i: +b.dataset.i }));
+      box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const mdma = +b.dataset.i === 0 && !(v.players[v.seat] && v.players[v.seat].pill); this.ui.send({ type: 'pick', i: +b.dataset.i, pad: mdma }); if (mdma) setTimeout(() => this.pillPad(), 200); });
+      const pb = box.querySelector('[data-pill]'); if (pb) pb.onclick = () => this.pillPad();
+    },
+    // 媽的媽啊：在圓形藥丸上畫顏色和圖案（存成 32×32，跟著這一局走，不影響其他主題的自畫角色）
+    pillPad() {
+      const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null; m.classList.add('top'); const close = () => { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); };
+      m.innerHTML = `<div class="mm-card"><h3>💊 畫你的藥丸</h3><p class="hint">塗顏色、畫圖案都可以，只有圓圈裡面會用到</p><div class="pill-wrap"><canvas class="pad" width="240" height="240"></canvas><i class="pill-ring"></i></div>
+        <div class="pad-tools">${['#ff7ac8', '#e03131', '#f08c00', '#fab005', '#2f9e44', '#1971c2', '#ae3ec9', '#ffffff', '#8d6e63', '#222'].map(c => `<button data-c="${c}" style="background:${c}"></button>`).join('')}</div>
+        <div class="act-row"><button class="btn sm ghost" data-a="fill">整顆塗滿目前顏色</button><button class="btn sm ghost" data-a="cancel">用預設的</button><button class="btn" data-a="ok">用這顆藥丸</button></div></div>`;
+      const cv = m.querySelector('canvas'), g = cv.getContext('2d'); let col = '#222', drawing = false, last = null;
+      g.fillStyle = '#ff7ac8'; g.fillRect(0, 0, 240, 240); g.lineCap = g.lineJoin = 'round';
+      const pos = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 240, (e.clientY - r.top) / r.height * 240]; };
+      cv.onpointerdown = (e) => { drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); g.beginPath(); g.fillStyle = col; g.arc(last[0], last[1], 8, 0, 7); g.fill(); };
+      cv.onpointermove = (e) => { if (!drawing) return; const p = pos(e); g.strokeStyle = col; g.lineWidth = 16; g.beginPath(); g.moveTo(...last); g.lineTo(...p); g.stroke(); last = p; };
+      cv.onpointerup = cv.onpointercancel = () => drawing = false;
+      m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { col = b.dataset.c; m.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
+      m.querySelector('[data-a="fill"]').onclick = () => { g.fillStyle = col; g.fillRect(0, 0, 240, 240); };
+      m.querySelector('[data-a="cancel"]').onclick = () => { close(); this.ui.send({ type: 'pill', skip: true }); this.showPrompt(); };
+      m.querySelector('[data-a="ok"]').onclick = () => {
+        const small = document.createElement('canvas'); small.width = small.height = 32; const sg = small.getContext('2d'); sg.imageSmoothingEnabled = true; sg.drawImage(cv, 0, 0, 32, 32);
+        this.ui.send({ type: 'pill', img: small.toDataURL('image/png') }); close(); setTimeout(() => this.showPrompt(), 300);
+      };
     },
     drawPad(after) {
       const m = this.el.querySelector('.mono-modal'); m.hidden = false;
@@ -301,7 +330,7 @@
     syncBoard(first, mid) {
       // mid＝播放中途呼叫：只更新棋盤，不換鏡頭
       const b = this.board, v = this.v; if (!b || !v || v.phase === 'pick') return;
-      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s], evolved: p.evolved, frog: !!p.frog }; }));
+      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, pill: p.pill || null, alive: p.alive, name: v.names[s], evolved: p.evolved, frog: !!p.frog }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
       if (b.scene && b.scene.userData.decay) b.scene.userData.decay(v.round); // 怪奇小鎮：回合越後面越被倒影世界侵蝕
@@ -547,6 +576,7 @@
       if (!(v.phase === 'passbuild' && v.turn === v.seat)) this.buildBar(false);
       if (!(v.phase === 'roll' && v.turn === v.seat && v.players[v.seat] && v.players[v.seat].trance)) this.diceBar(false); else if (this.canAct('roll')) this.diceBar(true);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
+      if (m.classList.contains('top') && v.phase !== 'pick' && !m.hidden && m.querySelector('.pill-wrap')) { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); } // 畫藥丸畫到遊戲開始：關掉，避免擋住輪到你的提示
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
       if (!m.hidden && m.querySelector('.pad')) return;
       // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）
@@ -600,7 +630,7 @@
           <div class="act-row"><button class="btn ghost" data-y="0">不要</button><button class="btn" data-y="1">收購！</button></div>
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: 'buyout', yes: b.dataset.y === '1' }); m.hidden = true; });
-      } else if (!m.querySelector('.tinfo')) m.hidden = true;
+      } else if (!m.querySelector('.tinfo') && !(m.classList.contains('top') && v.phase === 'pick')) { m.hidden = true; m.classList.remove('top'); }
     },
     // 星門：選目的地（點地圖上的格子，或用下拉選單）
     // 傳送／自選格子：直接點地圖。進入時自動切到全景，自己的地是金色光圈；第一下選、按確認才送出

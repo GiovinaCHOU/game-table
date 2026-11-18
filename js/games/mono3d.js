@@ -243,11 +243,11 @@
     }
     setTokens(list) { // [{seat, idx, color, img, alive, name}]
       list.forEach(p => {
-        const key = p.idx + p.color + (p.img ? p.img.length : 0) + p.name;
+        const key = p.idx + p.color + (p.img ? p.img.length : 0) + p.name + (p.pill ? p.pill.slice(-24) : '');
         let tk = this.tokens[p.seat];
         if (tk && tk.key !== key) { this.scene.remove(tk.r.g); tk = null; }
         if (!tk) {
-          const r = root.MONO_CHARS.make(THREE, this.theme, this.real !== this.theme ? p.idx % 8 : p.idx, p.color, p.img ? this.avatarTexture(p.img) : null);
+          const ct = this.real === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFrame ? 'gang' : this.theme, r = root.MONO_CHARS.make(THREE, ct, ct !== this.real && this.real !== this.theme ? p.idx % 8 : p.idx, p.color, p.img ? this.avatarTexture(p.img) : null, { pill: p.pill });
           r.g.traverse(m => { if (m.isMesh) m.castShadow = this.q.high; });
           { const tg = this.nameTag(p.name, p.color); tg.traverse(o => o.userData.tag = true); r.g.add(tg); } r.g.scale.setScalar(1.15); this.scene.add(r.g);
           tk = this.tokens[p.seat] = { r, key, pos: -1 };
