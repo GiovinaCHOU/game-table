@@ -169,5 +169,53 @@
   };
   P.coin = function () { const key = 'coin'; if (cache[key]) return cache[key]; const [c, g] = canvas(7, 7); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); }; R(1, 0, 5, 7, '#e8b020'); R(0, 1, 7, 5, '#e8b020'); R(1, 1, 2, 2, '#fff0a0'); R(3, 2, 1, 3, '#a87010'); R(5, 2, 1, 4, '#c89018'); return (cache[key] = c); };
 
+  // ================= 地圖環境（像素立牌）：房子、楓樹、松樹、路燈、水塔、草地 =================
+  const hsh = (x, y, s) => { const v = Math.sin(x * 12.9898 + y * 78.233 + s * 37.719) * 43758.5453; return v - Math.floor(v); };
+  const ENV = {};
+  // 房子 44x38：牆、階梯式屋頂、煙囪、兩扇亮燈的窗、門、門廊、白籬笆
+  P.house = function (seed) { const key = 'h' + seed; if (ENV[key]) return ENV[key]; const [c, g] = canvas(44, 38); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const WALL = [['#e8dcc0', '#c8bca0', '#f4ecd8'], ['#c8d8e0', '#a0b4c0', '#e0ecf0'], ['#e0c8a0', '#b8a07a', '#f0dcb8'], ['#d8b0a0', '#b08878', '#ecc8b8'], ['#c8d0b0', '#a0a888', '#e0e8c8']][seed % 5], ROOF = [['#4a3a3a', '#2e2222', '#6a5050'], ['#3a3a4a', '#22222e', '#545468'], ['#5a3a2a', '#3a2418', '#7a5038']][seed % 3];
+    R(6, 16, 32, 17, WALL[0]); R(31, 16, 7, 17, WALL[1]); R(6, 16, 2, 17, WALL[2]); for (let y = 18; y < 33; y += 3) R(6, y, 32, 1, WALL[1]);
+    if (seed % 2) R(28, 3, 4, 8, '#5a3a2e'), R(27, 2, 6, 2, '#3a2420');
+    for (let r = 0; r < 12; r++) { const w = 40 - r * 3.2; R(22 - w / 2, 16 - r, w, 1, r % 3 === 0 ? ROOF[2] : ROOF[0]); R(22 + w / 2 - 3, 16 - r, 3, 1, ROOF[1]); }
+    R(2, 16, 40, 2, ROOF[1]);
+    [[10, 20], [26, 20]].forEach(([x, y], k) => { const lit = hsh(seed, k, 3) > 0.25; R(x - 1, y - 1, 8, 8, '#f4f0e8'); R(x, y, 6, 6, lit ? '#ffc870' : '#2a2a38'); if (lit) R(x, y, 3, 3, '#ffe0a0'); R(x + 3, y, 1, 6, '#f4f0e8'); R(x, y + 3, 6, 1, '#f4f0e8'); });
+    R(19, 23, 6, 10, '#5a3a2a'); R(19, 23, 6, 1, '#3a2418'); R(23, 28, 1, 1, '#e8c84a'); R(17, 33, 10, 1, '#8a8a8a');
+    for (let x = 0; x < 44; x += 3) { R(x, 32, 2, 5, '#f2f0ea'); R(x, 31, 1, 1, '#f2f0ea'); } R(0, 34, 44, 1, '#d8d4cc');
+    outline(c); return (ENV[key] = c); };
+  // 楓樹 36x48：leaves 0~1 決定葉子剩多少（越少越像枯樹），big＝中央大樹
+  P.tree = function (seed, leaves, big) { const key = 't' + seed + '|' + leaves + '|' + (big ? 1 : 0); if (ENV[key]) return ENV[key]; const W = big ? 64 : 36, H = big ? 84 : 48; const [c, g] = canvas(W, H); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const cx = W / 2, tw = big ? 8 : 4, ty = big ? 40 : 26;
+    R(cx - tw / 2, ty, tw, H - ty - 1, '#4a3020'); R(cx + tw / 2 - 2, ty, 2, H - ty - 1, '#2e1c12'); R(cx - tw / 2, ty, 1, H - ty - 1, '#6a4630'); if (big) { R(cx - 12, H - 4, 24, 3, '#3a2418'); R(cx - 16, H - 2, 6, 1, '#2e1c12'); R(cx + 10, H - 2, 7, 1, '#2e1c12'); }
+    const br = big ? [[-1, -0.9], [1, -0.8], [-0.6, -1], [0.7, -1], [0, -1], [-1, -0.4], [1, -0.5]] : [[-1, -0.9], [1, -0.9], [0, -1]];
+    br.forEach(([dx, dy], k) => { let x = cx, y = ty + 2; const n = big ? 22 : 12; for (let j = 0; j < n; j++) { x += dx * 0.9 + Math.sin(j + k) * 0.4; y += dy * 0.9; R(Math.round(x), Math.round(y), j < n / 2 && big ? 2 : 1, 2, '#3a2418'); } });
+    const blobs = big ? [[0, 18, 22], [-14, 24, 15], [14, 24, 15], [-8, 12, 13], [9, 11, 13], [0, 30, 12]] : [[0, 13, 12], [-8, 17, 8], [8, 17, 8], [0, 7, 8]];
+    const COL = ['#f0a040', '#e07a2a', '#c8461e', '#a8321e', '#7a2418'];
+    for (let y = 0; y < ty + 8; y++) for (let x = 0; x < W; x++) { let inn = false; for (const [bx, by, r] of blobs) { const ex = x - (cx + bx), ey = y - by; if (ex * ex + ey * ey < r * r * (0.85 + hsh(x, y, seed) * 0.3)) { inn = true; break; } } if (!inn) continue;
+      if (hsh(x >> 1, y >> 1, seed + 7) > leaves) continue;
+      const sh = 0.35 + (x - cx) / W * 1.2 + (y / (ty + 8)) * 1.5 + (hsh(x >> 1, y >> 1, seed + 2) - 0.5) * 1.1; R(x, y, 1, 1, COL[Math.max(0, Math.min(4, Math.floor(sh * 2)))]); }
+    outline(c); return (ENV[key] = c); };
+  P.pine = function (seed) { const key = 'p' + seed; if (ENV[key]) return ENV[key]; const [c, g] = canvas(22, 44); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); }; R(10, 38, 3, 6, '#2a1a12');
+    for (let y = 2; y < 40; y++) { const tier = (y - 2) % 12, w = Math.min(10, 2 + tier * 0.8 + (y - 2) / 6); R(11 - w, y, w * 2, 1, '#1a2a1e'); R(11, y, w, 1, '#122016'); if (tier === 11) R(11 - w, y, w * 2, 1, '#0e1810'); }
+    outline(c); return (ENV[key] = c); };
+  P.lamp = function (on) { const key = 'l' + (on ? 1 : 0); if (ENV[key]) return ENV[key]; const [c, g] = canvas(14, 46); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    R(3, 6, 2, 39, '#2a2a30'); R(3, 6, 1, 39, '#44444c'); R(2, 43, 4, 2, '#1a1a1e'); R(3, 5, 8, 2, '#2a2a30'); R(8, 7, 4, 3, on ? '#fff0c0' : '#5a4a30'); if (on) R(9, 8, 2, 1, '#ffffff');
+    outline(c); return (ENV[key] = c); };
+  P.tower = function () { if (ENV.tw) return ENV.tw; const [c, g] = canvas(36, 64); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    [6, 13, 22, 29].forEach(x => R(x, 28, 2, 36, '#6a6a70')); for (let y = 32; y < 64; y += 8) { R(6, y, 25, 1, '#5a5a60'); }
+    R(3, 12, 30, 16, '#c8c8cc'); R(26, 12, 7, 16, '#9a9aa0'); R(3, 12, 2, 16, '#e8e8ec'); R(3, 27, 30, 2, '#8a8a90'); for (let r = 0; r < 8; r++) R(3 + r * 2, 11 - r, 30 - r * 4, 1, r % 2 ? '#9a9aa0' : '#b0b0b6');
+    R(9, 17, 18, 5, '#3a3a40'); R(10, 18, 3, 3, '#e8e8ec'); R(14, 18, 3, 3, '#e8e8ec'); R(18, 18, 3, 3, '#e8e8ec'); R(22, 18, 3, 3, '#e8e8ec');
+    outline(c); return (ENV.tw = c); };
+  P.grass = function () { if (ENV.gr) return ENV.gr; const [c, g] = canvas(64, 64); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); }; R(0, 0, 64, 64, '#4e5230');
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) { const h = hsh(x, y, 1); if (h > 0.82) R(x, y, 1, 1, '#5e6238'); else if (h < 0.12) R(x, y, 1, 1, '#3e4226'); }
+    for (let k = 0; k < 40; k++) { const x = Math.floor(hsh(k, 1, 9) * 62), y = Math.floor(hsh(k, 2, 9) * 63), col = ['#c8461e', '#e07a2a', '#a8321e', '#d8a03a', '#7a3a1e'][k % 5]; R(x, y, 2, 1, col); if (k % 2) R(x + 1, y + 1, 1, 1, col); }
+    return (ENV.gr = c); };
+  P.asphalt = function () { if (ENV.as) return ENV.as; const [c, g] = canvas(32, 32); g.fillStyle = '#2a2628'; g.fillRect(0, 0, 32, 32); for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const h = hsh(x, y, 5); if (h > 0.85) { g.fillStyle = '#34302f'; g.fillRect(x, y, 1, 1); } else if (h < 0.1) { g.fillStyle = '#211e20'; g.fillRect(x, y, 1, 1); } } return (ENV.as = c); };
+  // 中央裂縫：像素版，size 表示畫布邊長
+  P.crackTex = function (seed) { const key = 'ck' + seed; if (ENV[key]) return ENV[key]; const N = 96; const [c, g] = canvas(N, N); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const pts = []; for (let k = 0; k < 9; k++) { let x = N / 2, y = N / 2, a = k / 9 * 6.283; const seg = []; for (let j = 0; j < 9; j++) { a += (hsh(k, j, seed) - 0.5) * 1.4; x += Math.cos(a) * 5; y += Math.sin(a) * 5; seg.push([Math.round(x), Math.round(y)]); } pts.push(seg); }
+    [[3, '#5a0806'], [2, '#c8200e'], [1, '#ff6a3a']].forEach(([w, col]) => pts.forEach(seg => { let [x0, y0] = [N / 2, N / 2]; seg.forEach(([x1, y1]) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) R(Math.round(x0 + (x1 - x0) * i / n) - (w >> 1), Math.round(y0 + (y1 - y0) * i / n) - (w >> 1), w, w, col); [x0, y0] = [x1, y1]; }); }));
+    return (ENV[key] = c); };
+
   root.MONO_PIXEL = P;
 })(typeof window !== 'undefined' ? window : globalThis);
