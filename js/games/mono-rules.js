@@ -105,18 +105,20 @@
     st.ev.push(e); st.anim += ({ move: 0.3 * ((e.path && e.path.length) || 1), card: 2.6, dice: 1.0, tp: 1.0, jail: 1.2 }[e.t] || 0.4) * 1000; }
 
   function moveTo(st, s, steps) {
-    const p = st.players[s]; const path = []; let pos = p.pos;
+    const p = st.players[s]; let path = []; let pos = p.pos;
     const dir = steps >= 0 ? 1 : -1;
     for (let k = 0; k < Math.abs(steps); k++) {
       pos = (pos + dir + N) % N; path.push(pos);
       if (dir > 0 && pos === 0) {
+        // 先把走到起點這段播完，領錢的特效才會在角色踩到起點時出現
+        p.pos = pos; ev(st, { t: 'move', seat: s, path }); path = [];
         const m = perk(st, s), sb = m.startFixed || (m.startMul ? r100(START_BONUS * m.startMul) : START_BONUS);
         p.cash += sb; ev(st, { t: 'cash', seat: s, amt: sb, why: '經過起點' }); p.buildTicket = 1;
         if (!m.noBoost && isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
         if (m.startTrance && !p.trance) { p.trance = true; ev(st, { t: 'note', seat: s, feed: true, text: '🍄 看見未來：下一次擲骰自己選點數' }); }
       }
     }
-    p.pos = pos; ev(st, { t: 'move', seat: s, path });
+    p.pos = pos; if (path.length || !steps) ev(st, { t: 'move', seat: s, path });
   }
   function jump(st, s, to, bonusIfPassStart) {
     const p = st.players[s];
