@@ -20,7 +20,7 @@
         for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
         this.rev = c.createConvolver(); this.rev.buffer = buf; const rg = c.createGain(); rg.gain.value = 0.5; this.rev.connect(rg).connect(c.destination);
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(() => {});
       return this.ctx;
     },
     tone(f, d, o) {
@@ -1121,6 +1121,14 @@
       m.onclick = (e) => { if (e.target.closest('[data-x]') || e.target === m) { m.hidden = true; this.showPrompt(); } };
     }
   };
-  if (typeof document !== 'undefined') ['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (!SFX.ctx || SFX.ctx.state !== 'running') SFX.unlock(); }, { passive: true }));
+  if (typeof document !== 'undefined') {
+    // 跳出遊戲太久再回來，手機會把音效引擎卡住：回來後第一次點畫面就換一個新的
+    let hiddenAt = 0, stale = false;
+    document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { if (hiddenAt && Date.now() - hiddenAt > 15000) stale = true; if (SFX.ctx && SFX.ctx.state !== 'running') SFX.ctx.resume().catch(() => {}); } });
+    window.addEventListener('pageshow', (e) => { if (e.persisted) stale = true; });
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => {
+      if (SFX.ctx && (stale || SFX.ctx.state === 'closed' || SFX.ctx.state === 'interrupted')) { stale = false; try { SFX.ctx.close(); } catch (e) {} SFX.ctx = null; SFX.rev = null; }
+      if (!SFX.ctx || SFX.ctx.state !== 'running') SFX.unlock(); }, { passive: true }));
+  }
   root.GAMES.monopoly = M;
 })(typeof window !== 'undefined' ? window : globalThis);

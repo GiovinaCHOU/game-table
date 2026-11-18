@@ -13,9 +13,13 @@
     return ctx;
   }
   // iOS 要使用者點過畫面才能出聲
-  const unlock = () => { const c = ac(); if (c && c.state === 'suspended') c.resume(); if (c) { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } };
-  ['touchstart', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
-  document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend(); else ctx.resume(); });
+  // 切到別的 App 太久回來，手機常把音效引擎卡死（狀態 interrupted，或顯示 running 卻沒聲音）：回來後第一次點畫面就整個重建
+  let hiddenAt = 0, stale = false;
+  function rebuild() { const old = ctx, mode = BGM.mode; try { old && old.close(); } catch (e) {} ctx = null; noiseBuf = null; if (BGM.timer) { clearInterval(BGM.timer); BGM.timer = null; } BGM.mode = 'off'; ac(); if (mode !== 'off') setBgm(mode); }
+  const unlock = () => { if (ctx && (stale || ctx.state === 'closed' || ctx.state === 'interrupted')) { stale = false; rebuild(); } const c = ac(); if (c && c.state !== 'running') c.resume(); if (c) { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } };
+  ['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
+  const vis = () => { if (document.hidden) { hiddenAt = Date.now(); if (ctx) ctx.suspend().catch(() => {}); } else { if (hiddenAt && Date.now() - hiddenAt > 15000) stale = true; if (ctx) ctx.resume().catch(() => {}); } };
+  document.addEventListener('visibilitychange', vis); window.addEventListener('pageshow', (e) => { if (e.persisted) stale = true; if (ctx) ctx.resume().catch(() => {}); });
 
   // ---------- 基本音色 ----------
   let noiseBuf = null;
