@@ -108,17 +108,23 @@
     if (lit < 0.5) { g.globalAlpha = 0.4; R(g, 0, 0, W, Hh, '#0a0c08'); g.globalAlpha = 1; }
     return { cx: Math.round(W * 0.34), fy };
   }
-  // 從前上方看的馬桶（照參考圖的角度）：牆上的水箱、往下的水管、厚厚的白色座圈、看得到碗裡的水、前面的底座；u＝放大倍數
-  function toiletImg(u, water, dirty) { return mkspr('toi' + u + water + (dirty ? 1 : 0), Math.round(44 * u), Math.round(86 * u), (g2) => { const q = (v) => Math.round(v * u), r = (x, y, w, h, c) => R(g2, q(x), q(y), Math.max(1, q(w)), Math.max(1, q(h)), c);
-    r(8, 2, 28, 9, '#f6f3ee'); r(8, 11, 28, 10, '#d8d2c8'); r(32, 2, 4, 19, '#c8c2b8'); r(29, 5, 5, 2, '#9a9aa2'); // 水箱（上半亮、下半暗）＋沖水把手
-    r(20, 21, 4, 15, '#a8a8b0'); r(20, 21, 1, 15, '#d8d8e0'); r(19, 34, 6, 3, '#8a8a92'); // 水管
-    r(13, 37, 18, 4, '#e0dad0'); // 座圈後面的接頭
-    oval(g2, q(22), q(52), q(16), q(13), '#f6f3ee'); oval(g2, q(22), q(53), q(16), q(12), '#ece6dc'); // 座圈
-    oval(g2, q(22), q(50), q(10), q(9), '#c8c2b8'); oval(g2, q(22), q(51), q(9), q(8), water); oval(g2, q(20), q(48), q(4), q(2), 'rgba(255,255,255,.35)'); // 碗＋水
-    if (dirty) { r(14, 43, 1, 5, '#8a6a2a'); r(28, 44, 1, 4, '#8a6a2a'); r(21, 41, 1, 3, '#8a6a2a'); r(24, 54, 3, 2, '#4a3412'); r(17, 55, 2, 1, '#4a3412'); }
-    for (let y = 0; y < 20; y++) { const w = 11 - Math.floor(y * 0.15), y0 = q(64 + y), hh = q(65 + y) - y0; R(g2, q(22 - w), y0, q(w * 2), hh, '#ece6dc'); R(g2, q(22 + w - 3), y0, q(3), hh, '#cfc8bc'); } r(10, 84, 24, 2, '#c8c2b8'); // 底座（每一列用放大後的實際高度，避免出現橫條縫）
+  // 從前上方看的馬桶（照參考圖的角度）：牆上的水箱、往下的水管、從上面看下去的座圈（前後比左右長）、看得到碗裡的洞和水、前面露出一點底座；u＝放大倍數
+  const TOI = { cx: 22, cy: 60, rx: 8, ry: 9, w: 44, h: 94 }; // 碗裡水面的位置（未放大）
+  function toiletImg(u, water, dirty) { return mkspr('toi' + u + water + (dirty ? 1 : 0), Math.round(44 * u), Math.round(94 * u), (g2) => { const q = (v) => Math.round(v * u);
+    const row = (y, x0, x1, c) => { const yy = q(y), hh = Math.max(1, q(y + 1) - yy), xa = q(x0), xb = q(x1); if (xb > xa) R(g2, xa, yy, xb - xa, hh, c); };
+    const r = (x, y, w, h, c) => R(g2, q(x), q(y), Math.max(1, q(x + w) - q(x)), Math.max(1, q(y + h) - q(y)), c);
+    r(6, 2, 32, 7, '#f8f6f2'); r(6, 9, 32, 11, '#d6d0c6'); r(34, 9, 4, 11, '#c2bcb2'); r(8, 3, 28, 1, '#ffffff'); r(30, 11, 6, 2, '#9a9aa2'); // 水箱＋沖水把手
+    r(20, 20, 4, 11, '#a8a8b0'); r(20, 20, 1, 11, '#d8d8e0'); r(23, 20, 1, 11, '#7a7a82'); r(18, 30, 8, 3, '#8a8a92'); // 水管＋接頭
+    // 座圈：上緣比較平、兩側直、前端圓
+    const top = 33, bot = 79, mid = (top + bot) / 2, A = 17;
+    for (let y = top; y < bot; y++) { const k = (y - mid) / ((bot - top) / 2); const hw = k < 0 ? A * Math.pow(1 - Math.pow(-k, 6), 1 / 6) : A * Math.sqrt(Math.max(0, 1 - Math.pow(k, 2.4))); row(y, 22 - hw, 22 + hw, y < top + 2 ? '#ffffff' : '#f4f0e8'); if (hw > 2) row(y, 22 + hw - 2, 22 + hw, '#d8d2c8'); }
+    // 碗裡的洞（後寬前窄的蛋形）：後半是白瓷內壁的陰影，前半是水
+    const ht = 43, hb = 72, hm = (ht + hb) / 2;
+    for (let y = ht; y < hb; y++) { const k = (y - hm) / ((hb - ht) / 2), hw = 10.5 * Math.sqrt(Math.max(0, 1 - k * k)) * (1 - Math.max(0, k) * 0.22); row(y, 22 - hw, 22 + hw, y < hm - 4 ? '#b8b2a8' : water); if (y < hm - 4 && hw > 2) row(y, 22 - hw, 22 - hw + 2, '#a09a90'); }
+    row(hm - 4, 14, 30, '#d8f0f8'); row(hm - 2, 17, 21, 'rgba(255,255,255,.5)'); // 水面反光
+    if (dirty) { r(14, 46, 1, 6, '#8a6a2a'); r(29, 47, 1, 5, '#8a6a2a'); r(21, 44, 1, 4, '#8a6a2a'); r(24, 62, 3, 2, '#4a3412'); r(18, 65, 2, 1, '#4a3412'); r(27, 67, 2, 1, '#4a3412'); }
+    for (let y = 78; y < 91; y++) { const hw = 9 - (y - 78) * 0.18; row(y, 22 - hw, 22 + hw, '#ece6dc'); row(y, 22 + hw - 3, 22 + hw, '#cfc8bc'); } r(16, 84, 2, 1, '#b8b2a8'); r(26, 84, 2, 1, '#b8b2a8'); r(12, 91, 20, 2, '#c8c2b8'); // 前面的底座
   }); }
-  const TOI = { cx: 22, cy: 51, rx: 9, ry: 8, w: 44, h: 86 }; // 碗裡水面的位置（未放大）
   function toilet(g, cx, by, o) { // 畫馬桶，回傳碗裡水面的中心與半徑
     o = o || {}; const u = o.s || 1.4, img = toiletImg(u, o.water || '#7a6a32', !o.clean); g.drawImage(img, Math.round(cx - TOI.w * u / 2), Math.round(by - TOI.h * u));
     return { x: cx + (TOI.cx - TOI.w / 2) * u, y: by - (TOI.h - TOI.cy) * u, rx: TOI.rx * u, ry: TOI.ry * u };
@@ -164,8 +170,8 @@
             spr(g, CH(ci, pose, Math.floor(t * 4), op), x0 + lean * 3, by - 2, { scale: SC, rot: lean * 0.5 });
             if (t > 0.95 && t < 1.25) [[x0 + 8, by - 84], [x0 + 15, by - 88]].forEach(([x, y], k) => { R(g, x + k, y, 1, 4, '#8ac83a'); R(g, x + k, y + 5, 1, 1, '#8ac83a'); });
           } else { // 跳起來翻成頭下腳上，對準馬桶整個鑽進去（水面以下不畫）
-            const H = 52 * SC, ax = x0 + 3 + (wt.x - x0 - 3) * ease(hop), ay = by - 2 - Math.sin(hop * Math.PI) * 30 - hop * (H - 8) + dive * (H + 16);
-            spr(g, CH(ci, { arms: ['up', 'up'], legs: 'jump', eyes: 'blink' }, 0, op), ax, ay, { scale: SC, rot: Math.PI * ease(hop), clipY: dive > 0 ? wt.y + 1 : null });
+            const H = 50 * SC, ax = x0 + 3 + (wt.x - x0 - 3) * ease(hop), ay = (by - 2) + (wt.y - H - (by - 2)) * ease(hop) - Math.sin(hop * Math.PI) * 26 + dive * (H + 8); // 翻成頭下腳上時，頭剛好對準碗裡的洞，再整個鑽進去
+            spr(g, CH(ci, { arms: ['up', 'up'], legs: 'jump', eyes: 'blink' }, 0, op), ax, ay, { scale: SC, rot: Math.PI * ease(hop), clipY: dive > 0 ? by - (TOI.h - 44) * 1.35 : null }); // 碗口後緣以下不畫＝鑽進洞裡了
           }
           if (t > 2.15 && !pt.s1) { pt.s1 = 1; pt.burst(30, wt.x, wt.y - 2, 1.8, t, ['#6a5a2a', '#8a7a3a', '#4a3a1a'], { gr: 160 }); }
           flies.forEach((f, k) => { const a = f.a + t * f.v, x = wt.x + Math.cos(a) * f.r, y = wt.y - f.h + Math.sin(a * 1.7) * 3; R(g, x, y, 1, 1, '#101010'); if (Math.floor(t * 30 + k) % 2) { R(g, x - 1, y - 1, 1, 1, 'rgba(220,230,255,.7)'); R(g, x + 1, y - 1, 1, 1, 'rgba(220,230,255,.7)'); } });
@@ -1015,18 +1021,19 @@
       // 跟參考圖一樣的角度：從前上方看馬桶，後面是白磁磚牆、前面是深色地磚；按下沖水後碗裡的水轉成漩渦
       const fy = Math.round(Hh * 0.6); tileWall(g, 0, 0, W, fy, t, true); R(g, 0, fy, W, Hh - fy, '#3a3a40'); for (let y = fy; y < Hh; y += 10) R(g, 0, y, W, 1, '#2a2a30'); for (let x = 0; x < W; x += 10) R(g, x, fy, 1, Hh - fy, '#2a2a30'); R(g, 0, fy, W, 2, '#1a1a20');
       line(g, 10, fy - 60, 18, fy - 70, '#c82a2a'); line(g, 18, fy - 70, 24, fy - 58, '#c82a2a'); ring(g, W - 18, fy - 40, 5, '#2a4ac8'); oval(g, W * 0.2, fy + 40, 12, 3, 'rgba(160,130,60,.5)');
-      const u = 2.4, by = fy + 60, wt = toilet(g, W / 2, by, { s: u, water: '#6ab8d8', clean: true }), cx = wt.x, cy = wt.y;
-      const press = t > 1.75 && t < 2.1; R(g, W / 2 + 7 * u, by - 86 * u + 5 * u + (press ? 2 : 0), 5 * u, 2 * u, press ? '#7a7a82' : '#b8b8c0'); // 按下沖水把手
+      const u = 2.3, by = fy + 64, wt = toilet(g, W / 2, by, { s: u, water: '#6ab8d8', clean: true }), cx = wt.x, cy = wt.y;
+      const press = t > 1.75 && t < 2.1; R(g, W / 2 + 8 * u, by - TOI.h * u + 11 * u + (press ? 2 : 0), 6 * u, 2 * u, press ? '#7a7a82' : '#b8b8c0'); // 按下沖水把手
       const sw = clamp((t - 2.0) / 0.6), spin = t > 2.0 ? (t - 2.0) * (2 + (t - 2.0) * 3) : 0, calm = clamp((t - 4.8) / 1.0);
       g.save(); g.beginPath(); g.ellipse(cx, cy, wt.rx, wt.ry, 0, 0, 6.283); g.clip();
       if (sw > 0 && calm < 1) for (let k = 0; k < 6; k++) for (let i = 0; i < 40; i++) { const uu = i / 40, r2 = (1 - uu), a = k / 6 * 6.283 + uu * 5 + spin; R(g, cx + Math.cos(a) * r2 * wt.rx, cy + Math.sin(a) * r2 * wt.ry, 2, 1, `rgba(225,250,255,${0.7 * sw * (1 - calm) * (1 - uu * 0.5)})`); }
       disc(g, cx, cy + 2, 3 + sw * (1 - calm) * 3, '#2a5a7a'); disc(g, cx, cy + 2, 1 + sw * (1 - calm) * 2, '#0a1a2a');
       // 角色：從上面掉進碗裡 → 浮在水上 → 被漩渦捲著轉、越轉越小 → 被吸進去（畫在碗口裡面，不會跑出馬桶）
-      if (t >= 0.9 && t < 4.6) { const k = clamp((t - 2.0) / 2.6), r2 = (1 - ease(k)) * 0.6, a = spin * 1.1, sc = 0.75 * (1 - k * 0.85), rr = t < 2.0 ? Math.sin(t * 4) * 0.2 : a * 1.5, hh = 50 * sc * 0.5, mx = cx + Math.cos(a) * r2 * wt.rx, my = cy + Math.sin(a) * r2 * wt.ry;
+      if (t >= 0.9 && t < 4.6) { const k = clamp((t - 2.0) / 2.6), r2 = (1 - ease(k)) * 0.55, a = spin * 1.1, sc = 0.62 * (1 - k * 0.85), rr = t < 2.0 ? Math.sin(t * 4) * 0.2 : a * 1.5, hh = 50 * sc * 0.5, mx = cx + Math.cos(a) * r2 * wt.rx, my = cy + Math.sin(a) * r2 * wt.ry;
         spr(g, CH(vi, t < 2.0 ? { eyes: 'wide', mouth: 'o', arms: ['up', 'up'] } : { eyes: 'x', mouth: 'o', arms: ['up', 'up'] }, 0, op), mx - Math.sin(rr) * hh, my + Math.cos(rr) * hh, { scale: sc, rot: rr }); }
       if (t > 4.6 && t < 5.2) { const a = (t - 4.6) / 0.6; ring(g, cx, cy - a * 4, 1 + a * 3, '#e8fbff'); }
       g.restore();
-      if (t < 0.9) { const k = ein(clamp(t / 0.9)), sc = 1.3 - k * 0.55, rr = k * 3, hh = 50 * sc * 0.5, my = -30 + k * (cy + 30); spr(g, CH(vi, { eyes: 'wide', mouth: 'o', arms: ['up', 'up'] }, 0, op), cx - Math.sin(rr) * hh, my + Math.cos(rr) * hh, { scale: sc, rot: rr }); }
+      if (t < 0.9) { const fy2 = cy + wt.ry + 14, wob = Math.sin(t * 14) * 0.15 * clamp(t / 0.4), fall = ein(clamp((t - 0.55) / 0.35)); // 站在座圈前緣搖搖晃晃 → 往後跌進碗裡
+        spr(g, CH(vi, { eyes: 'wide', mouth: 'o', arms: ['out', 'out'], dy: Math.floor(t * 18) % 2 }, 0, op), cx, fy2 - fall * (fy2 - cy - 6), { scale: 0.9 - fall * 0.2, rot: wob - fall * 0.6, clipY: fall > 0.6 ? cy + 2 : null }); }
       if (t > 0.9 && !pt.s) { pt.s = 1; pt.burst(30, cx, cy, 1.8, t, ['#bff0ff', '#6ab8d8', '#ffffff'], { gr: 100 }); }
       pt.draw(g, t);
     }, snd);

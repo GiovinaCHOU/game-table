@@ -1104,8 +1104,17 @@
       let body = '';
       if (t.type === 'prop') {
         const o = v.owners[i]; const lv = v.levels[i];
-        body = `<p>${o >= 0 ? `地主：${this.faceHTML(v, o, 22)} ${U.esc(v.names[o])}　建築 Lv${lv}` : `空地，售價 ${fmt(t.price)} ${th.unit}`}</p>
-          <p class="hint">過路費：${[0, 1, 2, 3, 4].map(k => `Lv${k} ${fmt(Math.round(t.price * R().RENT_MUL[k] * (v.infl || 1)))}`).join('、')}${v.infl > 1 ? `（已含漲價 ×${v.infl.toFixed(1)}）` : ''}<br>升級一次 ${fmt(t.up)} ${th.unit}${o >= 0 && lv < 4 ? `<br>收購價 ${fmt(R().buyoutOf({ levels: v.levels }, i))}` : ''}</p>`;
+        // 過路費跟規則算法完全一樣：漲價、整組空地加倍、地主角色的收費加成、自己角色的付費加成（幫派街區）
+        const Rr = R(), pk = (k) => { try { return k >= 0 ? Rr.perk(v, k) : {}; } catch (e) { return {}; } }, me = v.seat;
+        const full = o >= 0 && Rr.BOARD.filter(b => b.type === 'prop' && b.g === t.g).every(b => v.owners[b.i] === o);
+        const base = (k) => { let r = Math.round(t.price * Rr.RENT_MUL[k] * (v.infl || 1)); if (k === 0 && full) r *= 2; return r; };
+        const mi = o >= 0 ? (pk(o).rentIn || 1) : 1, rentAt = (k, mo) => (mi !== 1 || mo !== 1) ? Math.round(base(k) * mi * mo / 100) * 100 : base(k);
+        const notes = [v.infl > 1 ? `已含漲價 ×${v.infl.toFixed(1)}` : '', full ? 'Lv0 整組都是同一個地主，過路費加倍' : '', mi !== 1 ? `地主角色收費 ${mi > 1 ? '+' : '−'}${Math.round(Math.abs(mi - 1) * 100)}% 已算進去` : ''].filter(Boolean);
+        const mo = me >= 0 && o >= 0 && me !== o ? (pk(me).rentOut || 1) : 1;
+        const payLine = me >= 0 && o >= 0 && me !== o ? `<br><b>你現在停到這裡要付 ${fmt(rentAt(lv, mo))} ${th.unit}</b>${mo !== 1 ? `（含你的角色付費 ${mo > 1 ? '+' : '−'}${Math.round(Math.abs(mo - 1) * 100)}%）` : ''}` : '';
+        const buyer = o >= 0 ? o : me, costUp = buyer >= 0 ? Rr.upOf(v, buyer, i) : t.up, costBuy = me >= 0 ? Rr.priceOf(v, me, i) : t.price;
+        body = `<p>${o >= 0 ? `地主：${this.faceHTML(v, o, 22)} ${U.esc(v.names[o])}　建築 Lv${lv}` : `空地，售價 ${fmt(costBuy)} ${th.unit}${costBuy !== t.price ? `（原價 ${fmt(t.price)}，含你的角色加成）` : ''}`}</p>
+          <p class="hint">過路費：${[0, 1, 2, 3, 4].map(k => `Lv${k} ${fmt(rentAt(k, 1))}`).join('、')}${notes.length ? `（${notes.join('；')}）` : ''}${payLine}<br>升級一次 ${fmt(costUp)} ${th.unit}${costUp !== t.up ? `（原價 ${fmt(t.up)}，含${o >= 0 ? '地主' : '你'}的角色加成）` : ''}${o >= 0 && lv < 4 ? `<br>收購價 ${fmt(R().buyoutOf({ levels: v.levels }, i))}` : ''}</p>`;
       } else body = `<p class="hint">${{ start: `經過或停在這裡領 ${fmt(R().START_BONUS)} ${th.unit}`, jail: '只是路過就沒事；被抓進來要停一回合', free: '休息一下，從 3 張道具中免費挑一張', gotojail: `直接送進${th.corners.jail}`, luck: '抽一張好運卡', bad: '抽一張厄運卡', tax: '財產稅＋房屋稅：總資產分段累進（5 萬內 2%、5–10 萬 5%、10–20 萬 8%、20 萬以上 11%），每蓋一級房子再加 500、地標一塊 3,000', teleport: '隨機傳送到任一塊地', item: '從 3 張道具中挑一張買（越買越貴、錢最少的人 5 折），擲骰子前可以使用' }[t.type]}</p>`;
       m.hidden = false;
       m.innerHTML = `<div class="mm-card tinfo">${t.type === 'prop' ? `<div class="tile-chip" style="background:${t.color}"></div>` : ''}<h3>${U.esc(R().tileName(v.theme, i))}</h3>${body}<button class="btn sm" data-x>關閉</button></div>`;
