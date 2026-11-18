@@ -211,17 +211,33 @@
   };
   // 塗鴉牆（64x26）
   // 塗鴉牆（96x40）：清水模／磚牆底，每面一種台灣街頭常見的塗鴉
+  // 塗鴉牆（96x40）：清水模／磚牆底。內容照真實街區塗鴉的五大類：簽名＋街號、三個字母的 crew、R.I.P. 紀念牆、社會正義口號、嘻哈俚語、社區自豪（區碼）
   P.gWall = function (seed) {
-    return memo('gw' + seed, () => { const [c, g, R] = mk(96, 40); const kind = seed % 6;
-      if (kind === 1 || kind === 4) brick(R, 0, 3, 96, 37, kind === 1 ? '#7a4a3a' : '#6a3a34', seed); else { R(0, 3, 96, 37, '#8a8690'); for (let x = 0; x < 96; x += 4) R(x, 3, 1, 37, '#7e7a86'); for (let y = 12; y < 40; y += 12) R(0, y, 96, 1, '#76727e'); for (let k = 0; k < 90; k++) R(hsh(k, seed, 1) * 96, 3 + hsh(k, seed, 2) * 37, 1, 1, k % 3 ? '#9a96a0' : '#6a6670'); for (let k = 0; k < 4; k++) { const x = hsh(k, seed, 6) * 90; R(x, 3, 1, 10 + hsh(k, seed, 7) * 20, '#6e6a76'); } }
+    return memo('gw' + seed, () => { const [c, g, R] = mk(96, 40); const kind = seed % 12;
+      const brk = [1, 4, 7, 10].includes(kind);
+      if (kind === 6) { R(0, 3, 96, 37, '#1a1620'); for (let k = 0; k < 60; k++) R(hsh(k, seed, 1) * 96, 3 + hsh(k, seed, 2) * 37, 1, 1, '#24202c'); }
+      else if (brk) brick(R, 0, 3, 96, 37, kind === 1 ? '#7a4a3a' : kind === 7 ? '#5a3a3a' : '#6a3a34', seed);
+      else { R(0, 3, 96, 37, '#8a8690'); for (let x = 0; x < 96; x += 4) R(x, 3, 1, 37, '#7e7a86'); for (let y = 12; y < 40; y += 12) R(0, y, 96, 1, '#76727e'); for (let k = 0; k < 90; k++) R(hsh(k, seed, 1) * 96, 3 + hsh(k, seed, 2) * 37, 1, 1, k % 3 ? '#9a96a0' : '#6a6670'); for (let k = 0; k < 4; k++) { const x = hsh(k, seed, 6) * 90; R(x, 3, 1, 10 + hsh(k, seed, 7) * 20, '#6e6a76'); } }
       R(0, 0, 96, 3, '#5a5662'); R(0, 0, 96, 1, '#8a8692');
-      if (kind === 0) { piece(R, 2, 7, 92, 30, 'BLOCK', 'wild', { seed: seed + 1 }); piece(R, 14, 3, 20, 8, 'ok', 'scrawl', { px: 8, col: '#f4ec3a', seed: 3 }); piece(R, 64, 3, 20, 8, 'jen', 'scrawl', { px: 8, col: '#f4ec3a', seed: 4 }); }
-      else if (kind === 1) { piece(R, 4, 12, 72, 26, 'BOMB', 'throw', { col: '#4aa8ff', seed }); piece(R, 6, 4, 30, 10, 'yoyo', 'scrawl', { px: 9, seed: 6 }); piece(R, 50, 4, 30, 10, 'kuo', 'scrawl', { px: 9, seed: 7 }); streetSign(R, 58, 3); }
-      else if (kind === 2) { piece(R, 4, 6, 64, 32, '黑錢', 'cn', { seed, px: 26 }); piece(R, 66, 9, 28, 26, '街', 'cn', { seed: seed + 2, px: 20 }); piece(R, 60, 3, 34, 8, 'FREE', 'scrawl', { px: 7, col: '#2a5ac8', seed: 8 }); }
+      const scr = (x, y, w, t, col, sd) => piece(R, x, y, w, 9, t, 'scrawl', { px: 8, col: col || '#101014', seed: sd || 3 });
+      if (kind === 0) { piece(R, 2, 7, 92, 30, 'BLOCK', 'wild', { seed: seed + 1 }); scr(6, 2, 30, 'REY 213', '#f4ec3a', 3); scr(62, 2, 30, 'TBK', '#f4ec3a', 4); }
+      else if (kind === 1) { piece(R, 4, 12, 66, 26, 'TBK', 'throw', { col: '#4aa8ff', seed }); scr(4, 3, 32, 'LUZ 718', null, 6); scr(70, 26, 24, 'KID 9', null, 7); streetSign(R, 58, 3); }
+      else if (kind === 2) { piece(R, 4, 6, 64, 32, '黑錢', 'cn', { seed, px: 26 }); piece(R, 66, 9, 28, 26, '街', 'cn', { seed: seed + 2, px: 20 }); scr(60, 2, 34, 'FREEDOM', '#2a5ac8', 8); }
       else if (kind === 3) { const sc = ['#f4f0e8', '#101014', '#ffd23a', '#ff5a5a', '#5ad0a0', '#c8c8d0']; for (let k = 0; k < 26; k++) { const x = Math.floor(hsh(k, seed, 1) * 88), y = 5 + Math.floor(hsh(k, seed, 2) * 30), w = 6 + Math.floor(hsh(k, seed, 3) * 7), h = 4 + Math.floor(hsh(k, seed, 4) * 4), col = sc[k % 6]; R(x, y, w, h, col); R(x, y + h - 1, w, 1, shade(col, -0.25)); for (let j = 0; j < w - 2; j += 2) R(x + 1 + j, y + 1 + (j % 3), 1, 1, col === '#101014' ? '#f4f0e8' : '#101014'); }
-        catThrow(R, 70, 22); piece(R, 6, 12, 50, 22, 'LUV', 'throw', { col: '#f4f0e8', seed }); }
-      else if (kind === 4) { piece(R, 3, 7, 90, 30, 'NITE', 'chrome', { seed }); catThrow(R, 85, 9); }
-      else { piece(R, 2, 6, 92, 32, 'CASH', 'wild', { seed: seed + 9, grad: ['#2a8a4a', '#3ad06a', '#2a6aa8', '#1a3a8a', '#5a2a8a'] }); piece(R, 40, 2, 30, 8, 'ABC', 'scrawl', { px: 8, col: '#f4ec3a', seed: 5 }); }
+        catThrow(R, 80, 24); piece(R, 2, 6, 64, 16, 'ONE', 'throw', { col: '#f4f0e8', seed, ow: 1 }); piece(R, 2, 21, 68, 17, 'LOVE', 'throw', { col: '#ff7ab8', seed: seed + 1, ow: 1 }); }
+      else if (kind === 4) { piece(R, 3, 9, 90, 28, 'HUSTLE', 'chrome', { seed }); scr(4, 2, 40, 'RESPECT', '#f4f0e8', 9); }
+      else if (kind === 5) { piece(R, 2, 6, 92, 32, '213', 'wild', { seed: seed + 9, grad: ['#2a8a4a', '#3ad06a', '#2a6aa8', '#1a3a8a', '#5a2a8a'] }); scr(6, 2, 40, 'WESTSIDE', '#f4ec3a', 5); }
+      else if (kind === 6) { // R.I.P. 紀念牆：光環、白字、名字和年份、地上一排蠟燭和花
+        for (let k = 0; k < 30; k++) { const t = k / 30 * 6.283; R(48 + Math.cos(t) * 9, 6 + Math.sin(t) * 1.6, 1, 1, '#ffd23a'); }
+        piece(R, 18, 8, 60, 14, 'R.I.P.', 'plain', { px: 13, col: '#f4f0e8' }); piece(R, 18, 21, 60, 8, 'LIL DRE', 'plain', { px: 8, col: '#ffd23a' }); piece(R, 22, 29, 52, 7, '1998-2024', 'plain', { px: 7, col: '#c8c0d0' });
+        scr(2, 4, 20, 'love', '#ff5a7a', 11); scr(76, 4, 20, 'fam', '#ff5a7a', 12);
+        [4, 10, 16, 80, 86, 92].forEach((x, k) => { R(x - 1, 34 - (k % 2), 3, 5 + (k % 2), '#f4f0e8'); R(x, 32 - (k % 2), 1, 2, k % 2 ? '#ffd23a' : '#ff9a3a'); });
+        [[20, 37], [72, 37]].forEach(([x, y]) => { R(x, y, 3, 2, '#e0283a'); R(x + 1, y - 1, 1, 1, '#ff5a6a'); R(x - 1, y + 1, 1, 1, '#2a8a4a'); R(x + 3, y + 1, 1, 1, '#2a8a4a'); }); }
+      else if (kind === 7) { R(6, 7, 84, 30, '#101014'); piece(R, 8, 8, 80, 14, 'NO JUSTICE', 'plain', { px: 12, col: '#f4f0e8' }); piece(R, 8, 22, 80, 14, 'NO PEACE', 'plain', { px: 12, col: '#ffd23a' }); }
+      else if (kind === 8) { piece(R, 2, 4, 92, 18, 'KEEP YA', 'throw', { col: '#ffd23a', seed, ow: 1 }); piece(R, 2, 20, 92, 18, 'HEAD UP', 'throw', { col: '#ffd23a', seed: seed + 2, ow: 1 }); }
+      else if (kind === 9) { piece(R, 2, 3, 92, 13, 'THE WORLD', 'chrome', { seed }); piece(R, 2, 15, 92, 13, 'IS YOURS', 'chrome', { seed: seed + 1 }); scr(28, 29, 44, 'stay strong', '#f4f0e8', 13); }
+      else if (kind === 10) { piece(R, 2, 4, 92, 17, 'POWER TO', 'cn', { seed, px: 13 }); piece(R, 2, 20, 92, 17, 'THE PEOPLE', 'cn', { seed: seed + 1, px: 12 }); }
+      else { piece(R, 2, 4, 92, 22, 'SPREAD', 'throw', { col: '#ff5a9a', seed }); piece(R, 6, 24, 60, 15, 'LOVE', 'throw', { col: '#ff5a9a', seed: seed + 3 }); for (let k = 0; k < 3; k++) { const x = 70 + k * 8, y = 28 + (k % 2) * 3; R(x, y, 2, 2, '#e0283a'); R(x + 3, y, 2, 2, '#e0283a'); R(x, y + 2, 5, 1, '#e0283a'); R(x + 1, y + 3, 3, 1, '#e0283a'); R(x + 2, y + 4, 1, 1, '#e0283a'); } scr(70, 3, 24, 'HOPE', '#3a5ac8', 14); }
       outline(c); return c; });
   };
   P.gFence = function () {

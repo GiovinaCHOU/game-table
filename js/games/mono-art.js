@@ -353,7 +353,7 @@
       let ts = 0; const N0 = q.high ? 20 : 13;
       for (let k = 0; k < N0; k++) { const a = k / N0 * Math.PI * 2 + rnd(-0.05, 0.05), d = rnd(14, 19); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z, 3.6)) continue; const sd = ts++ % 10, m = bb(PX.gTenement(sd, 1), rnd(4.6, 5.4), x, z); if (sd % 3 !== 2) swap(m, [PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 0), PX.gTenement(sd, 1), PX.gTenement(sd, 0)], 5, k * 1.7); }
       // 塗鴉牆、鐵絲網、垃圾車、消防栓
-      for (let k = 0; k < (q.high ? 14 : 8); k++) { const a = rnd(0, 6.28), d = rnd(8.5, 12); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z)) continue; bb(k % 3 === 2 ? PX.gFence() : PX.gWall(k), k % 3 === 2 ? 3 : 5.2, x, z, k % 3 === 2 ? null : '#c8c0d4'); }
+      for (let k = 0, wn = 0; k < (q.high ? 18 : 11); k++) { const a = k / (q.high ? 18 : 11) * 6.28 + rnd(-0.1, 0.1), d = rnd(8.5, 12.5); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z)) continue; const fen = k % 4 === 3; bb(fen ? PX.gFence() : PX.gWall(wn++), fen ? 3 : 5.2, x, z, fen ? null : '#c8c0d4'); }
       for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.4, d = rnd(9, 12.5); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z)) continue; bb(k % 2 ? PX.gDumpster(k) : PX.gHydrant(), k % 2 ? 1.5 : 0.42, x, z); }
       // 棕櫚樹（高高的剪影）
       for (let k = 0; k < (q.high ? 30 : 16); k++) { const a = rnd(0, 6.28), d = rnd(10, 34); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z, 3)) continue; bb(PX.gPalm(k % 5), rnd(3.6, 4.8), x, z, '#9a90b0'); }
