@@ -653,7 +653,7 @@
   // ===== 幫派街區（製作中：角色屬性系統先上，卡片／美術之後補）=====
   // perks：每個角色一個優點＋一個缺點，選角時顯示；m 是規則用的數值（mono-rules.js 的 perk() 讀）
   T.gang = {
-    id: 'gang', name: '幫派街區', icon: '🕶️', unit: '黑錢', coin: '💵', noCustom: true, wip: true,
+    id: 'gang', name: '幫派街區', icon: '🕶️', unit: '黑錢', coin: '💵', noCustom: true, wip: true, artBase: 'cyber',
     desc: '午夜的街區，塗鴉牆、滑板場、閃爍的霓虹招牌，每條巷子都有人在做生意，也有條子在盯。',
     corners: { start: '老街口', jail: '看守所', free: '滑板場', gotojail: '被條子臨檢抓到' },
     tax: '保護費', teleport: '跑路', luckName: '大單上門', badName: '條子臨檢',

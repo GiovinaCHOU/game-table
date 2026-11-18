@@ -24,8 +24,11 @@
   class Board3D {
     constructor() { this.tokens = {}; this.bld = {}; this.anim = []; this.upd = []; this.t0 = performance.now(); this.last = performance.now(); }
     async init(el, theme, R) {
-      const T = await loadThree(); const A = root.MONO_ART, S = A.STYLE[theme];
-      this.el = el; this.theme = theme; this.R = R; this.q = { high: quality() === 'high' };
+      const T = await loadThree(); const A = root.MONO_ART;
+      // 還沒有自己美術的主題（製作中）先借用 artBase 主題的外觀；格子名稱、建築名稱仍用自己的主題
+      const real = theme; if (!A.STYLE[theme]) theme = ((root.MONO_THEMES || {})[theme] || {}).artBase || 'cyber';
+      const S = A.STYLE[theme]; this.real = real;
+      this.el = el; this.theme = theme; this.real = this.real || theme; this.R = R; this.q = { high: quality() === 'high' };
       const w = el.clientWidth || 360, h = el.clientHeight || 400;
       // 兩種畫質都開反鋸齒；低畫質只是解析度低一點、沒有陰影
       const pix = root.__pix && theme === 'town'; this.pix = pix; // 像素風預覽：用很低的解析度畫，再用最近鄰放大
@@ -167,7 +170,7 @@
         const [x, z] = tileXZ(i), b = this.R.BOARD[i];
         const base = new T.Mesh(geo, sideMat); base.position.set(x, 0, z); base.castShadow = base.receiveShadow = this.q.high; this.scene.add(base);
         const emis = this.theme === 'cyber' ? 0.55 : this.theme === 'alien' ? 0 : 0;
-        const tx = A.tileTexture(T, this.theme, b, this.R.tileName(this.theme, i), ICON[this.theme][b.type] || '★');
+        const tx = A.tileTexture(T, this.theme, b, this.R.tileName(this.real, i), ICON[this.theme][b.type] || '★');
         const top = new T.Mesh(new T.PlaneGeometry(1.32, 1.32), new T.MeshStandardMaterial({ map: tx, roughness: this.theme === 'ragnarok' ? 0.3 : 0.55, metalness: this.theme === 'cyber' ? 0.3 : 0, emissive: '#ffffff', emissiveMap: emis ? tx : null, emissiveIntensity: emis }));
         top.rotation.x = -Math.PI / 2; top.position.set(x, 0.005, z); top.receiveShadow = this.q.high; top.userData.i = i;
         this.scene.add(top); this.tileMeshes.push(top);
@@ -201,7 +204,7 @@
         const fr = new T.Mesh(new T.RingGeometry(0.58, 0.66, 4, 1), new T.MeshBasicMaterial({ color: inf.color || '#fff' })); fr.rotation.set(-Math.PI / 2, 0, Math.PI / 4); fr.position.y = 0.006; grp.add(fr);
         if (levels[i] > 0) {
           // 建築自己的動畫放在自己的清單，拆掉／改建時一起移除（以前會一直累積，越玩越卡）
-          const b = root.MONO_ART.building(T, { theme: this.theme, level: levels[i], color: inf.color || '#fff', name: this.R.tileName(this.theme, i), ownerChar: inf.charIdx || 0 }, bu);
+          const b = root.MONO_ART.building(T, { theme: this.theme, level: levels[i], color: inf.color || '#fff', name: this.R.tileName(this.real, i), ownerChar: inf.charIdx || 0 }, bu);
           b.position.set(0.15, 0, -0.15); grp.add(b);
           b.traverse(m => { if (m.isMesh) m.castShadow = this.q.high; });
           const s0 = 1.25 * (b.userData.s || 1); b.scale.setScalar(0.01); this.tween(650, k => b.scale.setScalar(s0 * Math.max(0.01, 1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.15)));
@@ -244,7 +247,7 @@
         let tk = this.tokens[p.seat];
         if (tk && tk.key !== key) { this.scene.remove(tk.r.g); tk = null; }
         if (!tk) {
-          const r = root.MONO_CHARS.make(THREE, this.theme, p.idx, p.color, p.img ? this.avatarTexture(p.img) : null);
+          const r = root.MONO_CHARS.make(THREE, this.theme, this.real !== this.theme ? p.idx % 8 : p.idx, p.color, p.img ? this.avatarTexture(p.img) : null);
           r.g.traverse(m => { if (m.isMesh) m.castShadow = this.q.high; });
           { const tg = this.nameTag(p.name, p.color); tg.traverse(o => o.userData.tag = true); r.g.add(tg); } r.g.scale.setScalar(1.15); this.scene.add(r.g);
           tk = this.tokens[p.seat] = { r, key, pos: -1 };
