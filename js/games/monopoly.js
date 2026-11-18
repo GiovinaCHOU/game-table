@@ -293,17 +293,19 @@
     pillPad() {
       const N = 23, CELL = 12, m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null; m.classList.add('top'); const close = () => { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); };
       const COLS = ['#ff7ac8', '#e03131', '#f08c00', '#fab005', '#2f9e44', '#3ad0ff', '#1971c2', '#ae3ec9', '#ffffff', '#8d6e63', '#222222'];
-      m.innerHTML = `<div class="mm-card"><h3>💊 畫你的藥丸</h3><p class="hint">點格子上色、按住拖曳可以連續畫；圓圈外的格子不會用到，虛線是眼睛和嘴巴會蓋住的位置</p><canvas class="pxpad" width="${N * CELL}" height="${N * CELL}"></canvas>
+      m.innerHTML = `<div class="mm-card"><h3>💊 畫你的藥丸</h3><canvas class="pxpad" width="${N * CELL}" height="${N * CELL}"></canvas>
         <div class="pad-tools">${COLS.map((c, k) => `<button data-c="${c}" class="${k === 0 ? 'on' : ''}" style="background:${c}"></button>`).join('')}</div>
         <div class="act-row"><button class="btn sm ghost" data-a="fill">整顆塗滿這個顏色</button><button class="btn sm ghost" data-a="cancel">用預設的</button><button class="btn" data-a="ok">用這顆藥丸</button></div></div>`;
       const cv = m.querySelector('canvas'), g = cv.getContext('2d'), inC = (x, y) => (x - 11) * (x - 11) + (y - 11) * (y - 11) <= 11.6 * 11.6;
       const px = Array.from({ length: N * N }, () => '#ff7ac8'); let col = COLS[0], drawing = false;
+      // 眼睛和嘴巴直接畫在畫板上，而且鎖住（玩家塗不到）
+      const face = root.MONO_PIXEL && root.MONO_PIXEL.pillFace ? root.MONO_PIXEL.pillFace().getContext('2d').getImageData(0, 0, N, N).data : null, lock = new Array(N * N).fill(null);
+      if (face) for (let i = 0; i < N * N; i++) if (face[i * 4 + 3] > 0) lock[i] = `rgb(${face[i * 4]},${face[i * 4 + 1]},${face[i * 4 + 2]})`;
       const paint = () => { g.fillStyle = '#2a2230'; g.fillRect(0, 0, cv.width, cv.height);
-        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const ok = inC(x, y); g.fillStyle = ok ? px[y * N + x] : '#3a3240'; g.fillRect(x * CELL, y * CELL, CELL, CELL); if (ok) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(x * CELL + CELL - 1, y * CELL, 1, CELL); g.fillRect(x * CELL, y * CELL + CELL - 1, CELL, 1); } }
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const ok = inC(x, y); g.fillStyle = ok ? (lock[y * N + x] || px[y * N + x]) : '#3a3240'; g.fillRect(x * CELL, y * CELL, CELL, CELL); if (ok) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(x * CELL + CELL - 1, y * CELL, 1, CELL); g.fillRect(x * CELL, y * CELL + CELL - 1, CELL, 1); } }
         g.strokeStyle = 'rgba(255,255,255,.8)'; g.setLineDash([5, 4]); g.lineWidth = 2; g.beginPath(); g.arc(11.5 * CELL, 11.5 * CELL, 11.8 * CELL, 0, 7); g.stroke();
-        // 眼睛、嘴巴會蓋在這些位置（淡淡的虛線提示）
-        g.strokeStyle = 'rgba(30,20,40,.55)'; g.setLineDash([3, 3]); g.lineWidth = 1.5; [[6.5, 7.5], [16.5, 7.5]].forEach(([x, y]) => { g.beginPath(); g.arc(x * CELL, y * CELL, 4.6 * CELL, 0, 7); g.stroke(); }); g.strokeRect(7.6 * CELL, 13.6 * CELL, 7.8 * CELL, 3.8 * CELL); g.setLineDash([]); };
-      const hit = (e) => { const r = cv.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / r.width * N), y = Math.floor((e.clientY - r.top) / r.height * N); if (x < 0 || y < 0 || x >= N || y >= N || !inC(x, y)) return; if (px[y * N + x] !== col) { px[y * N + x] = col; paint(); } };
+        g.setLineDash([]); };
+      const hit = (e) => { const r = cv.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / r.width * N), y = Math.floor((e.clientY - r.top) / r.height * N); if (x < 0 || y < 0 || x >= N || y >= N || !inC(x, y) || lock[y * N + x]) return; if (px[y * N + x] !== col) { px[y * N + x] = col; paint(); } };
       cv.onpointerdown = (e) => { drawing = true; cv.setPointerCapture(e.pointerId); hit(e); }; cv.onpointermove = (e) => { if (drawing) hit(e); }; cv.onpointerup = cv.onpointercancel = () => drawing = false;
       m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { col = b.dataset.c; m.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
       m.querySelector('[data-a="fill"]').onclick = () => { px.fill(col); paint(); };
