@@ -818,7 +818,7 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
 @keyframes turnBanner { 0% { opacity: 0; transform: translate(-50%, -20px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: .95; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -10px); } }
 
 /* 選格子／加蓋／選點數的選單：一律貼底、精簡，3D 畫面中心會自動移到選單上方 */
-.gate-bar { bottom: 8px; padding: 8px 10px; }
+.gate-bar { bottom: 8px; padding: 8px 10px; max-width: 560px; margin: 0 auto; }
 .gate-bar > b { margin-bottom: 2px; padding: 0 34px; }
 .gate-bar > .timer { position: absolute; top: 8px; right: 12px; font-size: 14px; }
 .gate-bar .gb-tip { margin: 0 0 6px; }
@@ -830,3 +830,18 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
 .dice-bar .dice-nums { flex-wrap: nowrap; gap: 3px; }
 .dice-bar .dice-nums .btn { min-width: 0; flex: 1; padding: 7px 0; font-size: 14px; }
 .mono-stage.picking .mono-dice { visibility: hidden; }
+
+/* 手機橫放（地圖區很矮）：選單縮成一排，不擋地圖 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .gate-bar { display: flex; align-items: center; gap: 8px; padding: 5px 8px; max-width: 760px; text-align: left; }
+  .gate-bar > b { display: block; flex: 0 1 auto; font-size: 13px; padding: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34%; }
+  .gate-bar .gb-tip { display: none; }
+  .gate-bar > .timer { position: static; order: 9; font-size: 12px; }
+  .gate-bar .gate-row { flex: 1 1 auto; flex-wrap: nowrap; min-width: 0; }
+  .gate-bar .gb-sel { flex: 1 1 auto; font-size: 12px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gate-bar .gate-row .btn { flex: 0 0 auto; padding: 5px 10px; font-size: 13px; }
+  .gate-bar.dice-bar { flex-wrap: wrap; }
+  .dice-bar .dice-nums { order: 2; flex: 1 1 100%; margin: 0; }
+  .dice-bar .dice-nums .btn { padding: 3px 0; font-size: 12px; }
+  .dice-bar .gate-row, .dice-bar > .timer { order: 1; }
+}

@@ -362,7 +362,7 @@
       // 卡片提示：換人或輪到我擲骰時自動收起（至少顯示 2 秒）
       if (!this.playing && this._cardAt && Date.now() - this._cardAt > 2000 && (v.turn !== this._cardTurn || (v.seat >= 0 && v.turn === v.seat && v.phase === 'roll'))) this.closeCard();
       const myTurn = v.seat >= 0 && v.turn === v.seat && v.phase === 'roll';
-      if (!mid && myTurn && this._lastMyTurn !== v.evId) { this._lastMyTurn = v.evId; this._camFree = false; b.focusSeat(v.seat, true); }
+      if (!mid && myTurn && this._lastMyTurn !== v.evId && !this.el.querySelector('.mono-stage > .gate-bar')) { this._lastMyTurn = v.evId; this._camFree = false; b.focusSeat(v.seat, true); }
       if (first && v.seat < 0) b.overview(true);
     },
     vfx(kind) {
@@ -662,7 +662,10 @@
       } else if (!m.querySelector('.tinfo') && !(m.classList.contains('top') && v.phase === 'pick')) { m.hidden = true; m.classList.remove('top'); }
     },
     // 下方選單蓋住地圖時：告訴 3D 鏡頭下面被擋多高，畫面中心改到選單上方
-    barInset(bar) { const b = this.board; if (!b || !b.setInset) return; if (!bar || !bar.isConnected) { b.setInset(0); return; } const st = this.el.querySelector('.mono-stage'); const r1 = st.getBoundingClientRect(), r2 = bar.getBoundingClientRect(); b.setInset(Math.max(0, r1.bottom - r2.top + 6)); },
+    barInset(bar) { const b = this.board; if (!b || !b.setInset) return; if (!bar || !bar.isConnected) { b.setInset(0); if (this._barRO) { this._barRO.disconnect(); this._barRO = null; } return; }
+      // 轉橫向、Safari 網址列縮放、字體放大造成選單變高變矮時，跟著重算
+      if (!this._barRO && window.ResizeObserver) { this._barRO = new ResizeObserver(() => { const x = this.el && this.el.querySelector('.mono-stage > .gate-bar'); if (x) this.barInset(x); }); }
+      if (this._barRO && this._barRO._t !== bar) { this._barRO.disconnect(); this._barRO.observe(bar); this._barRO.observe(this.el.querySelector('.mono-stage')); this._barRO._t = bar; } const st = this.el.querySelector('.mono-stage'); const r1 = st.getBoundingClientRect(), r2 = bar.getBoundingClientRect(); b.setInset(Math.max(0, r1.bottom - r2.top + 6)); },
     // 星門：選目的地（點地圖上的格子，或用下拉選單）
     // 傳送／自選格子：直接點地圖。進入時自動切到全景，自己的地是金色光圈；第一下選、按確認才送出
     gateBar(on) {
