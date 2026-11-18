@@ -16,6 +16,7 @@
     animal: { bg: '#a9cde6', fog: ['#c9dbe2', 30, 90], hemi: [0xfff3d6, 0x6b5a3a, 0.9], sun: [0xffe2b0, 2.6], env: ['#cfe6f5', '#7a6a48'], envI: 0.5 },
     buddha: { bg: '#120508', fog: ['#2a0c18', 26, 95], hemi: [0xffc8a0, 0x3a1838, 1.25], sun: [0xffb080, 1.4], env: ['#5a2030', '#120508'], panels: [['#ff6a3a', 6, 3, 0], ['#ff6a3a', -6, 3, 0], ['#ffd27a', 0, 8, 0]], envI: 0.9 },
     magic: { bg: '#0a0a1a', fog: ['#141638', 28, 100], hemi: [0xc8c0ff, 0x2a2a48, 1.45], sun: [0xd8e0ff, 1.5], env: ['#3a3a7a', '#0a0a1a'], panels: [['#ffc070', 5, 3, 0], ['#8ac8ff', -5, 4, 0], ['#ffffff', 0, 8, 0]], envI: 1.0 },
+    gang: { bg: '#0e0a18', fog: ['#1a1428', 26, 95], hemi: [0xc8b8ff, 0x2a2238, 1.3], sun: [0xffc890, 1.5], env: ['#4a3060', '#0e0a18'], panels: [['#ff3ab0', 6, 3, 0], ['#3af0ff', -6, 3, 0], ['#ffb050', 0, 8, 0]], envI: 0.9 },
     town: { bg: '#2a1830', fog: ['#4a2a3a', 26, 95], hemi: [0xffd0b0, 0x3a2a40, 1.25], sun: [0xffb070, 1.9], env: ['#c86a4a', '#2a1830'], panels: [['#ff9a4a', 6, 3, 0], ['#7ab0ff', -6, 3, 0], ['#ffffff', 0, 8, 0]], envI: 0.85 },
     alien: { bg: '#f29ab8', fog: ['#f4a7a6', 34, 120], hemi: [0xffe0f2, 0x6a3f8a, 1.25], sun: [0xfff0d6, 2.3], env: ['#ffc2dc', '#5a3a8a'], panels: [['#7df9ff', 6, 2, 0], ['#ff79c6', -6, 2, 0], ['#ffd27a', 0, 8, 0]], envI: 0.8 }
   };
@@ -66,6 +67,20 @@
       g.font = `bold ${prop ? 40 : 34}px ${SERIF}`;
       const ls = wrap(g, name, 210); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 112 : 182) + k * 42 - (ls.length - 1) * (prop ? 20 : 0)));
       if (prop) { g.font = `bold 25px ${SERIF}`; g.fillStyle = '#e8b83a'; g.fillText(b.price.toLocaleString() + ' 功德', 128, 214); }
+    } else if (theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangIcon) {
+      // 像素格子：深色水泥板、外框、地主色條／圖示、白字，價錢用鈔票綠
+      const P = root.MONO_PIXEL, [pc, pg] = P.canvas(64, 64), R = (x, y, w, h, col) => { pg.fillStyle = col; pg.fillRect(x, y, w, h); };
+      R(0, 0, 64, 64, '#0e0c12'); R(2, 2, 60, 60, '#2c2834'); R(2, 2, 60, 1, '#3e3a48'); R(2, 2, 1, 60, '#3e3a48'); R(2, 61, 60, 1, '#1e1a24'); R(61, 2, 1, 60, '#1e1a24');
+      for (let k = 0; k < 70; k++) R(3 + ((k * 37) % 58), 4 + ((k * 23) % 56), 1, 1, k % 3 ? '#34303e' : '#24202c');
+      for (let k = 0; k < 9; k++) R(40 + k, 50 + Math.round(Math.sin(k) * 1.5), 1, 1, '#1e1a24');
+      const acc = prop ? b.color : ({ item: '#ff7a2a', luck: '#7aff6a', bad: '#3a7aff', start: '#3ab06a', jail: '#9a9aa6', gotojail: '#ff3a3a', free: '#ff3ab0', tax: '#ffd23a', teleport: '#3af0ff' }[b.type] || '#ff3ab0');
+      if (prop) { R(4, 4, 56, 8, acc); R(4, 4, 56, 1, 'rgba(255,255,255,.35)'); R(4, 11, 56, 1, 'rgba(0,0,0,.35)'); }
+      else { R(4, 4, 56, 2, acc); R(4, 6, 56, 1, 'rgba(0,0,0,.4)'); pg.drawImage(P.gangIcon(b.type), 22, 12, 20, 20); }
+      g.imageSmoothingEnabled = false; g.drawImage(pc, 0, 0, 256, 256); g.imageSmoothingEnabled = true;
+      g.fillStyle = '#f4ecd8'; g.font = `900 ${prop ? 38 : 32}px ${SANS}`; g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowOffsetY = 3;
+      const ls = wrap(g, name, 206); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 108 : 178) + k * 40 - (ls.length - 1) * (prop ? 20 : 0)));
+      if (prop) { g.font = `bold 24px ${SANS}`; g.fillStyle = '#7aff6a'; g.fillText(b.price.toLocaleString() + ' 黑錢', 128, 212); }
+      g.shadowColor = 'transparent'; g.shadowOffsetY = 0;
     } else if (theme === 'town' && root.MONO_PIXEL) {
       // 16-bit 像素格子：先在 64x64 畫像素底（框、斜面、色條、圖示），用最近鄰放大，再寫清楚的字
       const P = root.MONO_PIXEL, [pc, pg] = P.canvas(64, 64), R = (x, y, w, h, col) => { pg.fillStyle = col; pg.fillRect(x, y, w, h); };
@@ -307,6 +322,72 @@
       const wisps = []; const wm = new T.MeshBasicMaterial({ color: '#7affd0', transparent: true, opacity: 0.7, blending: T.AdditiveBlending, depthWrite: false });
       for (let k = 0; k < (q.high ? 18 : 8); k++) { const a = rnd(0, 6.28), d = rnd(10.5, 20); const w = add(new T.SphereGeometry(0.12, 8, 6), wm, Math.cos(a) * d, rnd(0.5, 3), Math.sin(a) * d, false); w.userData = { a, d, h: w.position.y, s: rnd(0.2, 0.5) }; wisps.push(w); }
       upd.push(t => wisps.forEach((w, k) => { const u = w.userData; const a = u.a + t * u.s * 0.2; w.position.set(Math.cos(a) * u.d, u.h + Math.sin(t * 2 + k) * 0.4, Math.sin(a) * u.d); w.material.opacity = 0.4 + Math.sin(t * 5 + k) * 0.3; }));
+    } else if (theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gTenement) {
+      // ===== 午夜的街區：水泥地、十字路口、一圈磚造公寓（霓虹招牌會閃）、塗鴉牆、鐵絲網、棕櫚樹、鈉燈、油桶火、停著的低底盤車；
+      //        中央是塗鴉籃球場。回合越後面「風聲越緊」：警車一台台開進來、紅藍燈越來越亮，最後直升機帶著探照燈在頭上繞 =====
+      const PX = root.MONO_PIXEL, hs2 = (x, y, s) => { const v = Math.sin(x * 12.9898 + y * 78.233 + s * 37.719) * 43758.5453; return v - Math.floor(v); };
+      const nearest = (tx) => { tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.anisotropy = 1; return tx; };
+      const ntex = (img) => nearest(tex(T, img));
+      const bbs = [], bb = (img, w, x, z, tint, y0) => { const h = w * img.height / img.width, m = add(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: ntex(img), transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: tint || '#b8b0c8' }), x, h / 2 - 0.4 + (y0 || 0), z, false); bbs.push(m); return m; };
+      const swap = (m, imgs, fps, ph) => { const txs = imgs.map(ntex); let cur = -1; upd.push(t => { const k = Math.floor(t * fps + (ph || 0)) % txs.length; if (k !== cur) { cur = k; m.material.map = txs[k]; } }); };
+      // 天空：午夜紫、地平線一點城市的橘光、月亮、少量星星
+      { const [c, g] = cvs(64, 512); PX.ditherSky(g, 64, 512, ['#06040e', '#0a0818', '#120e26', '#1c1434', '#2a1a3e', '#4a2448', '#6a3040', '#1a1220', '#0a0810']);
+        for (let k = 0; k < 50; k++) { g.fillStyle = k % 5 ? '#a8a0c8' : '#ffffff'; g.fillRect(Math.floor(rnd(0, 64)), Math.floor(rnd(0, 170)), 1, 1); }
+        const st = ntex(c); scene.add(new T.Mesh(new T.SphereGeometry(140, 32, 16), new T.MeshBasicMaterial({ map: st, side: T.BackSide, fog: false, depthWrite: false }))); }
+      { const [c, g] = cvs(24, 24), R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); }; for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) { const d = Math.hypot(x - 11.5, y - 11.5); if (d < 9) R(x, y, 1, 1, d < 7.5 ? (hs2(x >> 1, y >> 1, 3) > 0.8 ? '#d8d0b8' : '#f4ecd0') : '#c8c0a8'); } R(8, 8, 3, 2, '#d0c8b0'); R(14, 13, 2, 2, '#d0c8b0');
+        const moon = new T.Mesh(new T.PlaneGeometry(9, 9), new T.MeshBasicMaterial({ map: ntex(c), transparent: true, alphaTest: 0.5, fog: false, depthWrite: false })); moon.position.set(-60, 52, -95); moon.lookAt(0, 0, 0); scene.add(moon); }
+      scene.background = null;
+      // 地面：水泥＋十字柏油路（黃線）＋人行道邊緣
+      { const gnd = add(new T.PlaneGeometry(160, 160), M('#ffffff', { map: (() => { const tx = ntex(PX.gConcrete()); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.repeat.set(40, 40); return tx; })(), roughness: 1 }), 0, -0.36, 0, false); gnd.rotation.x = -Math.PI / 2; gnd.receiveShadow = q.high; }
+      const asph = M('#ffffff', { map: (() => { const tx = ntex(PX.asphalt()); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.repeat.set(1, 40); return tx; })(), color: '#9a96a8', roughness: 0.95 }), yl = new T.MeshBasicMaterial({ color: '#c8a83a' }), curb = M('#6a6672', { roughness: 0.9 });
+      [[0, 1], [1, 0]].forEach(([dx, dz]) => { const r0 = add(new T.PlaneGeometry(dx ? 160 : 4, dz ? 160 : 4), asph, 0, -0.35, 0, false); r0.rotation.x = -Math.PI / 2; r0.receiveShadow = q.high;
+        [-2.1, 2.1].forEach(o => [-1, 1].forEach(sg => { const L = 73, c0 = sg * (7 + L / 2), cb = add(new T.BoxGeometry(dx ? L : 0.2, 0.1, dz ? L : 0.2), curb, dz ? o : c0, -0.32, dx ? o : c0, false); cb.receiveShadow = q.high; }));
+        for (let k = -24; k <= 24; k++) { if (Math.abs(k) < 3) continue; const d = add(new T.PlaneGeometry(dx ? 1.3 : 0.1, dz ? 1.3 : 0.1), yl, dx ? k * 3 : 0, -0.34, dz ? k * 3 : 0, false); d.rotation.x = -Math.PI / 2; } });
+      const offRoad = (x, z, m) => Math.abs(x) > (m || 2.8) && Math.abs(z) > (m || 2.8);
+      // 中央：塗鴉籃球場、籃框、油桶火
+      { const ct = add(new T.PlaneGeometry(7.4, 7.4), new T.MeshStandardMaterial({ map: ntex(PX.gCourt()), roughness: 0.9, color: '#d8d0e0' }), 0, -0.33, 0, false); ct.rotation.x = -Math.PI / 2; ct.receiveShadow = q.high; }
+      bb(PX.gHoop(), 1.1, -0.3, -2.9, '#c8c0d4');
+      const fires = []; const fire = (x, z, sc) => { const m = bb(PX.gBarrel(0), 0.55 * (sc || 1), x, z, '#ffffff'); swap(m, [0, 1, 2, 3].map(PX.gBarrel), 8, rnd(0, 4)); const L = new T.PointLight('#ff7a2a', 2.2, 5 * (sc || 1), 1.6); L.position.set(x, 0.6, z); scene.add(L); fires.push(L); };
+      fire(2.4, 2.2, 1.1);
+      // 一圈公寓（霓虹招牌會閃）
+      let ts = 0; const N0 = q.high ? 20 : 13;
+      for (let k = 0; k < N0; k++) { const a = k / N0 * Math.PI * 2 + rnd(-0.05, 0.05), d = rnd(14, 19); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z, 3.6)) continue; const sd = ts++ % 10, m = bb(PX.gTenement(sd, 1), rnd(4.6, 5.4), x, z); if (sd % 3 !== 2) swap(m, [PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 1), PX.gTenement(sd, 0), PX.gTenement(sd, 1), PX.gTenement(sd, 0)], 5, k * 1.7); }
+      // 塗鴉牆、鐵絲網、垃圾車、消防栓
+      for (let k = 0; k < (q.high ? 14 : 8); k++) { const a = rnd(0, 6.28), d = rnd(8.5, 12); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z)) continue; bb(k % 3 === 2 ? PX.gFence() : PX.gWall(k), k % 3 === 2 ? 3 : 5.2, x, z, k % 3 === 2 ? null : '#c8c0d4'); }
+      for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.4, d = rnd(9, 12.5); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z)) continue; bb(k % 2 ? PX.gDumpster(k) : PX.gHydrant(), k % 2 ? 1.5 : 0.42, x, z); }
+      // 棕櫚樹（高高的剪影）
+      for (let k = 0; k < (q.high ? 30 : 16); k++) { const a = rnd(0, 6.28), d = rnd(10, 34); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!offRoad(x, z, 3)) continue; bb(PX.gPalm(k % 5), rnd(3.6, 4.8), x, z, '#9a90b0'); }
+      // 鈉燈（偶爾閃）
+      const lamps = [];
+      [[-2.6, 8], [2.6, -8], [8, 2.6], [-8, -2.6], [-2.6, -14], [2.6, 14], [14, -2.6], [-14, 2.6]].forEach(([x, z]) => { const m = bb(PX.gLamp(1), 1.0, x, z, '#ffffff'), on = m.material.map, off = ntex(PX.gLamp(0)); let cur = 1; lamps.push(w => { if (w !== cur) { cur = w; m.material.map = w ? on : off; } });
+        const pool = add(new T.CircleGeometry(1.6, 20), new T.MeshBasicMaterial({ color: '#ff9a3a', transparent: true, opacity: 0.12, blending: T.AdditiveBlending, depthWrite: false }), x + (x > 0 ? -0.5 : 0.5) * (Math.abs(x) < 3 ? 1 : 0), -0.33, z + (z > 0 ? -0.5 : 0.5) * (Math.abs(z) < 3 ? 1 : 0), false); pool.rotation.x = -Math.PI / 2; });
+      // 路邊停的低底盤車
+      [[2.6, 10.5, 0], [-2.6, -11, 1], [11, -2.6, 2], [-10.5, 2.6, 3], [2.6, -17, 4], [-17, -2.6, 0]].forEach(([x, z, s]) => bb(PX.gCar(s), 2.3, x * 1.05, z, '#c0b8d0'));
+      for (let k = 0; k < 4; k++) { const a = k / 4 * 6.28 + 0.8, d = rnd(10, 13); fire(Math.cos(a) * d, Math.sin(a) * d, 1); }
+      // 遠方天際線
+      for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2, d = 58; const m = add(new T.PlaneGeometry(28, 14), new T.MeshBasicMaterial({ map: ntex(PX.gSkyline(k)), transparent: true, alphaTest: 0.5, fog: false, color: '#a098b8' }), Math.cos(a) * d, 6.6, Math.sin(a) * d, false); m.lookAt(0, 6.6, 0); }
+      { const wp = new T.Vector3(); bbs.forEach(m => { m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); }; }); }
+      // ===== 風聲越緊：警車、紅藍光、直升機探照燈 =====
+      const COPS = [[-2.6, 6.8], [7, -2.6], [2.6, -6.6], [-6.8, 2.6], [6.6, 2.6], [-2.6, -7]], cops = [];
+      const copTx = [PX.gCop(0), PX.gCop(1)].map(ntex);
+      COPS.forEach(([x, z], k) => { const h = 1.9 * 22 / 52, m = add(new T.PlaneGeometry(1.9, h), new T.MeshBasicMaterial({ map: copTx[0], transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: '#d8d0e0' }), x, h / 2 - 0.4, z, false); const wp = new T.Vector3(); m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); }; m.visible = false;
+        const gl = add(new T.CircleGeometry(1.4, 24), new T.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }), x, -0.325, z, false); gl.rotation.x = -Math.PI / 2; cops.push({ m, gl, th: (k + 1) / (COPS.length + 1) * 0.85 }); });
+      const chop = add(new T.PlaneGeometry(2.6, 2.6 * 18 / 44), new T.MeshBasicMaterial({ map: ntex(PX.gChopper(0)), transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: '#c8c0d8', fog: false }), 0, 9, 0, false); chop.visible = false; const chT = [PX.gChopper(0), PX.gChopper(1)].map(ntex);
+      const spot = add(new T.CircleGeometry(1.5, 32), new T.MeshBasicMaterial({ color: '#f4f0d8', transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }), 0, -0.31, 0, false); spot.rotation.x = -Math.PI / 2;
+      let beam = null; { const g0 = new T.CylinderGeometry(0.12, 1.5, 1, 20, 1, true); g0.translate(0, -0.5, 0); beam = new T.Mesh(g0, new T.MeshBasicMaterial({ color: '#f4f0d8', transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide })); scene.add(beam); beam.visible = false; }
+      let heat = 0; scene.userData.decay = (round) => { heat = Math.max(0, Math.min(1, ((round || 1) - 4) / 30)); cops.forEach(c2 => { c2.m.visible = heat >= c2.th; }); chop.visible = beam.visible = heat > 0.55; scene.fog && scene.fog.color.set('#1a1428').lerp(new T.Color('#24102a'), heat * 0.6); };
+      scene.userData.decay(1);
+      upd.push((t) => {
+        const fl = Math.random() < 0.004 ? 0 : 1; lamps.forEach((f2, k) => f2(fl && Math.sin(t * 11 + k * 5) < 0.985 ? 1 : 0));
+        fires.forEach((L, k) => { L.intensity = 1.8 + Math.sin(t * 17 + k * 3) * 0.35 + Math.sin(t * 29 + k) * 0.25; });
+        const blink = Math.floor(t * 3) % 2;
+        cops.forEach((c2, k) => { if (!c2.m.visible) { c2.gl.material.opacity = 0; return; } const b2 = (blink + k) % 2; c2.m.material.map = copTx[b2]; c2.gl.material.color.set(b2 ? '#ff2a3a' : '#2a5aff'); c2.gl.material.opacity = 0.12 + heat * 0.16; });
+        if (chop.visible) { const a = t * 0.18, r = 4.5 + Math.sin(t * 0.37) * 2.5, sx = Math.cos(a * 1.3) * r, sz = Math.sin(a) * r; chop.position.set(sx * 0.6 - 3, 8.5 + Math.sin(t * 0.8) * 0.3, sz * 0.6 - 3); chop.material.map = chT[Math.floor(t * 14) % 2];
+          const wp = chop.position; chop.rotation.y = 0; chop.lookAt(wp.x * 2, wp.y, wp.z * 2); chop.rotation.y += Math.PI / 2;
+          spot.position.set(sx, -0.31, sz); spot.material.opacity = 0.16 + Math.sin(t * 7) * 0.02;
+          beam.position.copy(chop.position); beam.lookAt(sx, -0.3, sz); beam.rotateX(-Math.PI / 2); const L2 = chop.position.distanceTo(spot.position); beam.scale.set(1, L2, 1); beam.material.opacity = 0.06; }
+        else spot.material.opacity = 0;
+      });
     } else if (theme === 'town') {
       // ===== 1983 年秋天的小鎮黃昏：郊區房子、楓樹、路燈、水塔；中央大楓樹底下有紅光裂縫；回合越後面越被藤蔓和孢子侵蝕 =====
       let pe0 = true; try { if (localStorage.getItem('mono-pixenv') === '0') pe0 = false; } catch (e) {} const PE = pe0 && root.MONO_PIXEL, PX = root.MONO_PIXEL; // PE：環境也換成像素立牌
@@ -773,6 +854,12 @@
         upd.push(t => { L.intensity = 1.8 + Math.sin(t * 3) * 0.5; lotus.forEach((lg, k) => { const a = lg.userData.a + t * 0.25; lg.position.set(Math.cos(a) * 0.48, 0.5 + Math.sin(t * 1.3 + k) * 0.12 + k * 0.05, Math.sin(a) * 0.48); }); });
         banner(-0.36, 0.36);
       }
+    } else if (theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangBuilding) { // 幫派街區：像素立牌建築（霓虹會閃、跑馬燈會跑）
+      const P = root.MONO_PIXEL, tx = new T.CanvasTexture(P.gangBuilding(level, ctx.color, 0)); tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.colorSpace = T.SRGBColorSpace;
+      const w = 0.95, h = w * P.BH / P.BW, m = add(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide }), 0, h / 2 - 0.02, 0);
+      const wp = new T.Vector3(); m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); };
+      const sh = add(new T.CircleGeometry(0.32, 16), new T.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.35, depthWrite: false }), 0, 0.012, 0); sh.rotation.x = -Math.PI / 2; sh.castShadow = false;
+      let fr = -1; upd.push(t => { const f = Math.floor(t * 4) % 6; if (f !== fr) { fr = f; tx.image = P.gangBuilding(level, ctx.color, f); tx.needsUpdate = true; } });
     } else if (theme === 'town' && root.MONO_PIXEL) { // 怪奇小鎮：像素畫立牌建築（永遠面向鏡頭，燈會一格一格閃）
       const P = root.MONO_PIXEL, tx = new T.CanvasTexture(P.building(level, ctx.color, 0)); tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.colorSpace = T.SRGBColorSpace;
       const w = 0.95, h = w * P.BH / P.BW, m = add(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide }), 0, h / 2 - 0.02, 0);

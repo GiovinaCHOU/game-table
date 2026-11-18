@@ -323,7 +323,7 @@
       const P = root.MONO_PIXEL; if (!P || !P.STAMP_NAMES) return; const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null; m.classList.add('top');
       const close = () => { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); };
       const shot = (k) => { const c = P.gangSprite(1, {}, 0, { stamp: k }), o = document.createElement('canvas'); o.width = 72; o.height = 104; const g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, 72, 104); return o.toDataURL(); };
-      m.innerHTML = `<div class="mm-card"><h3>📮 選你的郵票</h3><div class="stamp-grid">${P.STAMP_NAMES.map((n, k) => `<button data-k="${k}"><img src="${shot(k)}"><span>${n}</span></button>`).join('')}</div>
+      m.innerHTML = `<div class="mm-card"><h3>📮 選你的郵票</h3><div class="stamp-grid">${P.STAMP_NAMES.map((n, k) => `<button data-k="${k}"><img src="${shot(k)}"></button>`).join('')}</div>
         <div class="act-row"><button class="btn sm ghost" data-a="skip">用預設的</button></div></div>`;
       m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { this.ui.send({ type: 'stamp', k: +b.dataset.k }); close(); setTimeout(() => this.showPrompt(), 300); });
       m.querySelector('[data-a="skip"]').onclick = () => { this.ui.send({ type: 'stamp', skip: true }); close(); this.showPrompt(); };
