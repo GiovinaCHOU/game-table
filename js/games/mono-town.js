@@ -283,5 +283,61 @@
     }, snd);
   };
 
+  // ---------- 魔狗突襲（第 35 回合起）：從路面裂縫衝出來，撲倒最有錢的人，叼走錢袋再鑽回裂縫 ----------
+  // 魔狗是原創造型：細長黑色獵犬、背上一排尖刺和垂下來的藤蔓、紅眼睛、一般犬類的長嘴（不是花瓣頭）
+  function hound(g, x, y, f, o) { o = o || {}; g.save(); g.translate(Math.round(x), Math.round(y)); if (o.flip) g.scale(-1, 1); if (o.rot) g.rotate(o.rot); g.scale(1.7, 1.7);
+    const B = '#1e0c10', D = '#0e0408', L = '#6a2430', jaw = o.jaw || 0, run = o.run ? f % 4 : -1;
+    const legs = run < 0 ? [[-12, 0], [-8, 0], [8, 0], [12, 0]] : [[[-15, 2], [-9, -1], [6, -1], [13, 2]], [[-12, 0], [-12, 0], [9, 0], [9, 0]], [[-8, -1], [-15, 2], [13, 2], [6, -1]], [[-11, 0], [-11, 0], [10, 0], [10, 0]]][run];
+    legs.forEach(([lx, ly], k) => { const kx = k < 2 ? -10 : 10; line(g, kx, -10, (kx + lx) / 2 + (k < 2 ? -1 : 1), -5, k % 2 ? D : B, 2); line(g, (kx + lx) / 2 + (k < 2 ? -1 : 1), -5, lx, ly - 1, k % 2 ? D : B, 2); R(g, lx - 2, ly - 1, 3, 1, '#4a2a2a'); });
+    // 身體：前高後低、肋骨凹凸
+    for (let i = -14; i <= 13; i++) { const top = -15 - Math.sin((i + 14) / 27 * Math.PI) * 3 + (i > 8 ? (i - 8) * 0.4 : 0), bot = -8 - (i > -4 && i < 6 ? 2 : 0); R(g, i, top, 1, bot - top, B); if (i % 3 === 0 && i > -9 && i < 7) R(g, i, top + 3, 1, 3, L); }
+    R(g, -14, -15, 28, 1, L); R(g, -20, -20, 8, 1, L); R(g, -27, -18, 7, 1, L);
+    // 背上的尖刺＋垂下的藤蔓
+    for (let i = -12; i <= 10; i += 3) { R(g, i, -20 - (i % 2 ? 1 : 0), 1, 4, D); R(g, i + 1, -18, 1, 2, D); }
+    [-9, -2, 5].forEach((vx, k) => { const sw = Math.sin((o.t || 0) * 8 + k) * 2; line(g, vx, -16, vx + sw, -9 + k, '#2a0a10', 1); R(g, vx + sw, -9 + k, 1, 1, '#c0202a'); });
+    // 尾巴
+    for (let k = 0; k < 9; k++) R(g, 13 + k, -14 - Math.sin(k * 0.6 + (o.t || 0) * 10) * 2 - k * 0.3, 1, 1, B);
+    // 頭：長嘴往左，下顎依 jaw 張開
+    R(g, -20, -20, 8, 7, B); R(g, -27, -18, 8, 3, B); R(g, -28, -18, 1, 2, D); R(g, -16, -22, 2, 3, D); R(g, -13, -23, 2, 3, D);
+    const jd = Math.round(jaw * 5); R(g, -27, -15 + jd, 9, 2, D); R(g, -20, -15, 6, 2 + jd, B);
+    if (jaw > 0.2) { R(g, -26, -15, 8, jd, '#5a0a10'); for (let k = 0; k < 4; k++) { R(g, -26 + k * 2, -15, 1, 1, '#f0e8d8'); R(g, -25 + k * 2, -16 + jd, 1, 1, '#f0e8d8'); } }
+    R(g, -17, -19, 2, 1, '#ff3a2a'); R(g, -17, -19, 1, 1, '#ffd0a0');
+    if (o.bag) { R(g, -30, -16 + jd, 7, 7, '#8a6a3a'); R(g, -29, -17 + jd, 5, 1, '#6a4a2a'); R(g, -28, -14 + jd, 3, 3, '#e8b020'); }
+    g.restore(); }
+  TW.hound = function (ui, SFX, e) {
+    const me = seatSprite(ui.v, e && e.seat >= 0 ? e.seat : 0), coins = Array.from({ length: 16 }, () => ({ vx: rnd(-1.6, 1.2), vy: rnd(-2.6, -1.2), d: rnd(0, 0.25) }));
+    const snd = () => { const K = kit(SFX); if (!K) return; K.wind(0, 6.5, 0.06); K.heart(0, 6, 70, 0.35, 1.6); K.drone(0, 6.5, [36.7, 38.9, 55], { lp: 260, vol: 0.1, sweep: 400 });
+      K.crack(0.5, 0.8, 0.35); K.boom(0.9, 70, 25, 1.2, 0.5); K.growl(1.0, 1.0, 55, 0.3); K.howl(1.3, 1.2, 330, 0.12);
+      for (let i = 0; i < 8; i++) K.drum(1.5 + i * 0.11, 70, 0.14, 0.08);
+      K.whoosh(2.3, 0.35, false, 0.3); K.growl(2.5, 0.6, 80, 0.4); K.tear(2.6, 0.3, 0.3); K.stinger(2.55, 0.22);
+      for (let i = 0; i < 10; i++) K.chime(2.6 + i * 0.07, 1800 + (i % 4) * 300, 0.06);
+      for (let i = 0; i < 9; i++) K.drum(3.2 + i * 0.11, 70, 0.12, 0.08); K.growl(4.0, 0.8, 50, 0.3); K.boom(4.3, 60, 22, 1.4, 0.5); K.crack(4.4, 0.5, 0.25); K.howl(4.9, 1.3, 260, 0.06); };
+    return pix(ui, 6500, (g, W, Hh, t) => {
+      const sk = (t > 2.5 && t < 2.8) || (t > 0.9 && t < 1.1) ? 2 : 0; g.save(); shk(g, sk);
+      const hy = street(g, W, Hh, t, { lampX: 0.62 }), gy = hy + 30, vx = Math.round(W * 0.3), cx = Math.round(W * 0.84), cy = hy + 24;
+      // 路面裂縫：張開→魔狗出入→闔上
+      const op = t < 0.5 ? 0 : t < 1.0 ? ease((t - 0.5) / 0.5) : t < 4.4 ? 1 : 1 - ease(clamp((t - 4.4) / 0.6)); if (op > 0) { glow(g, cx, cy, 14 * op + Math.sin(t * 9) * 1.5, '255,40,30', 0.6 * op); const cw = Math.round(16 * op); R(g, cx - cw, cy - 1, cw * 2, 3, '#050002'); R(g, cx - cw + 3, cy - 2, cw * 2 - 6, 1, '#050002'); R(g, cx - cw, cy - 2, cw * 2, 1, '#ff4a2a'); R(g, cx - cw + 2, cy + 2, cw * 2 - 4, 1, '#c0201a'); }
+      // 破產者以外的「被襲擊者」：被撲倒後坐在地上
+      const hit = t >= 2.55, fall = clamp((t - 2.55) / 0.3);
+      const vp = t < 1.0 ? { eyes: 'open', mouth: 'smile', arms: ['down', 'down'] } : { eyes: 'wide', mouth: 'o', arms: hit ? ['out', 'up'] : ['out', 'out'] };
+      // 魔狗位置
+      let hx = cx, hyy = cy + 2, flip = false, run = false, jaw = 0, rot = 0, bag = false, alpha = 1;
+      if (t < 1.0) alpha = 0; else if (t < 1.5) { const k = ease((t - 1.0) / 0.5); hyy = cy + 36 * (1 - k); rot = 0.3 * (1 - k); jaw = 0.6; }
+      else if (t < 2.3) { const k = (t - 1.5) / 0.8; hx = cx + (vx + 50 - cx) * k; run = true; jaw = 0.4; if (Math.floor(t * 9) % 2) puff(hx + 20, gy - 4, 1, t); hyy = gy; }
+      else if (t < 2.6) { const k = (t - 2.3) / 0.3; hx = vx + 50 - 22 * k; hyy = gy - Math.sin(k * Math.PI) * 14; jaw = 1; rot = -0.2; }
+      else if (t < 3.1) { hx = vx + 28; hyy = gy; jaw = t < 2.9 ? 1 : 0.3; bag = t > 2.9; }
+      else if (t < 4.3) { const k = (t - 3.1) / 1.2; flip = true; run = true; hx = vx + 28 + (cx - vx - 28) * k; hyy = gy - (gy - cy - 2) * clamp((k - 0.8) / 0.2); bag = true; jaw = 0.3; if (Math.floor(t * 9) % 2) puff(hx - 20, hyy - 4, 1, t); }
+      else { const k = clamp((t - 4.3) / 0.3); flip = true; hx = cx; hyy = cy + 2 + 40 * k; rot = 0.5 * k; bag = true; jaw = 0.3; alpha = 1 - k; }
+      if (alpha > 0 && (t < 1.5 || t > 4.3)) { g.save(); g.beginPath(); g.rect(0, 0, W, cy + 1); g.clip(); g.globalAlpha = alpha; hound(g, hx, hyy, Math.floor(t * 12), { flip, run, jaw, rot, bag, t }); g.restore(); }
+      spr(g, ch(me, vp, 0), vx, gy + fall * 6, { scale: 1.25, rot: -fall * 0.45 });
+      if (alpha > 0 && t >= 1.5 && t <= 4.3) hound(g, hx, hyy, Math.floor(t * 12), { flip, run, jaw, rot, bag, t });
+      // 被撲倒時噴出來的金幣＋錢袋飛起被叼走
+      if (hit) { const cn = P.coin(); coins.forEach(c => { const a = t - 2.55 - c.d; if (a < 0 || a > 1.6) return; g.globalAlpha = clamp(1.6 - a); g.drawImage(cn, Math.round(vx - 4 + c.vx * a * 40), Math.round(gy - 30 + c.vy * a * 40 + a * a * 70)); g.globalAlpha = 1; });
+        if (t < 2.9) { const a = (t - 2.55) / 0.35; R(g, vx - 2 - a * 6, gy - 34 - Math.sin(a * Math.PI) * 10, 7, 7, '#8a6a3a'); R(g, vx - 1 - a * 6, gy - 32 - Math.sin(a * Math.PI) * 10, 3, 3, '#e8b020'); } }
+      drawDust(g, t); g.restore();
+      if (t > 2.55 && t < 2.75) { g.globalAlpha = 0.35; R(g, 0, 0, W, Hh, '#ff2a1a'); g.globalAlpha = 1; }
+    }, snd);
+  };
+
   root.MONO_TOWN = TW;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -197,10 +197,12 @@
     br.forEach(([dx, dy], k) => { let x = cx, y = ty + 2; const n = big ? 22 : 12; for (let j = 0; j < n; j++) { x += dx * 0.9 + Math.sin(j + k) * 0.4; y += dy * 0.9; R(Math.round(x), Math.round(y), j < n / 2 && big ? 2 : 1, 2, '#3a2418'); } });
     const blobs = big ? [[0, 18, 22], [-14, 24, 15], [14, 24, 15], [-8, 12, 13], [9, 11, 13], [0, 30, 12]] : [[0, 13, 12], [-8, 17, 8], [8, 17, 8], [0, 7, 8]];
     const COL = ['#f0a040', '#e07a2a', '#c8461e', '#a8321e', '#7a2418'];
+    // 樹冠另外畫一層：先畫完整樹冠描外框，再挖掉掉落的葉子（洞的邊緣不描黑框，才不會越掉越黑）
+    outline(c); const [cc, cg] = canvas(W, H), holes = [];
     for (let y = 0; y < ty + 8; y++) for (let x = 0; x < W; x++) { let inn = false; for (const [bx, by, r] of blobs) { const ex = x - (cx + bx), ey = y - by; if (ex * ex + ey * ey < r * r * (0.85 + hsh(x, y, seed) * 0.3)) { inn = true; break; } } if (!inn) continue;
-      if (hsh(x >> 1, y >> 1, seed + 7) > leaves) continue;
-      const sh = 0.35 + (x - cx) / W * 1.2 + (y / (ty + 8)) * 1.5 + (hsh(x >> 1, y >> 1, seed + 2) - 0.5) * 1.1; R(x, y, 1, 1, COL[Math.max(0, Math.min(4, Math.floor(sh * 2)))]); }
-    outline(c); return (ENV[key] = c); };
+      if (hsh(x >> 1, y >> 1, seed + 7) > leaves) holes.push([x, y]);
+      const sh = 0.35 + (x - cx) / W * 1.2 + (y / (ty + 8)) * 1.5 + (hsh(x >> 1, y >> 1, seed + 2) - 0.5) * 1.1; cg.fillStyle = COL[Math.max(0, Math.min(4, Math.floor(sh * 2)))]; cg.fillRect(x, y, 1, 1); }
+    if (leaves >= 1) outline(cc); holes.forEach(([x, y]) => cg.clearRect(x, y, 1, 1)); g.drawImage(cc, 0, 0); return (ENV[key] = c); };
   P.pine = function (seed) { const key = 'p' + seed; if (ENV[key]) return ENV[key]; const [c, g] = canvas(22, 44); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); }; R(10, 38, 3, 6, '#2a1a12');
     for (let y = 2; y < 40; y++) { const tier = (y - 2) % 12, w = Math.min(10, 2 + tier * 0.8 + (y - 2) / 6); R(11 - w, y, w * 2, 1, '#1a2a1e'); R(11, y, w, 1, '#122016'); if (tier === 11) R(11 - w, y, w * 2, 1, '#0e1810'); }
     outline(c); return (ENV[key] = c); };

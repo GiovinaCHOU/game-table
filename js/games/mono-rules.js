@@ -65,6 +65,19 @@
   const DOOM_BY_N = { 2: 18, 3: 21, 4: 25, 5: 27, 6: 29 };
   const doomRound = (st) => globalThis.__DOOM || DOOM_BY_N[st.n] || 25;
   const INF = (globalThis.__INF || { start: 6, rate: 0.1, max: 3 });
+  // 怪奇小鎮：第 35 回合起，每回合開頭有一半機率魔狗突襲「總資產前 30%」的其中一人，充公 1~2 萬（最多扣到現金歸零，不會因此破產；厄運免疫可擋）
+  const HOUND = { round: 35, p: 0.5, top: 0.3, min: 10000, max: 20000 };
+  function houndRound(st) {
+    if (st.theme !== 'town' || st.round < HOUND.round) return;
+    if (st.round === HOUND.round) ev(st, { t: 'alert', text: '🐺 倒影世界的魔狗開始出沒，會隨機襲擊最有錢的人' });
+    if (Math.random() >= (globalThis.__HOUND_P == null ? HOUND.p : globalThis.__HOUND_P)) return;
+    const al = st.players.map((p, k) => k).filter(k => st.players[k].alive); if (al.length < 2) return;
+    const n = Math.max(1, Math.round(al.length * HOUND.top)), rich = al.sort((a, b) => worth(st, b) - worth(st, a)).slice(0, n), k = rich[Math.floor(Math.random() * rich.length)], p = st.players[k];
+    ev(st, { t: 'hound', seat: k }); st.anim += 6800;
+    if (p.immune > 0) { p.immune--; ev(st, { t: 'note', seat: k, text: '🛡️ 厄運免疫擋下了魔狗' }); return; }
+    const amt = Math.min(Math.max(0, Math.floor(p.cash / 100) * 100), Math.round((HOUND.min + Math.random() * (HOUND.max - HOUND.min)) / 1000) * 1000);
+    if (amt > 0) pay(st, k, -1, amt, '魔狗突襲');
+  }
   function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * 0.6); }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
@@ -346,7 +359,8 @@
         if (st.round > cap) return finish(st, cap === SAFETY_CAP ? 'cap' : 'rounds');
         if (st.inflate && st.round === doomRound(st) - 3) ev(st, { t: 'alert', text: `⚠️ 3 回合後（第 ${doomRound(st)} 回合）末日通膨，過路費會開始暴漲` });
         if (st.inflate && st.round === doomRound(st)) ev(st, { t: 'alert', text: '🔥 末日通膨開始！從現在起過路費每回合暴漲' });
-        if (cap !== SAFETY_CAP && cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` }); }
+        if (cap !== SAFETY_CAP && cap - st.round === 3) ev(st, { t: 'alert', text: `⏳ 剩最後 3 回合，第 ${cap} 回合結束時用總資產決定勝負` });
+        houndRound(st); }
       const p = st.players[s]; if (!p.alive) continue;
       // 蟾蜍：抽到後接下來 3 個自己的回合都是蟾蜍（前 2 回合停住），第 4 回合變回原本的角色（含自畫角色）
       if (p.frog) { if (!(p.frogT > 0)) { p.frog = false; ev(st, { t: 'unfrog', seat: s }); } else p.frogT--; }

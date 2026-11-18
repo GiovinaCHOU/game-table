@@ -494,6 +494,7 @@
 
   // ===== 怪奇小鎮（畫在 mono-town.js）=====
   ['xlights', 'psy', 'flip', 'clock', 'd20'].forEach(k => { E[k] = function (SFX, e) { return root.MONO_TOWN ? root.MONO_TOWN[k](this, SFX, e) : Promise.resolve(); }; });
+  E.hound = function (SFX, e) { return root.MONO_TOWN && root.MONO_TOWN.hound ? root.MONO_TOWN.hound(this, SFX, e) : Promise.resolve(); };
   E.townDeath = function (SFX, e) { return root.MONO_TOWN ? root.MONO_TOWN.death(this, SFX, e) : Promise.resolve(); };
   root.MONO_EGGS = E;
 })(typeof window !== 'undefined' ? window : globalThis);
