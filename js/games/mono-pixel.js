@@ -173,7 +173,7 @@
   const hsh = (x, y, s) => { const v = Math.sin(x * 12.9898 + y * 78.233 + s * 37.719) * 43758.5453; return v - Math.floor(v); };
   const ENV = {};
   // 房子 44x38：牆、階梯式屋頂、煙囪、兩扇亮燈的窗、門、門廊、白籬笆
-  P.house = function (seed) { const key = 'h' + seed; if (ENV[key]) return ENV[key]; const [c, g] = canvas(44, 38); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  P.house = function (seed, vine) { vine = vine || 0; const key = 'h' + seed + '|' + vine; if (ENV[key]) return ENV[key]; const [c, g] = canvas(44, 38); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
     const WALL = [['#e8dcc0', '#c8bca0', '#f4ecd8'], ['#c8d8e0', '#a0b4c0', '#e0ecf0'], ['#e0c8a0', '#b8a07a', '#f0dcb8'], ['#d8b0a0', '#b08878', '#ecc8b8'], ['#c8d0b0', '#a0a888', '#e0e8c8']][seed % 5], ROOF = [['#4a3a3a', '#2e2222', '#6a5050'], ['#3a3a4a', '#22222e', '#545468'], ['#5a3a2a', '#3a2418', '#7a5038']][seed % 3];
     R(6, 16, 32, 17, WALL[0]); R(31, 16, 7, 17, WALL[1]); R(6, 16, 2, 17, WALL[2]); for (let y = 18; y < 33; y += 3) R(6, y, 32, 1, WALL[1]);
     if (seed % 2) R(28, 3, 4, 8, '#5a3a2e'), R(27, 2, 6, 2, '#3a2420');
@@ -182,6 +182,12 @@
     [[10, 20], [26, 20]].forEach(([x, y], k) => { const lit = hsh(seed, k, 3) > 0.25; R(x - 1, y - 1, 8, 8, '#f4f0e8'); R(x, y, 6, 6, lit ? '#ffc870' : '#2a2a38'); if (lit) R(x, y, 3, 3, '#ffe0a0'); R(x + 3, y, 1, 6, '#f4f0e8'); R(x, y + 3, 6, 1, '#f4f0e8'); });
     R(19, 23, 6, 10, '#5a3a2a'); R(19, 23, 6, 1, '#3a2418'); R(23, 28, 1, 1, '#e8c84a'); R(17, 33, 10, 1, '#8a8a8a');
     for (let x = 0; x < 44; x += 3) { R(x, 32, 2, 5, '#f2f0ea'); R(x, 31, 1, 1, '#f2f0ea'); } R(0, 34, 44, 1, '#d8d4cc');
+    // 倒影世界的藤蔓從地面爬上牆（vine 1~3 越來越多）：粗、會分岔、帶一點紅色脈絡
+    if (vine > 0) { const nV = [0, 3, 5, 7][vine], top = [0, 22, 12, 2][vine];
+      for (let k = 0; k < nV; k++) { let x = 3 + hsh(seed, k, 11) * 38, y = 37, w = 3; const lim = top + hsh(k, seed, 12) * 10;
+        while (y > lim) { R(Math.round(x) - (w >> 1), y, w, 2, '#1a0608'); R(Math.round(x) + (w >> 1), y, 1, 2, '#3a1018'); if (hsh(x | 0, y, k) > 0.86) R(Math.round(x), y, 1, 1, '#c0202a');
+          if (hsh(y, k, seed) > 0.9) { let bx = x, by = y; const d = hsh(k, y, 2) > 0.5 ? 1 : -1; for (let j = 0; j < 6; j++) { bx += d; by -= hsh(j, y, k) > 0.5 ? 1 : 0; R(Math.round(bx), by, 1, 1, '#1a0608'); } }
+          x += (hsh(k, y, seed + 3) - 0.5) * 2.2; y -= 1; if (y < lim + 8) w = 2; if (y < lim + 3) w = 1; } } }
     outline(c); return (ENV[key] = c); };
   // 楓樹 36x48：leaves 0~1 決定葉子剩多少（越少越像枯樹），big＝中央大樹
   P.tree = function (seed, leaves, big) { const key = 't' + seed + '|' + leaves + '|' + (big ? 1 : 0); if (ENV[key]) return ENV[key]; const W = big ? 64 : 36, H = big ? 84 : 48; const [c, g] = canvas(W, H); const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };

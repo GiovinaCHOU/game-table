@@ -1,7 +1,7 @@
 // 大富翁：遊戲模組（規則在 mono-rules.js，3D 在 mono3d.js）
 (function (root) {
   try { if (/[?&]pix=1/.test(location.search)) root.__pix = true; } catch (e) {}
-  try { if (/[?&]pixenv=1/.test(location.search)) localStorage.setItem('mono-pixenv', '1'); if (/[?&]pixenv=0/.test(location.search)) localStorage.removeItem('mono-pixenv'); } catch (e) {} // 怪奇小鎮環境像素版（預覽）
+  try { if (/[?&]pixenv=1/.test(location.search)) localStorage.removeItem('mono-pixenv'); if (/[?&]pixenv=0/.test(location.search)) localStorage.setItem('mono-pixenv', '0'); } catch (e) {} // 怪奇小鎮環境：預設像素，?pixenv=0 切回 3D
   const U = root.GUTIL;
   const R = () => root.MONO_RULES, TH = () => root.MONO_THEMES;
 

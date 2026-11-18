@@ -309,7 +309,7 @@
       upd.push(t => wisps.forEach((w, k) => { const u = w.userData; const a = u.a + t * u.s * 0.2; w.position.set(Math.cos(a) * u.d, u.h + Math.sin(t * 2 + k) * 0.4, Math.sin(a) * u.d); w.material.opacity = 0.4 + Math.sin(t * 5 + k) * 0.3; }));
     } else if (theme === 'town') {
       // ===== 1983 年秋天的小鎮黃昏：郊區房子、楓樹、路燈、水塔；中央大楓樹底下有紅光裂縫；回合越後面越被藤蔓和孢子侵蝕 =====
-      let pe0 = root.__pixenv; try { if (/[?&]pixenv=1/.test(location.search)) localStorage.setItem('mono-pixenv', '1'); if (/[?&]pixenv=0/.test(location.search)) localStorage.removeItem('mono-pixenv'); if (localStorage.getItem('mono-pixenv') === '1') pe0 = true; } catch (e) {} const PE = pe0 && root.MONO_PIXEL, PX = root.MONO_PIXEL; // PE：環境也換成像素立牌
+      let pe0 = true; try { if (localStorage.getItem('mono-pixenv') === '0') pe0 = false; } catch (e) {} const PE = pe0 && root.MONO_PIXEL, PX = root.MONO_PIXEL; // PE：環境也換成像素立牌
       const nearest = (tx) => { tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.anisotropy = 1; return tx; };
       const bbs = [], bb = (img, w, x, z, dim) => { const h = w * img.height / img.width, tx = nearest(tex(T, img)), m = add(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: dim || '#c8b8c0' }), x, h / 2 - 0.4, z, false); bbs.push(m); return m; };
       { const [c, g] = cvs(64, 512); const gr = g.createLinearGradient(0, 0, 0, 512);
@@ -330,7 +330,7 @@
       // 郊區房子
       const houseCols = ['#e8dcc0', '#c8d8e0', '#e0c8a0', '#d8b0a0', '#c8d0b0', '#f0e8d8'], roofC = ['#4a3a3a', '#3a3a4a', '#5a3a2a', '#2a3a3a'];
       const winM = M('#ffd890', { emissive: '#ffb050', emissiveIntensity: 1.4 }), houses = [];
-      let hs = 0; const house = (x, z, rot) => { if (PE) { const m = bb(PX.house(hs++), rnd(3.2, 3.8), x, z); houses.push(m); return m; } const g2 = new T.Group(); g2.position.set(x, -0.36, z); g2.rotation.y = rot; scene.add(g2);
+      let hs = 0; const house = (x, z, rot) => { if (PE) { const sd = hs++, m = bb(PX.house(sd), rnd(3.2, 3.8), x, z); m.userData.seed = sd; houses.push(m); return m; } const g2 = new T.Group(); g2.position.set(x, -0.36, z); g2.rotation.y = rot; scene.add(g2);
         const w = rnd(2.2, 3), d = rnd(1.8, 2.4), h = rnd(1.4, 2.2); const bm = M(houseCols[Math.floor(rnd(0, 6))], { roughness: 0.85 });
         const b = new T.Mesh(new T.BoxGeometry(w, h, d), bm); b.position.y = h / 2; b.castShadow = q.high; g2.add(b);
         { const sh = new T.Shape(); sh.moveTo(-w / 2 - 0.15, 0); sh.lineTo(w / 2 + 0.15, 0); sh.lineTo(0, d * 0.55); sh.lineTo(-w / 2 - 0.15, 0); const rf = new T.Mesh(new T.ExtrudeGeometry(sh, { depth: d + 0.2, bevelEnabled: false }), M(roofC[Math.floor(rnd(0, 4))], { roughness: 0.8 })); rf.position.set(0, h, -d / 2 - 0.1); rf.castShadow = q.high; g2.add(rf); }
@@ -376,17 +376,52 @@
       for (let k = 0; k < (q.high ? 40 : 20); k++) { const m = add(leafG, new T.MeshBasicMaterial({ color: ['#e07a2a', '#c8461e', '#d89a3a'][k % 3], side: T.DoubleSide }), 0, 0, 0, false); m.userData = { x: rnd(-12, 12), z: rnd(-12, 12), o: rnd(0, 1), s: rnd(0.08, 0.16) }; leaves.push(m); }
       // 侵蝕用的藤蔓：從裂縫往外爬、也爬上房子
       const vineM = M('#2a0e14', { roughness: 0.6, emissive: '#3a0610', emissiveIntensity: 0.4 }), vines = [];
-      for (let k = 0; k < (q.high ? 26 : 14); k++) { const a = k / (q.high ? 26 : 14) * 6.28 + rnd(-0.1, 0.1); const pts = []; let x = Math.cos(a) * 0.8, z = Math.sin(a) * 0.8; for (let j = 0; j < 9; j++) { pts.push(new T.Vector3(x, -0.3 + Math.abs(Math.sin(j)) * 0.08, z)); const d = 0.8 + j * 0.5; x = Math.cos(a + Math.sin(j * 1.3) * 0.25) * d * (1 + j * 0.25); z = Math.sin(a + Math.sin(j * 1.3) * 0.25) * d * (1 + j * 0.25); }
+      if (!PE) for (let k = 0; k < (q.high ? 26 : 14); k++) { const a = k / (q.high ? 26 : 14) * 6.28 + rnd(-0.1, 0.1); const pts = []; let x = Math.cos(a) * 0.8, z = Math.sin(a) * 0.8; for (let j = 0; j < 9; j++) { pts.push(new T.Vector3(x, -0.3 + Math.abs(Math.sin(j)) * 0.08, z)); const d = 0.8 + j * 0.5; x = Math.cos(a + Math.sin(j * 1.3) * 0.25) * d * (1 + j * 0.25); z = Math.sin(a + Math.sin(j * 1.3) * 0.25) * d * (1 + j * 0.25); }
         const v = add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 40, 0.05, 5, false), vineM, 0, 0, 0, false); v.userData.k = k / (q.high ? 26 : 14); v.visible = false; vines.push(v); }
       houses.forEach((h, k) => { if (k % 2 || PE) return; for (let j = 0; j < 3; j++) { const pts = []; for (let q2 = 0; q2 < 6; q2++) pts.push(new T.Vector3(-1 + j * 0.9 + Math.sin(q2 * 1.7) * 0.25, q2 * 0.35, 1.2)); const v = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 20, 0.04, 4, false), vineM); v.visible = false; v.userData.k = 0.3 + (k % 7) / 10; h.add(v); vines.push(v); } });
       { const wp = new T.Vector3(); bbs.forEach(m => { m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); }; }); }
-      let decay = 0; scene.userData.decay = (round) => { decay = Math.max(0, Math.min(1, ((round || 1) - 4) / 30)); vines.forEach(v => { v.visible = decay > v.userData.k * 0.9; }); { const g2 = 1 + decay * 1.0; crack.scale.set(g2, g2, 1); halo.scale.set(1 + decay * 1.3, 1 + decay * 1.3, 1); redL.distance = 7 + decay * 7; crown.forEach((c2, k) => { c2.visible = decay < 0.45 + (k / crown.length) * 1.2; }); } if (bigBB) { const lv = decay < 0.3 ? 1 : decay < 0.6 ? 0.75 : decay < 0.85 ? 0.5 : 0.35; if (bigBB.userData.lv !== lv) { bigBB.userData.lv = lv; bigBB.material.map = nearest(tex(T, PX.tree(1, lv, true))); } } scene.fog && scene.fog.color.set('#4a2a3a').lerp(new T.Color('#3a0a14'), decay * 0.8); };
+      // ===== 像素版：地面藤蔓（從裂縫長到房子）、斑駁的紅光（中間夾黑色脈絡）、往上飄的黑色灰燼 =====
+      let peDraw = null, ashes = null, pGlow = null;
+      if (PE) { halo.visible = false;
+        const hs2 = (x, y, s) => { const v = Math.sin(x * 12.9898 + y * 78.233 + s * 37.719) * 43758.5453; return v - Math.floor(v); };
+        const SZ = 42, NP = 640, ppu = NP / SZ, [vc, vg] = cvs(NP); vg.imageSmoothingEnabled = false;
+        const vtx = nearest(tex(T, vc)), vp = add(new T.PlaneGeometry(SZ, SZ), new T.MeshBasicMaterial({ map: vtx, transparent: true, depthWrite: false, color: '#d0c0c8' }), 0, -0.328, 0, false); vp.rotation.x = -Math.PI / 2; vp.renderOrder = 3;
+        // 藤蔓路徑：一半通往房子（長到房子門口），其他往外亂長
+        const paths = [];
+        houses.forEach((h, k) => { if (k % 2) return; const th = 0.3 + (k % 7) / 10; paths.push({ tx: h.position.x, tz: h.position.z, th, house: h, w: 5, k }); });
+        for (let k = 0; k < (q.high ? 16 : 10); k++) { const a = k / (q.high ? 16 : 10) * 6.283 + 0.2, d = 7 + hs2(k, 1, 4) * 6; paths.push({ tx: Math.cos(a) * d, tz: Math.sin(a) * d, th: 0.3 + (k / (q.high ? 16 : 10)) * 0.65, w: 4, k: k + 40 }); }
+        paths.forEach(pp => { const pts = []; let x = 0, z = 0; const L = Math.hypot(pp.tx, pp.tz), n = Math.ceil(L * ppu / 1.5); let a = Math.atan2(pp.tz, pp.tx);
+          for (let i = 0; i <= n; i++) { const want = Math.atan2(pp.tz - z, pp.tx - x); a += Math.max(-0.25, Math.min(0.25, (want - a + Math.PI * 3) % (Math.PI * 2) - Math.PI)) * 0.3 + (hs2(i, pp.k, 7) - 0.5) * 0.5; x += Math.cos(a) * 1.5 / ppu; z += Math.sin(a) * 1.5 / ppu; pts.push([NP / 2 + x * ppu, NP / 2 + z * ppu]); if (Math.hypot(pp.tx - x, pp.tz - z) < 0.6) break; }
+          pp.pts = pts; pp.br = Array.from({ length: Math.floor(pts.length / 14) }, (_, j) => ({ at: Math.floor((j + 0.5) * 14), d: hs2(j, pp.k, 9) > 0.5 ? 1 : -1, n: 6 + Math.floor(hs2(pp.k, j, 3) * 10) })); });
+        const VR = (x, y, w, h, c) => { vg.fillStyle = c; vg.fillRect(Math.round(x), Math.round(y), w, h); };
+        const drawVines = (dec) => { vg.clearRect(0, 0, NP, NP);
+          paths.forEach(pp => { const f = Math.max(0, Math.min(1, (dec - (pp.th - 0.28)) / 0.28)); if (f <= 0) return; const m = Math.floor(pp.pts.length * f);
+            for (let i = 0; i < m; i++) { const [x, y] = pp.pts[i], u = i / pp.pts.length, w = Math.max(1, Math.round(pp.w * (1 - u * 0.6) * (f < 1 && i > m - 12 ? (m - i) / 12 : 1))); VR(x - (w >> 1), y - (w >> 1), w, w, '#1a0608'); if (w > 2) VR(x - (w >> 1), y - (w >> 1), 1, 1, '#3a1018'); if (hs2(i, pp.k, 5) > 0.93) VR(x, y, 1, 1, '#d02030'); }
+            pp.br.forEach(b => { if (b.at >= m) return; let [x, y] = pp.pts[b.at]; const [x2, y2] = pp.pts[Math.min(b.at + 1, pp.pts.length - 1)]; let a = Math.atan2(y2 - y, x2 - x) + b.d * 0.9; for (let j = 0; j < b.n; j++) { a += (hs2(j, b.at, pp.k) - 0.5) * 0.6; x += Math.cos(a) * 1.4; y += Math.sin(a) * 1.4; VR(x, y, j < 3 ? 2 : 1, j < 3 ? 2 : 1, '#1a0608'); } }); });
+          vtx.needsUpdate = true;
+          paths.forEach(pp => { if (!pp.house) return; const lv = Math.max(0, Math.min(3, Math.floor((dec - pp.th) / 0.12) + 1)), h = pp.house; if (h.userData.lv === lv) return; h.userData.lv = lv; h.material.map = nearest(tex(T, PX.house(h.userData.seed, lv))); }); };
+        peDraw = drawVines;
+        // 斑駁紅光：中心最亮、外圍漸暗，用粗顆粒雜訊讓局部變黑，再壓上黑色交錯脈絡
+        { const N = 112, [gc, gg] = cvs(N), C = ['#000000', '#2a0402', '#5a0806', '#9a1608', '#d8341a', '#ff7a3a'];
+          const nz = (x, y, s, c) => { const x0 = Math.floor(x / c), y0 = Math.floor(y / c), fx = x / c - x0, fy = y / c - y0, L = (a, b, k) => a + (b - a) * k; return L(L(hs2(x0, y0, s), hs2(x0 + 1, y0, s), fx), L(hs2(x0, y0 + 1, s), hs2(x0 + 1, y0 + 1, s), fx), fy); };
+          for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = Math.hypot(x - N / 2, y - N / 2) / (N / 2); if (r >= 1) continue; const fall = Math.pow(1 - r, 1.1), v = fall * (0.2 + 0.8 * (nz(x, y, 1, 10) * 0.7 + nz(x, y, 2, 4) * 0.3)) * 1.45;
+            const i = Math.max(0, Math.min(5, Math.floor(v * 6))); if (!i) continue; gg.fillStyle = C[i]; gg.fillRect(x, y, 1, 1); }
+          gg.fillStyle = '#000'; for (let k = 0; k < 26; k++) { let a = hs2(k, 3, 3) * 6.283, x = N / 2 + Math.cos(a) * N * 0.45, y = N / 2 + Math.sin(a) * N * 0.45; const b = a + Math.PI + (hs2(k, 4, 3) - 0.5) * 1.6; for (let j = 0; j < N; j++) { x += Math.cos(b + Math.sin(j * 0.15 + k) * 0.15); y += Math.sin(b + Math.sin(j * 0.15 + k) * 0.15); gg.fillRect(Math.round(x), Math.round(y), 1, 1); } }
+          pGlow = add(new T.PlaneGeometry(11, 11), new T.MeshBasicMaterial({ map: nearest(tex(T, gc)), transparent: true, blending: T.AdditiveBlending, depthWrite: false }), 0, -0.334, 0, false); pGlow.rotation.x = -Math.PI / 2; pGlow.renderOrder = 1; }
+        // 小小的黑色灰燼：在裂縫上方慢慢旋轉往上飄
+        { const n = q.high ? 220 : 120, pos = new Float32Array(n * 3), geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+          const seeds = Array.from({ length: n }, (_, k) => ({ a: hs2(k, 1, 1) * 6.283, d: 0.4 + Math.pow(hs2(k, 2, 1), 0.7) * 7, o: hs2(k, 3, 1), s: 0.05 + hs2(k, 4, 1) * 0.1, w: (hs2(k, 5, 1) - 0.5) * 0.4 }));
+          ashes = new T.Points(geo, new T.PointsMaterial({ color: '#140808', size: 0.075, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false })); scene.add(ashes); ashes.userData = { seeds, pos, geo, n }; }
+      }
+      let decay = 0; scene.userData.decay = (round) => { decay = Math.max(0, Math.min(1, ((round || 1) - 4) / 30)); vines.forEach(v => { v.visible = decay > v.userData.k * 0.9; }); { const g2 = 1 + decay * 1.0; crack.scale.set(g2, g2, 1); halo.scale.set(1 + decay * 1.3, 1 + decay * 1.3, 1); redL.distance = 7 + decay * 7; crown.forEach((c2, k) => { c2.visible = decay < 0.45 + (k / crown.length) * 1.2; }); } if (peDraw) { const q2 = Math.round(decay * 20) / 20; if (q2 !== scene.userData.__pq) { scene.userData.__pq = q2; peDraw(q2); } } if (pGlow) { const g3 = 1 + decay * 0.9; pGlow.scale.set(g3, g3, 1); } if (ashes) ashes.geometry.setDrawRange(0, Math.round(ashes.userData.n * (0.35 + decay * 0.65))); if (bigBB) { const lv = decay < 0.3 ? 1 : decay < 0.6 ? 0.75 : decay < 0.85 ? 0.5 : 0.35; if (bigBB.userData.lv !== lv) { bigBB.userData.lv = lv; bigBB.material.map = nearest(tex(T, PX.tree(1, lv, true))); } } scene.fog && scene.fog.color.set('#4a2a3a').lerp(new T.Color('#3a0a14'), decay * 0.8); };
       scene.userData.decay(1);
       upd.push((t, dt) => {
         const flick = Math.random() < 0.004 ? 0.2 : 1; // 偶爾整個小鎮的燈閃一下
         lamps.forEach((l, k) => { l.material.emissiveIntensity = (Math.sin(t * 13 + k * 7) > 0.97 ? 0.3 : 2) * flick; });
         const pulse = 0.6 + Math.sin(t * 1.3) * 0.25 + Math.max(0, Math.sin(t * 0.37)) * 0.4 * decay + (Math.random() < 0.01 ? 0.6 : 0);
         glowM.opacity = Math.min(1, pulse); halo.material.opacity = Math.min(1, 0.5 + pulse * 0.5); redL.intensity = (2 + pulse * 2) * (1 + decay);
+        if (ashes) { const u = ashes.userData; for (let i = 0; i < u.n; i++) { const s = u.seeds[i], p = (t * s.s + s.o) % 1, a = s.a + t * s.w + p * 2; u.pos[i * 3] = Math.cos(a) * s.d * (1 + decay * 0.6); u.pos[i * 3 + 1] = -0.2 + p * 4.5; u.pos[i * 3 + 2] = Math.sin(a) * s.d * (1 + decay * 0.6); } u.geo.attributes.position.needsUpdate = true; }
+        if (pGlow) pGlow.material.opacity = Math.min(1, 0.7 + pulse * 0.3);
         spores.forEach(m => { const u = m.userData; m.visible = u.on < 0.25 + decay * 0.75; if (!m.visible) return; const a = u.a + t * u.s * 0.3; m.position.set(Math.cos(a) * u.d, (u.h + t * u.s) % 5, Math.sin(a) * u.d); });
         leaves.forEach(m => { const u = m.userData, p = (t * u.s + u.o) % 1; m.position.set(u.x + Math.sin(t + u.o * 9) * 0.8, 5.5 - p * 5.8, u.z + Math.cos(t * 0.8 + u.o * 7) * 0.6); m.rotation.set(t * 2 + u.o * 9, t * 1.5, t * 3); });
         crown.forEach((c2, k) => { c2.rotation.y = Math.sin(t * 0.5 + k) * 0.05; });
