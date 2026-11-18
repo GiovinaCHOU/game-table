@@ -362,8 +362,9 @@
     const t = BOARD[p.pos];
     if (t.type === 'prop') {
       const o = st.owners[t.i];
-      if (o === -1) { if (p.cash >= priceOf(st, s, t.i)) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } ev(st, { t: 'note', seat: s, text: '錢不夠買這塊地' }); return false; }
-      if (o === s) { if (st.levels[t.i] < 4 && p.cash >= upOf(st, s, t.i)) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } return false; }
+      const short = (cost, what) => ev(st, { t: 'note', seat: s, feed: true, poor: true, text: `💸 買不起：${what}要 ${cost.toLocaleString()}，手上只有 ${Math.max(0, p.cash).toLocaleString()}` });
+      if (o === -1) { const c = priceOf(st, s, t.i); if (p.cash >= c) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } short(c, '買這塊地'); return false; }
+      if (o === s) { if (st.levels[t.i] >= 4) return false; const c = upOf(st, s, t.i); if (p.cash >= c) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } short(c, '升級'); return false; }
       if (!st.players[o].alive) return false;
       let rent = rentOf(st, t.i); { const mi = perk(st, o).rentIn || 1, mo = perk(st, s).rentOut || 1; if (mi !== 1 || mo !== 1) rent = r100(rent * mi * mo); }
       if (p.freeRent > 0) { p.freeRent--; ev(st, { t: 'note', seat: s, feed: true, text: '🪷 神明保佑：這次過路費免付' }); return false; }
@@ -392,7 +393,7 @@
     const cp = st.players[st.turn];
     if (cp && cp.alive && cp.jailAsk && st.phase !== 'over') { st.phase = 'jailask'; st.pending = { left: cp.jailChoice, extra: !!st.extra }; st.extra = false; setDeadline(st, now, 20000); return; }
     if (cp && cp.jailAsk && !cp.alive) cp.jailAsk = false;
-    if (cp && cp.alive && cp.buildTicket > 0 && st.phase !== 'over') { cp.buildTicket = 0; const opts = buildOpts(st, st.turn); if (opts.length) { st.phase = 'passbuild'; st.pending = { opts }; setDeadline(st, now, 25000); return; } }
+    if (cp && cp.alive && cp.buildTicket > 0 && st.phase !== 'over') { cp.buildTicket = 0; const opts = buildOpts(st, st.turn); if (opts.length) { st.phase = 'passbuild'; st.pending = { opts }; setDeadline(st, now, 25000); return; } if (BOARD.some(t => t.type === 'prop' && st.owners[t.i] === st.turn && st.levels[t.i] < 4)) ev(st, { t: 'note', seat: st.turn, feed: true, poor: true, text: '💸 經過起點可以加蓋，但錢不夠蓋任何一塊地' }); }
     st.phase = 'roll'; st.pending = null;
     if (st.extra) { st.extra = false; if (st.players[st.turn].alive && alive(st).length > 1) { setDeadline(st, now, 15000); return; } }
     const al = alive(st);

@@ -481,7 +481,7 @@
               this.feed(`💥 ${this.who(e.seat)} 破產了！`, 'big'); SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
             case 'hound': this.feed(`🐺 魔狗突襲 ${this.who(e.seat)}！`, 'big'); if (root.MONO_EGGS && root.MONO_EGGS.hound) await root.MONO_EGGS.hound.call(this, SFX, { seat: e.seat }); break;
             case 'alert': this.feed(U.esc(e.text), 'big'); this.fx(e.text, 'loss big', v.turn); SFX.doom && SFX.doom(); await sleep(1500); break;
-            case 'note': this.fx(e.text, '', e.seat); if (e.feed && e.seat === v.seat) this.feed(`💡 ${U.esc(e.text)}`, ''); await sleep(e.feed ? 1200 : 600); break;
+            case 'note': if (e.poor) SFX.tone && SFX.tone(220, 0.25, { type: 'triangle', vol: 0.07, glide: 160 }); this.fx(e.text, e.poor ? 'loss' : '', e.seat); if (e.feed && e.seat === v.seat) this.feed(`💡 ${U.esc(e.text)}`, ''); await sleep(e.feed ? 1200 : 600); break;
           }
         }
       } finally { this.playing = false; if (this._cine) this.cine(false); }
