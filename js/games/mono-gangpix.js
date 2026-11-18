@@ -169,13 +169,17 @@
     // 兩側鼻翼＋大圓鼻頭
     oval(R, cx - 11, 35 + dy, 6, 6, SK); oval(R, cx + 11, 35 + dy, 6, 6, SD); oval(R, cx + 10, 34 + dy, 5, 5, SK); r(cx - 15, 32, 2, 2, SL);
     oval(R, cx, 31 + dy, 10, 9, SK); oval(R, cx + 4, 34 + dy, 6, 5, SD); oval(R, cx - 1, 30 + dy, 8, 7, SK); oval(R, cx - 4, 27 + dy, 3, 2, SL); r(cx - 5, 26, 2, 1, '#ffffff');
-    // 鼻底那一面（比較暗）
-    for (let x = -16; x <= 16; x++) { const h = Math.round(4 * Math.sqrt(Math.max(0, 1 - (x * x) / 289))); r(cx + x, 39, 1, h + 1, x < 0 ? SD : SDD); }
-    // 大鼻孔（嚇到時撐更大）＋白粉
-    const big = p.mouth === 'o' || p.eyes === 'wide', nh = big ? 4 : 3;
-    [cx - 6, cx + 6].forEach(x => { r(x - 2, 39, 5, 1, '#3a0e0e'); r(x - 3, 40, 7, nh, '#3a0e0e'); r(x - 2, 40 + nh, 5, 1, '#3a0e0e'); r(x - 2, 40, 3, 1, '#1e0606');
-      r(x - 3, 40 + nh, 1, 1, '#ffffff'); r(x - 2, 41 + nh, 5, 1, '#ffffff'); r(x + 3, 40 + nh, 1, 1, '#ffffff'); r(x - 4, 40, 1, 2, '#ffffff'); r(x + 4, 40, 1, 2, '#f4f4fa'); r(x - 1, 42 + nh, 3, 1, '#e8e8f0'); r(x - 3, 39, 1, 1, '#ffffff'); r(x + 3, 39, 1, 1, '#f4f4fa'); });
-    r(cx - 1, 39, 3, 5, SD); r(cx - 12, 43, 1, 1, '#ffffff'); r(cx + 11, 43, 1, 1, '#ffffff'); r(cx - 3, 46, 1, 1, '#ffffff'); r(cx + 3, 46 + (f % 2), 1, 1, '#ffffff'); r(cx - 8, 47, 1, 1, '#e8e8f0');
+    // 鼻底那一面（比較暗），往下延伸讓鼻孔四周都有皮膚
+    for (let x = -16; x <= 16; x++) { const h = Math.round(7 * Math.sqrt(Math.max(0, 1 - (x * x) / 289))); r(cx + x, 37, 1, h + 1, x < 0 ? SD : SDD); }
+    oval(R, cx, 42 + dy, 9, 2, SD);
+    // 橢圓鼻孔（上下都是圓的，嚇到時撐大），白粉是沿著鼻孔外圍零散的粉粒（不連成線，免得像牙齒）
+    const big = p.mouth === 'o' || p.eyes === 'wide', ry = big ? 3 : 2, rx = big ? 4 : 3;
+    [[cx - 6, -1], [cx + 6, 1]].forEach(([x, k]) => { const yc = 40;
+      for (let yy = -ry; yy <= ry; yy++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (yy * yy) / ((ry + 0.5) * (ry + 0.5))))); r(x - w, yc + yy, w * 2 + 1, 1, '#4a1212'); }
+      for (let yy = -ry + 1; yy <= ry - 1; yy++) { const w = Math.max(0, Math.round((rx - 1) * Math.sqrt(Math.max(0, 1 - (yy * yy) / (ry * ry))))); r(x - w + k, yc + yy, w * 2 + 1, 1, '#240606'); }
+      [[0.25, 1], [0.7, 0], [1.05, 1], [1.45, 1], [1.9, 0], [2.3, 1], [2.75, 1], [3.3, 0], [-0.3, 1], [3.6, 1]].forEach(([a, on]) => { if (on) r(x + Math.cos(a) * (rx + 1.2), yc + Math.sin(a) * (ry + 1.2), 1, 1, '#ffffff'); });
+      r(x - k * 4, yc - ry - 1, 1, 1, '#f4f4fa'); });
+    r(cx - 1, 38, 3, 4, SD); r(cx - 11, 42, 1, 1, '#ffffff'); r(cx + 11, 42, 1, 1, '#ffffff'); r(cx, 43, 1, 1, f % 2 ? '#ffffff' : '#f0f0f8');
     // 鼻樑上的小眼睛
     const ey = p.eyes || 'open', ex = [cx - 5 + lean, cx + 2 + lean], eyY = 12;
     if (ey === 'blink') ex.forEach(x => r(x, eyY + 1, 4, 1, '#3a1a1a'));
@@ -223,15 +227,16 @@
     r(21, 19, 5, 13, o.pants); r(24, 19, 2, 13, o.pantsD); r(21, 32, 5, 11, o.pants); r(20, 32, 2, 11, o.pantsD); r(21, 31, 5, 1, o.pantsD); r(21, 19, 5, 1, '#2a2a30'); // 腿拉長（膝蓋微彎）
     r(19, 43, 8, 2, o.shoe); r(19, 44, 8, 1, o.shoeD); r(26, 43, 1, 1, '#c8c8c0');
     // 手（在身體後面那隻）
-    r(14, 24, 3, 10 - sw, o.hoodD); r(14, 34 - sw, 3, 2, o.skinD);
-    // 帽 T 上身：沿著二次曲線畫一串圓，背部圓弧
-    const B = (t) => [(1 - t) * (1 - t) * 22 + 2 * (1 - t) * t * 15 + t * t * 10, (1 - t) * (1 - t) * 21 + 2 * (1 - t) * t * 8 + t * t * 23];
-    for (let t = 0; t <= 1.001; t += 0.05) { const [x, y] = B(t); oval(R, x, y + dy, 4, 4, o.hood); }
-    for (let t = 0; t <= 1.001; t += 0.05) { const [x, y] = B(t); R(x - 2, y - 4 + dy, 3, 1, o.hoodL); R(x - 1, y - 3 + dy, 1, 1, o.hoodL); }
-    for (let t = 0.3; t <= 1.001; t += 0.05) { const [x, y] = B(t); R(x + 2, y + 3 + dy, 2, 1, o.hoodD); }
-    r(14, 20, 5, 3, o.hoodD); r(15, 20, 3, 1, '#2e2e38'); // 口袋
+    r(12, 27, 3, 9 - sw, o.hoodD); r(12, 36 - sw, 3, 2, o.skinD);
+    // 帽 T 上身：從髖關節往前折，接近水平、稍微往下（背是平的，不是駝背）
+    const hip = [21, 21], sh = [9, 26], L2 = (t) => [hip[0] + (sh[0] - hip[0]) * t, hip[1] + (sh[1] - hip[1]) * t];
+    for (let t = 0; t <= 1.001; t += 0.04) { const [x, y] = L2(t); oval(R, x, y + dy, 4, 4, o.hood); }
+    for (let t = 0; t <= 1.001; t += 0.04) { const [x, y] = L2(t); R(x, y - 4 + dy, 2, 1, o.hoodL); } // 平平的背（亮面）
+    for (let t = 0.1; t <= 0.95; t += 0.04) { const [x, y] = L2(t); R(x, y + 3 + dy, 2, 1, o.hoodD); } // 肚子那面（暗）
+    oval(R, 22, 20 + dy, 4, 3, o.hood); R(20, 17 + dy, 4, 1, o.hoodL); // 屁股
+    r(13, 26, 4, 2, o.hoodD); r(14, 26, 2, 1, '#2e2e38'); // 口袋
     // 頭：帽子圓圓的，臉朝下朝外，針尖瞳孔
-    const hx = 8, hy = 28; oval(R, hx, hy + dy, 5, 5, o.hood); R(hx - 5, hy + 2 + dy, 11, 3, o.hoodD); oval(R, hx - 1, hy + 1 + dy, 3, 3, o.skin); R(hx + 1, hy - 1 + dy, 1, 5, o.skinD);
+    const hx = 7, hy = 30; oval(R, hx, hy + dy, 5, 5, o.hood); R(hx - 5, hy + 2 + dy, 11, 3, o.hoodD); oval(R, hx - 1, hy + 1 + dy, 3, 3, o.skin); R(hx + 1, hy - 1 + dy, 1, 5, o.skinD);
     r(hx + 2, hy + 3, 1, 3, '#e8e0d0'); r(hx - 2, hy + 4, 1, 2, '#e8e0d0'); // 帽繩
     const ey = p.eyes || 'open';
     if (ey === 'x') { r(hx - 3, hy - 1, 1, 1, '#1a1020'); r(hx - 2, hy, 1, 1, '#1a1020'); r(hx, hy - 1, 1, 1, '#1a1020'); r(hx + 1, hy, 1, 1, '#1a1020'); }
@@ -239,8 +244,8 @@
     else { r(hx - 3, hy - 1, 2, 1, '#7a5a50'); r(hx, hy - 1, 2, 1, '#7a5a50'); if (ey !== 'blink') { r(hx - 3, hy, 1, 1, '#1a1020'); r(hx, hy, 1, 1, '#1a1020'); } }
     if (p.mouth === 'o') r(hx - 2, hy + 2, 2, 2, '#4a1010'); else r(hx - 2, hy + 2, 2, 1, '#8a5a5a');
     // 前面那隻手垂到地上，輕輕晃
-    r(11, 25, 3, 10 + sw, o.hood); r(11, 25, 1, 10 + sw, o.hoodL); r(11, 35 + sw, 3, 2, o.skin);
-    return [[12, 36 + dy], [15, 35 + dy]];
+    r(9, 28, 3, 9 + sw, o.hood); r(9, 28, 1, 9 + sw, o.hoodL); r(9, 37 + sw, 3, 2, o.skin);
+    return [[10, 38 + dy], [13, 37 + dy]];
   }
   // ---------- 6 小混混：反戴鴨舌帽、白吊嘎、金項鍊、垮褲露內褲、滿身刺青（臉上也有）、手插口袋 ----------
   function thug(R, g, p, f) {
@@ -307,7 +312,7 @@
   P.pillFace = function () { if (cache.pf) return cache.pf; const [c, g] = P.canvas(23, 23); const R = (x, y, w, h, col) => { if (w <= 0 || h <= 0) return; g.fillStyle = col; g.fillRect(Math.round(x) - 7, Math.round(y) - 11, Math.round(w), Math.round(h)); };
     bigEyes(R, 13, 23, 18, 'open'); mouth(R, 18, 25, 'grin', {}); return (cache.pf = c); };
   // 頭像（HUD、選角清單用）：每個角色裁出臉的範圍，回傳 dataURL
-  const FACE = [[4, 7, 28, 28], [4, 1, 28, 28], [4, 3, 28, 28], [1, 5, 34, 34], [7, 0, 22, 22], [0, 17, 20, 20], [8, 3, 20, 20], [8, 1, 20, 20], [2, 6, 32, 32]], faceC = {};
+  const FACE = [[4, 7, 28, 28], [4, 1, 28, 28], [4, 3, 28, 28], [1, 5, 34, 34], [7, 0, 22, 22], [0, 18, 18, 18], [8, 3, 20, 20], [8, 1, 20, 20], [2, 6, 32, 32]], faceC = {};
   P.gangFace = function (i, img) {
     const key = i + '|' + (img ? (img.__id || (img.__id = Math.random())) : ''); if (faceC[key]) return faceC[key];
     const [x, y, w, h] = FACE[i % FACE.length], [c, g] = P.canvas(48, 48); g.imageSmoothingEnabled = false; g.drawImage(P.gangSprite(i, {}, 0, img ? { img } : null), x, y, w, h, 0, 0, 48, 48);
