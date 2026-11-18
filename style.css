@@ -254,7 +254,7 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .mono { position: relative; margin: 0 -10px; }
 .mono-hud { display: flex; gap: 6px; overflow-x: auto; padding: 4px 10px 8px; scrollbar-width: none; }
 .mp { flex: none; display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 14px; padding: 4px 10px 4px 4px; font-size: 12px; }
-.mp b { display: block; font-size: 12px; } .mp .cash { display: block; color: var(--gold); font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.mp b { display: block; font-size: 12px; } .mp .cname, .mcard-who .cname { display: block; font-style: normal; font-size: 10.5px; line-height: 1.2; font-weight: 700; filter: brightness(1.35) saturate(1.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .mcard-who .cname { font-size: 12px; } .mp .cash { display: block; color: var(--gold); font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
 .mp small { color: var(--muted); } .mp.turn { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); } .mp.dead { opacity: .4; filter: grayscale(1); }
 .mface { display: inline-grid; place-items: center; border-radius: 50%; background: #fff; border: 3px solid #ccc; overflow: hidden; flex: none; vertical-align: middle; }
 .mface img { width: 100%; height: 100%; object-fit: cover; } .mface i { font-style: normal; line-height: 1; }
@@ -315,6 +315,7 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .pick-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 12px; color: var(--muted); } .pick-who .ok { color: #7dffa0; }
 .pad { width: 240px; height: 240px; border-radius: 14px; background: #fff; touch-action: none; border: 2px solid #e6dcc6; }
 .mono-modal.top { z-index: 12; }
+.pxpad { width: min(276px, 72vw); height: auto; aspect-ratio: 1; image-rendering: pixelated; border-radius: 12px; touch-action: none; display: block; margin: 0 auto; }
 .pill-wrap { position: relative; width: 240px; height: 240px; margin: 0 auto; overflow: hidden; border-radius: 14px; } .pill-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgba(20,16,24,.55); pointer-events: none; outline: 2px dashed rgba(255,255,255,.7); outline-offset: -2px; } .pill-wrap .pad { border-radius: 14px; }
 .pad-tools button.on { outline: 3px solid var(--gold); }
 .pad-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; } .pad-tools button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #ccc; }

@@ -166,6 +166,9 @@
       if (!url) return null; const c = this._pills || (this._pills = {}); if (c[url]) return c[url].complete && c[url].naturalWidth ? c[url] : null;
       const im = new Image(); im.onload = () => { if (this.v) { this.renderHud && this.renderHud(); this.renderPick && this.renderPick(); } }; im.src = url; c[url] = im; return null;
     },
+    // 玩家卡上的角色名（朋友常問「你是誰」：開局後也看得到）
+    charLine(v, s) { const c = v.players[s] && v.players[s].char; if (!c) return ''; const th = TH()[v.theme], base = th.chars[c.i % th.chars.length];
+      return `<i class="cname" style="color:${base[2]}">${c.kind === 'custom' ? '✏️ 自畫角色' : U.esc(base[1])}</i>`; },
     faceHTML(v, s, size) {
       const ch = this.charOf(v, s); const img = ch && ch.custom ? this.avatarOf(s) : null;
       const sz = size || 34;
@@ -246,7 +249,7 @@
       hud.innerHTML = v.players.map((p, s) => `
         <div class="mp ${s === v.turn && v.phase !== 'over' ? 'turn' : ''} ${p.alive ? '' : 'dead'}" data-s="${s}">
           ${this.faceHTML(v, s, 34)}
-          <div><b>${U.esc(v.names[s])}${s === v.seat ? '（你）' : ''}</b><span class="cash" data-s="${s}">${p.alive ? (TH()[v.theme].coin || '💰') + fmt(p.cash) : '破產'}</span>${p.alive && v.assets ? `<span class="worth">總資產 ${fmt(v.assets[s].total)} ${unit}</span>` : ''}
+          <div><b>${U.esc(v.names[s])}${s === v.seat ? '（你）' : ''}</b>${this.charLine(v, s)}<span class="cash" data-s="${s}">${p.alive ? (TH()[v.theme].coin || '💰') + fmt(p.cash) : '破產'}</span>${p.alive && v.assets ? `<span class="worth">總資產 ${fmt(v.assets[s].total)} ${unit}</span>` : ''}
           <small>${p.skip ? `⏸${p.skip} ` : ''}${p.immune ? `🛡${p.immune} ` : ''}${p.jailfree ? `🎫${p.jailfree} ` : ''}${p.items && p.items.length ? `🎒${p.items.length} ` : ''}${p.invest && p.invest.length ? `📈${p.invest.length}` : ''}</small></div>
         </div>`).join('');
       hud.querySelectorAll('.mp').forEach(d => d.onclick = () => this.assetInfo(+d.dataset.s));
@@ -286,25 +289,31 @@
       box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const mdma = +b.dataset.i === 0 && !(v.players[v.seat] && v.players[v.seat].pill); this.ui.send({ type: 'pick', i: +b.dataset.i, pad: mdma }); if (mdma) setTimeout(() => this.pillPad(), 200); });
       const pb = box.querySelector('[data-pill]'); if (pb) pb.onclick = () => this.pillPad();
     },
-    // 媽的媽啊：在圓形藥丸上畫顏色和圖案（存成 32×32，跟著這一局走，不影響其他主題的自畫角色）
+    // 媽的媽啊：在像素格上畫藥丸（23×23，跟棋盤上的藥丸一格對一格，不會糊掉）；只有圓圈裡的格子能畫
     pillPad() {
-      const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null; m.classList.add('top'); const close = () => { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); };
-      m.innerHTML = `<div class="mm-card"><h3>💊 畫你的藥丸</h3><p class="hint">塗顏色、畫圖案都可以，只有圓圈裡面會用到</p><div class="pill-wrap"><canvas class="pad" width="240" height="240"></canvas><i class="pill-ring"></i></div>
-        <div class="pad-tools">${['#ff7ac8', '#e03131', '#f08c00', '#fab005', '#2f9e44', '#1971c2', '#ae3ec9', '#ffffff', '#8d6e63', '#222'].map(c => `<button data-c="${c}" style="background:${c}"></button>`).join('')}</div>
-        <div class="act-row"><button class="btn sm ghost" data-a="fill">整顆塗滿目前顏色</button><button class="btn sm ghost" data-a="cancel">用預設的</button><button class="btn" data-a="ok">用這顆藥丸</button></div></div>`;
-      const cv = m.querySelector('canvas'), g = cv.getContext('2d'); let col = '#222', drawing = false, last = null;
-      g.fillStyle = '#ff7ac8'; g.fillRect(0, 0, 240, 240); g.lineCap = g.lineJoin = 'round';
-      const pos = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 240, (e.clientY - r.top) / r.height * 240]; };
-      cv.onpointerdown = (e) => { drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); g.beginPath(); g.fillStyle = col; g.arc(last[0], last[1], 8, 0, 7); g.fill(); };
-      cv.onpointermove = (e) => { if (!drawing) return; const p = pos(e); g.strokeStyle = col; g.lineWidth = 16; g.beginPath(); g.moveTo(...last); g.lineTo(...p); g.stroke(); last = p; };
-      cv.onpointerup = cv.onpointercancel = () => drawing = false;
+      const N = 23, CELL = 12, m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null; m.classList.add('top'); const close = () => { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); };
+      const COLS = ['#ff7ac8', '#e03131', '#f08c00', '#fab005', '#2f9e44', '#3ad0ff', '#1971c2', '#ae3ec9', '#ffffff', '#8d6e63', '#222222'];
+      m.innerHTML = `<div class="mm-card"><h3>💊 畫你的藥丸</h3><p class="hint">點格子上色、按住拖曳可以連續畫；圓圈外的格子不會用到，虛線是眼睛和嘴巴會蓋住的位置</p><canvas class="pxpad" width="${N * CELL}" height="${N * CELL}"></canvas>
+        <div class="pad-tools">${COLS.map((c, k) => `<button data-c="${c}" class="${k === 0 ? 'on' : ''}" style="background:${c}"></button>`).join('')}</div>
+        <div class="act-row"><button class="btn sm ghost" data-a="fill">整顆塗滿這個顏色</button><button class="btn sm ghost" data-a="cancel">用預設的</button><button class="btn" data-a="ok">用這顆藥丸</button></div></div>`;
+      const cv = m.querySelector('canvas'), g = cv.getContext('2d'), inC = (x, y) => (x - 11) * (x - 11) + (y - 11) * (y - 11) <= 11.6 * 11.6;
+      const px = Array.from({ length: N * N }, () => '#ff7ac8'); let col = COLS[0], drawing = false;
+      const paint = () => { g.fillStyle = '#2a2230'; g.fillRect(0, 0, cv.width, cv.height);
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const ok = inC(x, y); g.fillStyle = ok ? px[y * N + x] : '#3a3240'; g.fillRect(x * CELL, y * CELL, CELL, CELL); if (ok) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(x * CELL + CELL - 1, y * CELL, 1, CELL); g.fillRect(x * CELL, y * CELL + CELL - 1, CELL, 1); } }
+        g.strokeStyle = 'rgba(255,255,255,.8)'; g.setLineDash([5, 4]); g.lineWidth = 2; g.beginPath(); g.arc(11.5 * CELL, 11.5 * CELL, 11.8 * CELL, 0, 7); g.stroke();
+        // 眼睛、嘴巴會蓋在這些位置（淡淡的虛線提示）
+        g.strokeStyle = 'rgba(30,20,40,.55)'; g.setLineDash([3, 3]); g.lineWidth = 1.5; [[6.5, 7.5], [16.5, 7.5]].forEach(([x, y]) => { g.beginPath(); g.arc(x * CELL, y * CELL, 4.6 * CELL, 0, 7); g.stroke(); }); g.strokeRect(7.6 * CELL, 13.6 * CELL, 7.8 * CELL, 3.8 * CELL); g.setLineDash([]); };
+      const hit = (e) => { const r = cv.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / r.width * N), y = Math.floor((e.clientY - r.top) / r.height * N); if (x < 0 || y < 0 || x >= N || y >= N || !inC(x, y)) return; if (px[y * N + x] !== col) { px[y * N + x] = col; paint(); } };
+      cv.onpointerdown = (e) => { drawing = true; cv.setPointerCapture(e.pointerId); hit(e); }; cv.onpointermove = (e) => { if (drawing) hit(e); }; cv.onpointerup = cv.onpointercancel = () => drawing = false;
       m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { col = b.dataset.c; m.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
-      m.querySelector('[data-a="fill"]').onclick = () => { g.fillStyle = col; g.fillRect(0, 0, 240, 240); };
+      m.querySelector('[data-a="fill"]').onclick = () => { px.fill(col); paint(); };
       m.querySelector('[data-a="cancel"]').onclick = () => { close(); this.ui.send({ type: 'pill', skip: true }); this.showPrompt(); };
       m.querySelector('[data-a="ok"]').onclick = () => {
-        const small = document.createElement('canvas'); small.width = small.height = 32; const sg = small.getContext('2d'); sg.imageSmoothingEnabled = true; sg.drawImage(cv, 0, 0, 32, 32);
-        this.ui.send({ type: 'pill', img: small.toDataURL('image/png') }); close(); setTimeout(() => this.showPrompt(), 300);
+        const out = document.createElement('canvas'); out.width = out.height = N; const og = out.getContext('2d');
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (inC(x, y)) { og.fillStyle = px[y * N + x]; og.fillRect(x, y, 1, 1); }
+        this.ui.send({ type: 'pill', img: out.toDataURL('image/png') }); close(); setTimeout(() => this.showPrompt(), 300);
       };
+      paint();
     },
     drawPad(after) {
       const m = this.el.querySelector('.mono-modal'); m.hidden = false;
@@ -524,7 +533,7 @@
       const rows = a.tiles.map(i => { const t = R().BOARD[i]; return `<li><i style="background:${t.color}"></i>${U.esc(R().tileName(v.theme, i))}<span>${v.levels[i] ? '🏠 Lv' + v.levels[i] : '空地'}</span></li>`; }).join('');
       m.hidden = false;
       const pk = th.perks && v.players[s].char && v.players[s].char.kind === 'preset' ? th.perks[v.players[s].char.i] : null;
-      m.innerHTML = `<div class="mm-card tinfo assets"><div class="mcard-who">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b></div>${pk ? `<div class="perk-mini"><span class="pro">＋ ${U.esc(pk.pro)}</span><span class="con">－ ${U.esc(pk.con)}</span>${v.players[s].jailChoice ? `<span>👃 免進監獄還剩 ${v.players[s].jailChoice} 次</span>` : ''}</div>` : ''}
+      m.innerHTML = `<div class="mm-card tinfo assets"><div class="mcard-who">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b>${this.charLine(v, s)}</div>${pk ? `<div class="perk-mini"><span class="pro">＋ ${U.esc(pk.pro)}</span><span class="con">－ ${U.esc(pk.con)}</span>${v.players[s].jailChoice ? `<span>👃 免進監獄還剩 ${v.players[s].jailChoice} 次</span>` : ''}</div>` : ''}
         ${v.players[s].alive ? `<table class="atab"><tr><td>現金</td><td>${fmt(a.cash)} ${th.unit}</td></tr><tr><td>地價（${a.tiles.length} 塊）</td><td>${fmt(a.land)} ${th.unit}</td></tr><tr><td>建築</td><td>${fmt(a.bld)} ${th.unit}</td></tr><tr class="sum"><td>總資產</td><td>${fmt(a.total)} ${th.unit}</td></tr></table>
         ${rows ? `<ul class="alist">${rows}</ul>` : '<p class="hint">還沒有地</p>'}` : '<p>已破產</p>'}
         <div class="act-row"><button class="btn sm ghost" data-where>看他在哪</button>${s === v.seat && v.players[s].alive && v.phase !== 'over' ? '<button class="btn sm ghost" data-mydraw>✏️ 換成我畫的角色</button>' : ''}<button class="btn sm" data-x>關閉</button></div></div>`;
