@@ -306,7 +306,8 @@
     g.restore(); }
   TW.hound = function (ui, SFX, e) {
     const me = seatSprite(ui.v, e && e.seat >= 0 ? e.seat : 0), coins = Array.from({ length: 16 }, () => ({ vx: rnd(-1.6, 1.2), vy: rnd(-2.6, -1.2), d: rnd(0, 0.25) }));
-    const snd = () => { const K = kit(SFX); if (!K) return; K.wind(0, 6.5, 0.06); K.heart(0, 6, 70, 0.35, 1.6); K.drone(0, 6.5, [36.7, 38.9, 55], { lp: 260, vol: 0.1, sweep: 400 });
+    const cbr = [-1, 1, -1, 1].map((sd, k) => ({ s: sd, n: 6 + k * 2, d: Array.from({ length: 12 }, () => Math.round(rnd(-2, 2))) })), chunks = Array.from({ length: 14 }, () => ({ vx: rnd(-1.4, 1.4), vy: rnd(-2.4, -1), s: Math.random() < 0.4 ? 3 : 2 })), fog = Array.from({ length: 8 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(0.02, 0.06), r: rnd(10, 18) }));
+    const snd = () => { const K = kit(SFX); if (!K) return; K.wind(0, 6.5, 0.08); K.choir(0.2, 5.5, [55, 58.3, 82.4], { v: 'oo', vol: 0.05, bend: 0.97 }); K.heart(0, 6, 70, 0.35, 1.6); K.drone(0, 6.5, [36.7, 38.9, 55], { lp: 260, vol: 0.1, sweep: 400 });
       K.crack(0.5, 0.8, 0.35); K.boom(0.9, 70, 25, 1.2, 0.5); K.growl(1.0, 1.0, 55, 0.3); K.howl(1.3, 1.2, 330, 0.12);
       for (let i = 0; i < 8; i++) K.drum(1.5 + i * 0.11, 70, 0.14, 0.08);
       K.whoosh(2.3, 0.35, false, 0.3); K.growl(2.5, 0.6, 80, 0.4); K.tear(2.6, 0.3, 0.3); K.stinger(2.55, 0.22);
@@ -314,15 +315,27 @@
       for (let i = 0; i < 9; i++) K.drum(3.2 + i * 0.11, 70, 0.12, 0.08); K.growl(4.0, 0.8, 50, 0.3); K.boom(4.3, 60, 22, 1.4, 0.5); K.crack(4.4, 0.5, 0.25); K.howl(4.9, 1.3, 260, 0.06); };
     return pix(ui, 6500, (g, W, Hh, t) => {
       const sk = (t > 2.5 && t < 2.8) || (t > 0.9 && t < 1.1) ? 2 : 0; g.save(); shk(g, sk);
-      const hy = street(g, W, Hh, t, { lampX: 0.62 }), gy = hy + 30, vx = Math.round(W * 0.3), cx = Math.round(W * 0.84), cy = hy + 24;
+      const hy = street(g, W, Hh, t, { lampX: 0.62, up: true, noLamp: false }), gy = hy + 30, vx = Math.round(W * 0.28), cx = Math.round(W * 0.8), cy = hy + 26;
+      // 整個畫面壓一層暗紅＋從地面冒的紅霧，比平常的小鎮更不祥
+      g.globalAlpha = 0.28 + Math.sin(t * 2) * 0.05; R(g, 0, 0, W, Hh, '#3a0006'); g.globalAlpha = 1; fog.forEach(f => { const x = ((f.x + t * f.v) % 1.2 - 0.1) * W; g.globalAlpha = 0.18; disc(g, x, hy + 8 + f.y * 30, f.r, '#7a0a12'); }); g.globalAlpha = 1;
       // 路面裂縫：張開→魔狗出入→闔上
-      const op = t < 0.5 ? 0 : t < 1.0 ? ease((t - 0.5) / 0.5) : t < 4.4 ? 1 : 1 - ease(clamp((t - 4.4) / 0.6)); if (op > 0) { glow(g, cx, cy, 14 * op + Math.sin(t * 9) * 1.5, '255,40,30', 0.6 * op); const cw = Math.round(16 * op); R(g, cx - cw, cy - 1, cw * 2, 3, '#050002'); R(g, cx - cw + 3, cy - 2, cw * 2 - 6, 1, '#050002'); R(g, cx - cw, cy - 2, cw * 2, 1, '#ff4a2a'); R(g, cx - cw + 2, cy + 2, cw * 2 - 4, 1, '#c0201a'); }
+      const op = t < 0.5 ? 0 : t < 1.0 ? ease((t - 0.5) / 0.5) : t < 4.4 ? 1 : 1 - ease(clamp((t - 4.4) / 0.6));
+      if (op > 0) { const cw = Math.round(42 * op), chh = 14 * op;
+        glow(g, cx, cy, 34 * op + Math.sin(t * 9) * 3, '255,40,30', 0.7 * op);
+        // 往上衝的紅光柱
+        g.globalAlpha = 0.22 * op; for (let x = -cw * 0.7; x < cw * 0.7; x++) { const h = (1 - Math.abs(x) / (cw * 0.7)) * 90 * (0.7 + Math.sin(x * 0.7 + t * 6) * 0.3); R(g, cx + x, cy - h, 1, h, '#ff3a2a'); } g.globalAlpha = 1;
+        // 往兩側裂開的細縫
+        cbr.forEach(b => { let x = cx + b.s * cw * 0.85, y = cy; const n = Math.floor(b.n * op); for (let k = 0; k < n; k++) { const nx = x + b.s * 3, ny = y + b.d[k]; line(g, x, y, nx, ny, '#ff4a2a', 1); x = nx; y = ny; } });
+        // 鋸齒狀的大洞：黑色深處＋紅色邊緣
+        for (let x = -cw; x <= cw; x++) { const u = x / cw, h = Math.max(1, chh * (1 - u * u) * (0.65 + 0.35 * Math.sin(x * 1.7))); R(g, cx + x, cy - h, 1, h * 2, '#050002'); R(g, cx + x, cy - h - 1, 1, 1, '#ff6a3a'); R(g, cx + x, cy + h, 1, 1, '#c0201a'); if (h > 3) R(g, cx + x, cy - 1, 1, 2, Math.sin(x + t * 8) > 0.6 ? '#7a0a0a' : '#2a0204'); }
+        // 裂開瞬間噴起的柏油碎塊
+        if (t > 0.5 && t < 1.6) chunks.forEach(c => { const a = t - 0.5; R(g, cx + c.vx * a * 40, cy + c.vy * a * 40 + a * a * 90, c.s, c.s, '#2a2628'); }); }
       // 破產者以外的「被襲擊者」：被撲倒後坐在地上
       const hit = t >= 2.55, fall = clamp((t - 2.55) / 0.3);
       const vp = t < 1.0 ? { eyes: 'open', mouth: 'smile', arms: ['down', 'down'] } : { eyes: 'wide', mouth: 'o', arms: hit ? ['out', 'up'] : ['out', 'out'] };
       // 魔狗位置
       let hx = cx, hyy = cy + 2, flip = false, run = false, jaw = 0, rot = 0, bag = false, alpha = 1;
-      if (t < 1.0) alpha = 0; else if (t < 1.5) { const k = ease((t - 1.0) / 0.5); hyy = cy + 36 * (1 - k); rot = 0.3 * (1 - k); jaw = 0.6; }
+      if (t < 1.0) alpha = 0; else if (t < 1.5) { const k = ease((t - 1.0) / 0.5); hyy = cy + 40 * (1 - k); rot = 0.3 * (1 - k); jaw = 0.6; }
       else if (t < 2.3) { const k = (t - 1.5) / 0.8; hx = cx + (vx + 50 - cx) * k; run = true; jaw = 0.4; if (Math.floor(t * 9) % 2) puff(hx + 20, gy - 4, 1, t); hyy = gy; }
       else if (t < 2.6) { const k = (t - 2.3) / 0.3; hx = vx + 50 - 22 * k; hyy = gy - Math.sin(k * Math.PI) * 14; jaw = 1; rot = -0.2; }
       else if (t < 3.1) { hx = vx + 28; hyy = gy; jaw = t < 2.9 ? 1 : 0.3; bag = t > 2.9; }
