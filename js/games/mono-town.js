@@ -265,10 +265,11 @@
         const rise = ease(clamp((t - 0.2) / 0.8)), leap = clamp((t - 1.4) / 0.4), land = t >= 1.8, V = vx0 + 30, mx = V + 34, fx = V - 32, top = P.CHARS[vi] ? P.CHARS[vi].o.top : '#8a8a96';
         vx = V; let x = mx, y = gy + (1 - rise) * 40, rot = 0, pose = { arms: ['down', 'down'], eyes: 'glow', legs: 'stand' };
         if (t > 1.0 && leap <= 0) { pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'a', mouth: 'o', dy: 3 }; rot = -0.15; }
-        if (leap > 0 && !land) { const e2 = ease(leap); x = mx + (fx - mx) * e2; y = gy - Math.sin(leap * Math.PI) * 30; rot = -0.25 - e2 * 0.3; pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'jump', mouth: 'o' }; vp = { arms: ['out', 'out'], eyes: 'wide', mouth: 'o' }; }
-        if (land) { const fall = clamp((t - 1.8) / 0.25), maul = t < 4.0, k3 = clamp((t - 4.0) / 0.4); x = fx; y = gy;
-          vx = V - fall * 6; vr = -fall * 1.57; vp = { arms: ['out', 'out'], eyes: t > 2.8 ? 'x' : 'wide', mouth: 'o', dy: maul && t < 2.8 ? Math.floor(t * 16) % 2 : 0 }; if (t > 2.6) vtint = '#3a0408';
-          if (maul) { const bite = Math.sin(t * 22); rot = -0.06; y = gy + 2; pose = { arms: Math.floor(t * 6) % 2 ? ['up', 'down'] : ['down', 'up'], eyes: 'glow', crouch: true, mouth: bite > 0 ? 'o' : 'shut', dy: bite > 0 ? 3 : 0 }; sk = 2;
+        if (leap > 0 && !land) { const e2 = ease(leap); x = mx + (V + 6 - mx) * e2; y = gy - Math.sin(leap * Math.PI) * 26; rot = -0.25 - e2 * 0.3; pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'jump', mouth: 'o' }; vp = { arms: ['out', 'out'], eyes: 'wide', mouth: 'o' }; }
+        if (land) { const fall = clamp((t - 1.8) / 0.25), maul = t < 4.0, k3 = clamp((t - 4.0) / 0.4); x = V + 6 + (fx - V - 6) * ease(fall); y = gy - (1 - fall) * 6;
+          vx = V - fall * 4; vr = -ease(fall) * 1.57; vp = { arms: ['out', 'out'], eyes: t > 2.8 ? 'x' : 'wide', mouth: 'o', dy: maul && t < 2.8 ? Math.floor(t * 16) % 2 : 0 }; if (t > 2.6) vtint = '#3a0408';
+          if (fall < 1) { rot = -0.55 * (1 - fall); pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'jump', mouth: 'o' }; sk = 3; hit('i', V - 4, gy - 40, 30); }
+          else if (maul) { const bite = Math.sin(t * 22); rot = -0.06; y = gy + 2; pose = { arms: Math.floor(t * 6) % 2 ? ['up', 'down'] : ['down', 'up'], eyes: 'glow', crouch: true, mouth: bite > 0 ? 'o' : 'shut', dy: bite > 0 ? 3 : 0 }; sk = 2;
             hit('a', V - 30, gy - 10, 40); const n = Math.floor((t - 2.0) / 0.26); if (n >= 0 && !sd['m' + n]) { sd['m' + n] = 1; spray(V - 30 + rnd(-8, 8), gy - 12, 14, 2.4, t); spray(V - 30, gy - 12, 4, 2.6, t, top); } }
           else { rot = 0; y = gy + 2 * (1 - k3); pose = { arms: ['up', 'up'], eyes: 'glow', legs: 'stand', crouch: k3 < 0.4, mouth: 'o' }; sk = k3 > 0.3 && t < 4.6 ? 2 : 0; } }
         g.globalAlpha = rise; glow(g, x - Math.sin(-rot) * 50, y - Math.cos(rot) * (pose.crouch ? 38 : 55), 16 + Math.sin(t * 6) * 3, '255,40,40', 0.5 * rise); g.globalAlpha = 1;
