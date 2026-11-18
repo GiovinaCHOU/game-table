@@ -110,7 +110,7 @@
     id: 'monopoly', name: '大富翁', icon: '🎩', min: 2, max: 6,
     desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢、房子越多繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
     options: [
-      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
+      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['town', '🚲 怪奇小鎮'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
       { key: 'layout', label: '地圖排列', choices: [['random', '每局隨機（角落不動、同色地相連）'], ['fixed', '固定']], def: 'random' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
@@ -289,6 +289,7 @@
       b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, alive: p.alive, name: v.names[s], evolved: p.evolved, frog: !!p.frog }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
+      if (b.scene && b.scene.userData.decay) b.scene.userData.decay(v.round); // 怪奇小鎮：回合越後面越被倒影世界侵蝕
       b.setTurn(v.phase === 'over' ? -1 : v.turn);
       // 換人時鏡頭自動切到輪到的人（自己拖地圖後，這一輪就不再自動跟）；輪到自己一定拉回來
       if (!mid && v.phase !== 'over' && this._camTurn !== v.turn) { this._camTurn = v.turn; this._camFree = false; b.focusSeat(v.turn, true); }
@@ -381,13 +382,14 @@
                 }
                 break;
               }
-              if ((v.theme === 'buddha' || v.theme === 'magic') && root.MONO_EGGS) {
+              if ((v.theme === 'buddha' || v.theme === 'magic' || v.theme === 'town') && root.MONO_EGGS) {
                 SFX.doom(); this._played = true; const by = e.by >= 0 && b.tokens[e.by] ? e.by : -1;
                 if (v.theme === 'buddha') this.feed(by >= 0 ? `🔥 ${this.who(e.seat)} 破產了，被 ${this.who(by)} 打入十八層地獄` : `🔥 ${this.who(e.seat)} 破產了，閻羅判官判他下十八層地獄`, 'big');
+                else if (v.theme === 'town') this.feed(by >= 0 ? `🩸 ${this.who(e.seat)} 破產了，被 ${this.who(by)} 解決` : `🩸 ${this.who(e.seat)} 破產了，被倒影世界的藤蔓拖進地底`, 'big');
                 else this.feed(by >= 0 ? `💀 ${this.who(e.seat)} 破產了，被 ${this.who(by)} 解決` : `💀 ${this.who(e.seat)} 破產了，被魔法書吸進去`, 'big');
                 if (by >= 0) { b.mood(by, 'joy', 2000); b.lunge && await b.lunge(by, e.seat); }
                 b.mood(e.seat, 'fall');
-                await root.MONO_EGGS[v.theme === 'buddha' ? 'hell' : 'magicDeath'].call(this, SFX, { seat: e.seat, by });
+                await root.MONO_EGGS[v.theme === 'buddha' ? 'hell' : v.theme === 'town' ? 'townDeath' : 'magicDeath'].call(this, SFX, { seat: e.seat, by });
                 if (b.tokens[e.seat]) b.tokens[e.seat].r.g.visible = false;
                 break;
               }
@@ -487,10 +489,10 @@
       };
     },
     effText(eff, th, mul) {
-      const [k, v0] = eff.split(':'); const v = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix'].includes(k) ? Math.round(+v0 * (mul || 1) / 100) * 100 : +v0; const u = th.unit;
+      const [k, v0] = eff.split(':'); const v = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix', 'xlights', 'd20'].includes(k) ? Math.round(+v0 * (mul || 1) / 100) * 100 : +v0; const u = th.unit;
       return { m: v >= 0 ? `+${fmt(v)} ${u}` : `-${fmt(-v)} ${u}`, mv: v >= 0 ? `前進 ${v} 格` : `後退 ${-v} 格`, go: '前往起點並領獎金', gonb: '回到起點（不領錢）', jail: `進入${th.corners.jail}`,
         skip: `暫停 ${v} 回合`, immune: '獲得 🛡 抵擋一次厄運', jailfree: `獲得 🎫 免進${th.corners.jail}一次`, up: '免費升級一棟建築', down: '一棟建築降一級',
-        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，賠 ${fmt(-v)} ${u}（最多現金的 35%）`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合', again: '⏳ 再擲一次', sync: `+${fmt(v)} ${u}，下一次過路費免付`, trance: '下一次擲骰自己選點數（2～12）', ghost: `失去 ${v}% 現金`, birds: `接下來 ${v} 次過路費加倍`, bag: `+${fmt(v)} ${u}`, goblin: `+${fmt(v)} ${u}`, phoenix: '現金補回開局金額（已經比開局多就再加一筆）', mandrake: `停 1 回合，失去 ${v}% 現金`, frog: `變成蟾蜍 3 回合（前 ${v} 回合停住不能動）` }[k] || '';
+        each: `每位玩家付你 ${fmt(v)} ${u}`, give: `你付每位玩家 ${fmt(v)} ${u}`, house: `每一級建築付 ${fmt(-v)} ${u}`, pct: `失去 ${-v}% 現金`, teleport: '隨機傳送', mig: `🦓 跟著獸群前進 ${v} 格`, war: v > 0 ? `你的陣營勝利，+${fmt(v)} ${u}` : `你的陣營戰敗，賠 ${fmt(-v)} ${u}（最多現金的 35%）`, link: `+${fmt(v)} ${u}，並獲得一次厄運免疫`, evo: `失去 ${v}% 現金、停 1 回合，身體永久變成金屬`, cat: `🐈 頭暈，停 ${v} 回合`, gate: '🌀 自己選目的地，穿越星門', gm: `🌀 +${fmt(v)} ${u}`, gagain: '🌀 這回合再擲一次', gtp: '🌀 被丟到隨機一格', psycho: '失去 30% 現金、兩棟建築降級、停兩回合', again: '⏳ 再擲一次', sync: `+${fmt(v)} ${u}，下一次過路費免付`, trance: '下一次擲骰自己選點數（2～12）', ghost: `失去 ${v}% 現金`, birds: `接下來 ${v} 次過路費加倍`, bag: `+${fmt(v)} ${u}`, goblin: `+${fmt(v)} ${u}`, phoenix: '現金補回開局金額（已經比開局多就再加一筆）', mandrake: `停 1 回合，失去 ${v}% 現金`, frog: `變成蟾蜍 3 回合（前 ${v} 回合停住不能動）`, xlights: `+${fmt(v)} ${u}`, psy: `從其他每位玩家身上吸走 ${v}% 現金`, flip: `停 1 回合，失去 ${v}% 現金`, clock: `失去 ${v}% 現金，被丟進${th.corners.jail}`, d20: '擲 20 面骰：20 點賺兩倍、11 點以上賺錢、10 點以下賠錢、1 點失去 20% 現金' }[k] || '';
     },
     // ===== 道具 =====
     itemName(k) { const I = root.MONO_ITEMS.NAMES[this.v.theme][k]; return I[1] + ' ' + I[0]; },

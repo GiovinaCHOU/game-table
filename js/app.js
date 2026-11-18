@@ -113,7 +113,7 @@
   $('#pilotBtn').onclick = () => { const me = R.room && R.room.members.find(m => m.cid === R.cid); const on = !(me && me.auto); R.send({ t: 'autopilot', on }); toast(on ? '已開啟託管：系統會幫你出牌，再按一次取消' : '已取消託管'); };
   R.cb.room = (room) => {
     // 桌面風格：平常都是星雲霓虹；大富翁開局後跟著選的主題（不用另外選）
-    { const th = room.game && room.game.id === 'monopoly' && room.game.opts && room.game.opts.theme; document.body.dataset.skin = ['ragnarok', 'cyber', 'animal', 'buddha', 'magic', 'alien'].includes(th) ? th : 'nebula'; }
+    { const th = room.game && room.game.id === 'monopoly' && room.game.opts && room.game.opts.theme; document.body.dataset.skin = ['ragnarok', 'cyber', 'animal', 'buddha', 'magic', 'alien', 'town'].includes(th) ? th : 'nebula'; }
     { const me = room.members.find(m => m.cid === R.cid); const seated = room.game && me && room.game.seats.includes(me.cid);
       $('#pilotBtn').hidden = !seated; $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
     renderMembers(room);

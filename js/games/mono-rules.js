@@ -172,8 +172,8 @@
   }
   function mine(st, s) { return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s); }
 
-  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin'];
-  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix'];
+  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin', 'xlights', 'd20'];
+  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix', 'xlights', 'd20'];
   const PLAIN_CARD = ['m', 'up', 'mv', 'go', 'jailfree', 'each', 'immune', 'teleport', 'jail', 'skip', 'house', 'down', 'give', 'pct', 'gonb', 'again'];
   function drawCard(st, deck) {
     const th = TH()[st.theme]; const list = th[deck === 'luck' ? 'lucky' : 'bad'];
@@ -192,7 +192,7 @@
     const [k, v0] = card.eff.split(':');
     // 彩蛋卡的金額跟著通膨放大（最多 3 倍），一般卡不變
     const mul = EGG_MONEY.includes(k) ? Math.min(3, inflation(st)) : 1, v = MONEY_KEYS.includes(k) ? Math.round(+v0 * mul / 100) * 100 : +v0; // 只有金額取整到百；百分比、格數、回合數用原值
-    ev(st, { t: 'card', seat: s, deck, text: card.text, eff: card.eff, mul });
+    const ce = { t: 'card', seat: s, deck, text: card.text, eff: card.eff, mul }; ev(st, ce);
     if (deck === 'bad' && p.immune > 0) { p.immune--; ev(st, { t: 'immune', seat: s }); return; }
     switch (k) {
       // ===== 神佛之境 =====
@@ -205,6 +205,17 @@
       case 'goblin': st.anim += 1500; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '金庫妖精' }); break;
       case 'phoenix': { st.anim += 6800; const full = st.startCash || 50000; const add = p.cash < full ? full - p.cash : Math.round(v * Math.min(3, inflation(st)) / 100) * 100; p.cash += add; ev(st, { t: 'cash', seat: s, amt: add, why: '鳳凰重生' }); break; }
       case 'mandrake': st.anim += 4500; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, Math.floor(p.cash * v / 100), '曼德拉草'); break;
+      // ===== 怪奇小鎮 =====
+      case 'xlights': st.anim += 5800; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '聖誕燈拼字' }); break;
+      case 'psy': { st.anim += 5200; let got = 0; st.players.forEach((o, k) => { if (k === s || !o.alive || o.immune > 0) return; const a = Math.floor(Math.max(0, o.cash) * v / 100 / 100) * 100; if (a > 0) got += pay(st, k, s, a, '念力爆發') || 0; }); ev(st, { t: 'note', seat: s, text: `🧠 念力爆發：從其他人身上吸走 ${v}% 現金` }); break; }
+      case 'flip': st.anim += 6200; p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); pay(st, s, -1, Math.floor(p.cash * v / 100), '倒影入侵'); break;
+      case 'clock': st.anim += 6500; pay(st, s, -1, Math.floor(p.cash * v / 100), '老爺鐘詛咒'); if (p.alive) sendJail(st, s); break;
+      case 'd20': { st.anim += 5200; const r = 1 + Math.floor(Math.random() * 20); ce.roll = r;
+        if (r === 20) { const a = v * 2; p.cash += a; ev(st, { t: 'cash', seat: s, amt: a, why: '命運之骰 20 點大成功' }); }
+        else if (r === 1) pay(st, s, -1, Math.floor(p.cash * 0.2), '命運之骰 1 點大失敗');
+        else if (r >= 11) { const a = Math.round(v * r / 20 / 100) * 100; p.cash += a; ev(st, { t: 'cash', seat: s, amt: a, why: `命運之骰 ${r} 點` }); }
+        else pay(st, s, -1, Math.round(v * (11 - r) / 40 / 100) * 100, `命運之骰 ${r} 點`);
+        break; }
       case 'frog': st.anim += 4500; p.skip += v; p.frog = true; p.frogT = 3; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;
       case 'gm': p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '星門彼端' }); break;
       case 'again': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
@@ -263,6 +274,7 @@
     cyber: { tile: '地下黑市', trap: ['病毒植入', '🦠'], steal: ['駭入帳戶', '💻'], invest: ['加密貨幣', '📈'], bomb: ['無人機空襲', '🛩️'], shield: ['防火牆', '🧱'] },
     animal: { tile: '松鼠的寶藏', trap: ['香蕉皮', '🍌'], steal: ['浣熊順手牽羊', '🦝'], invest: ['松鼠存糧', '🐿️'], bomb: ['河馬踩踏', '🦛'], shield: ['龜殼護盾', '🐢'] },
     buddha: { tile: '法器鋪', trap: ['下符咒', '📜'], steal: ['五鬼搬運', '👻'], invest: ['點光明燈', '🏮'], bomb: ['雷公電母', '⚡'], shield: ['平安符', '🧧'] },
+    town: { tile: '漫畫桌遊店', trap: ['捕獸夾', '🪤'], steal: ['隱形窺視', '👀'], invest: ['街機高分榜', '🕹️'], bomb: ['自製煙火', '🎆'], shield: ['鹽圈', '🧂'] },
     magic: { tile: '魔法雜貨舖', trap: ['沉睡咒', '💤'], steal: ['隱形斗篷', '🧥'], invest: ['鍊金術', '⚗️'], bomb: ['火龍吐息', '🔥'], shield: ['守護結界', '🔰'] },
     alien: { tile: '遺落艙', trap: ['寄生卵', '🥚'], steal: ['觸手竊取', '🦑'], invest: ['孢子培養', '🍄'], bomb: ['孢子腐蝕', '☣️'], shield: ['幾丁質護甲', '🪲'] }
   };

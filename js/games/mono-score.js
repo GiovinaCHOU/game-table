@@ -96,7 +96,18 @@
       cry(t, d, f, vol) { // 鳥類的高亢長鳴（鳳凰）
         const g = bus(0.8), b = filt('bandpass', f * 1.5, 2); [0, 1].forEach(k => { const s = osc(k ? 'sawtooth' : 'triangle', f, t, d); s.frequency.exponentialRampToValueAtTime(f * 1.7, at(t) + d * 0.2); s.frequency.exponentialRampToValueAtTime(f * 1.2, at(t) + d); lfo(s.frequency, t, d, 11, f * 0.03); s.connect(b); }); b.connect(g); env(g, t, 0.03, d * 0.4, d * 0.55, vol || 0.08); },
       hooves(t, n, step, vol) { for (let k = 0; k < n; k++) [0, 0.07].forEach(o => K.drum(t + k * step + o, 140, (vol || 0.2) * rnd(0.6, 1), 0.08)); },
-      chime(t, f, vol) { K.bell(t, f, 2.4, vol || 0.05); }
+      chime(t, f, vol) { K.bell(t, f, 2.4, vol || 0.05); },
+      // 80 年代合成器：方波／鋸齒波琶音，通過會慢慢打開的低通
+      synth(t, notes, step, vol, type, cut) { const lp = filt('lowpass', cut || 1800, 4), g = bus(0.7); lp.connect(g); env(g, t, 0.05, Math.max(0, notes.length * step - 0.3), 0.4, vol || 0.05);
+        notes.forEach((f, i) => { if (!f) return; const o = osc(type || 'square', f, t + i * step, step * 0.9), gg = c.createGain(); env(gg, t + i * step, 0.005, step * 0.4, step * 0.45, 1); o.connect(gg).connect(lp); }); },
+      // 電吉他強力和弦（失真）
+      guitar(t, fs, d, vol) { const ws = c.createWaveShaper(), cur = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; cur[i] = Math.tanh(x * 9); } ws.curve = cur; const g = bus(0.5), lp = filt('lowpass', 3200, 1); ws.connect(lp).connect(g);
+        fs.forEach(f => [0, 6].forEach(dt => { const o = osc('sawtooth', f, t, d); o.detune.value = dt; lfo(o.frequency, t, d, 5.5, f * 0.01); o.connect(ws); })); env(g, t, 0.01, d * 0.5, d * 0.5, vol || 0.12); },
+      // 電流嗡嗡聲＋燈泡啪滋閃爍
+      buzz(t, d, vol) { const o = osc('sawtooth', 60, t, d), b = filt('bandpass', 180, 2), g = bus(0.2), am = c.createGain(); am.gain.value = 0.6; lfo(am.gain, t, d, 13, 0.5); o.connect(b).connect(am).connect(g); env(g, t, 0.05, d - 0.2, 0.15, vol || 0.06);
+        for (let k = 0; k < d * 5; k++) { const st = t + rnd(0, d), n = nz(st, 0.03), hb = filt('highpass', 3000), g2 = bus(0.2); env(g2, st, 0.001, 0, 0.03, (vol || 0.06) * 1.5); n.connect(hb).connect(g2); } },
+      // 老爺鐘：滴答聲
+      tick(t, n, step, vol) { for (let k = 0; k < n; k++) { const st = t + k * step, g = bus(0.5); env(g, st, 0.001, 0, 0.05, (vol || 0.12) * (k % 2 ? 0.7 : 1)); osc('square', k % 2 ? 1900 : 2300, st, 0.06).connect(filt('bandpass', 2200, 8)).connect(g); } }
     };
     return K;
   }

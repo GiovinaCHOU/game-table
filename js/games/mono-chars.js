@@ -554,11 +554,121 @@
     return r;
   }
 
+
+  // ===== 怪奇小鎮：80 年代小鎮的原創角色 =====
+  function town(T, i, color) {
+    const jeans = PM(T, 'stripes', '#3a5a8a', '#34527e', 6, { roughness: 0.9 }), sneaker = M(T, '#f2f2ee', { roughness: 0.6 });
+    const skinA = M(T, '#f2cfb0', { roughness: 0.6 }), skinB = M(T, '#d9a780', { roughness: 0.6 });
+    const curls = (head, mat, n, r0, yTop) => { let made = 0; for (let k = 0; made < n && k < n * 4; k++) { const a = k * 2.399, h = (k % n) / n; const y = yTop - h * 0.16, rr = r0 * (0.75 + 0.25 * Math.sin(h * 3)); const x = Math.cos(a) * rr, z = Math.sin(a) * rr - 0.02;
+      if (z > 0.02 && y < 0.07) continue; made++; mesh(T, new T.SphereGeometry(0.042 + (k % 3) * 0.006, 8, 6), mat, x, y, z, head); } }; // 只長在頭頂、後腦和兩側，不蓋到臉
+    if (i === 7) { // 花臉怪：又高又瘦、灰紅皮膚，頭會像花瓣一樣裂開，裡面一圈一圈尖牙
+      const hide = PM(T, 'fur', '#4a2a2c', '#6a3a38', 3, { roughness: 0.7 }), flesh = M(T, '#b8343c', { roughness: 0.35, emissive: '#400', emissiveIntensity: 0.4 }), tooth = M(T, '#efe8d8', { roughness: 0.3 });
+      const r = humanoid(T, { bodyMat: hide, legMat: hide, armMat: hide, headMat: hide, handMat: hide, eyes: false, scale: 1.25, limbR: 0.042, torsoR: 0.1, headR: 0.1 });
+      r.torso.scale.set(0.9, 1.2, 0.7); r.arms.forEach(a => { a.scale.y = 1.45; a.rotation.z = (a.position.x < 0 ? 1 : -1) * 0.12; });
+      r.skull.visible = false; r.head.position.y += 0.02;
+      const throat = mesh(T, new T.SphereGeometry(0.05, 12, 10), flesh, 0, 0.02, 0, r.head);
+      for (let k = 0; k < 12; k++) { const th = mesh(T, new T.ConeGeometry(0.008, 0.04, 4), tooth, Math.cos(k * 0.524) * 0.045, 0.05, Math.sin(k * 0.524) * 0.045, r.head); th.rotation.set(Math.sin(k * 0.524) * 0.9, 0, -Math.cos(k * 0.524) * 0.9); }
+      const petals = []; for (let k = 0; k < 5; k++) { const yaw = new T.Group(); yaw.rotation.y = k / 5 * Math.PI * 2; r.head.add(yaw);
+        const hinge = new T.Group(); hinge.position.set(0, -0.02, 0.045); yaw.add(hinge);
+        const outer = mesh(T, new T.SphereGeometry(1, 14, 10), hide, 0, 0.11, 0.0, hinge); outer.scale.set(0.07, 0.14, 0.022);
+        const inner = mesh(T, new T.SphereGeometry(1, 14, 10), flesh, 0, 0.11, -0.012, hinge); inner.scale.set(0.06, 0.125, 0.014);
+        for (let q = 0; q < 6; q++) { const th = mesh(T, new T.ConeGeometry(0.007, 0.035, 4), tooth, (q % 2 ? 1 : -1) * 0.035, 0.05 + q * 0.025, -0.025, hinge); th.rotation.x = -Math.PI / 2; }
+        petals.push(hinge); }
+      void throat;
+      [r.handL, r.handR].forEach(h => { for (let k = 0; k < 4; k++) { const c = mesh(T, new T.ConeGeometry(0.007, 0.09, 4), M(T, '#2a1a1a'), (k - 1.5) * 0.018, -0.07, 0.02, h); c.rotation.x = Math.PI - 0.2; } });
+      r.legs.forEach(l => l.scale.y = 1.25);
+      r.tick = (t, s) => { const open = s === 'joy' || s === 'walk' ? 1.0 + Math.sin(t * 9) * 0.25 : 0.25 + Math.pow(Math.max(0, Math.sin(t * 0.9)), 2) * 1.0; petals.forEach(h => h.rotation.x = open); r.head.rotation.x = -0.2; r.head.rotation.z = Math.sin(t * 1.3) * 0.12; };
+      return r;
+    }
+    const cfg = [
+      { body: PM(T, 'stripes', '#c8323a', '#a82830', 4, { roughness: 0.85 }), skin: skinA, hair: '#3a2a1e' },
+      { body: PM(T, 'cloud', '#ff8ac0', '#ffb8d8', 2, { roughness: 0.9 }), skin: skinA, hair: '#5a4434' },
+      { body: PM(T, 'stripes', '#2f6fd0', '#e8e4d8', 3, { roughness: 0.85 }), skin: skinB, hair: '#2a1a12' },
+      { body: PM(T, 'stripes', '#f28a2a', '#2a2a2a', 3, { roughness: 0.85 }), skin: skinA, hair: '#c8461e' },
+      { body: M(T, '#8a6a3e', { roughness: 0.8 }), skin: skinA, hair: '#4a3628' },
+      { body: PM(T, 'fur', '#1e3a66', '#2a4a7a', 2, { roughness: 0.75 }), skin: skinA, hair: '#3a2a1c' },
+      { body: PM(T, 'plates', '#151518', '#2a2a30', 2, { roughness: 0.35, metalness: 0.2 }), skin: skinA, hair: '#1a1410' }
+    ][i];
+    const hairM = M(T, cfg.hair, { roughness: 0.85 });
+    const r = humanoid(T, { bodyMat: cfg.body, legMat: i === 4 ? M(T, '#6a5232', { roughness: 0.8 }) : i === 6 ? M(T, '#1a1a1e', { roughness: 0.5 }) : jeans, armMat: cfg.body, headMat: cfg.skin, iris: '#3a2a1a', shoeMat: i === 4 || i === 6 ? M(T, '#1a1410') : sneaker, scale: i === 4 ? 1.15 : i === 5 || i === 6 ? 1.08 : 0.95 });
+    const hr = 0.13;
+    if (i === 0) { // 單車男孩：紅帽T、深色瀏海、背包、對講機、旁邊一台腳踏車
+      mesh(T, new T.SphereGeometry(hr + 0.008, 16, 10, 0, Math.PI * 2, 0, Math.PI / 1.9), hairM, 0, 0.012, -0.008, r.head);
+      const hood = mesh(T, new T.TorusGeometry(0.1, 0.035, 8, 16, Math.PI * 1.4), cfg.body, 0, 0.86, -0.04, r.body); hood.rotation.set(Math.PI / 2, 0, -Math.PI * 0.2);
+      mesh(T, new T.BoxGeometry(0.2, 0.24, 0.1), M(T, '#2a4a3a', { roughness: 0.9 }), 0, 0.64, -0.14, r.body);
+      const wt = mesh(T, new T.BoxGeometry(0.05, 0.1, 0.03), M(T, '#222'), 0, -0.02, 0.04, r.handR); mesh(T, new T.CylinderGeometry(0.004, 0.004, 0.1, 4), M(T, '#555'), 0.015, 0.09, 0, wt);
+      const bike = new T.Group(); bike.position.set(0.32, 0, 0.05); bike.rotation.y = Math.PI / 2; r.g.add(bike); const fm = M(T, '#d0202a', { metalness: 0.5, roughness: 0.35 }), tire = M(T, '#151515');
+      [-1, 1].forEach(sd => { const w = mesh(T, new T.TorusGeometry(0.14, 0.018, 6, 22), tire, sd * 0.24, 0.15, 0, bike); void w; mesh(T, new T.CylinderGeometry(0.004, 0.004, 0.27, 4), M(T, '#bbb'), sd * 0.24, 0.15, 0, bike).rotation.x = Math.PI / 2; });
+      const bar = (x1, y1, x2, y2) => { const a = new T.Vector3(x1, y1, 0), b = new T.Vector3(x2, y2, 0), m = mesh(T, new T.CylinderGeometry(0.012, 0.012, a.distanceTo(b), 6), fm, 0, 0, 0, bike); m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), b.clone().sub(a).normalize()); };
+      bar(-0.24, 0.15, -0.02, 0.15); bar(-0.02, 0.15, 0.2, 0.36); bar(-0.24, 0.15, -0.08, 0.36); bar(-0.08, 0.36, 0.2, 0.36); bar(0.2, 0.36, 0.24, 0.15); bar(-0.02, 0.15, -0.08, 0.36);
+      mesh(T, new T.BoxGeometry(0.1, 0.02, 0.05), M(T, '#222'), -0.08, 0.38, 0, bike); mesh(T, new T.CylinderGeometry(0.008, 0.008, 0.18, 6), M(T, '#999', { metalness: 0.8 }), 0.2, 0.4, 0, bike).rotation.x = Math.PI / 2;
+    }
+    if (i === 1) { // 超能力女孩：短到快光頭、粉紅外套、淺藍病號服裙、流鼻血、偶爾舉手發功
+      mesh(T, new T.SphereGeometry(hr + 0.004, 16, 10, 0, Math.PI * 2, 0, Math.PI / 1.75), PM(T, 'fur', '#5a4232', '#7a5e48', 3, { roughness: 1 }), 0, 0.006, -0.004, r.head);
+      mesh(T, new T.CylinderGeometry(0.13, 0.2, 0.28, 16, 1, true), M(T, '#bcd8e8', { side: T.DoubleSide, roughness: 0.9 }), 0, 0.36, 0, r.body);
+      const bl = mesh(T, new T.BoxGeometry(0.01, 0.04, 0.01), M(T, '#c0101a', { roughness: 0.2, emissive: '#600', emissiveIntensity: 0.6 }), -0.01, -0.035, hr * 1.0, r.head); void bl;
+      const glow = mesh(T, new T.SphereGeometry(0.04, 10, 8), M(T, '#ffb8e0', { emissive: '#ff6ac0', emissiveIntensity: 2, transparent: true, opacity: 0.7 }), 0, -0.06, 0, r.handR);
+      const wf = mesh(T, new T.CylinderGeometry(0.05, 0.05, 0.012, 16), M(T, '#e0a040', { roughness: 0.7 }), 0, -0.03, 0.04, r.handL); wf.rotation.x = Math.PI / 2;
+      r.tick = (t, s) => { const k = Math.max(0, Math.sin(t * 0.7)); if (s === 'idle') { r.arms[1].rotation.x = -k * 1.5; r.arms[1].rotation.z = Math.sin(t * 30) * 0.02 * k; } glow.scale.setScalar(0.4 + k * 1.2); r.head.rotation.x = k * 0.12; };
+    }
+    if (i === 2) { // 捲髮男孩：一頭捲髮、藍白卡車帽、缺一顆門牙的大笑、指南針
+      curls(r.head, hairM, 26, 0.125, 0.02);
+      const cap = mesh(T, new T.SphereGeometry(hr + 0.015, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2.3), PM(T, 'stripes', '#2f6fd0', '#f2f2ee', 2), 0, 0.03, -0.01, r.head); void cap;
+      const bill = mesh(T, new T.CylinderGeometry(0.1, 0.1, 0.012, 16, 1, false, -Math.PI / 2, Math.PI), M(T, '#2f6fd0'), 0, 0.06, 0.1, r.head); bill.rotation.x = 0.1;
+      [-1, 1].forEach(sd => mesh(T, new T.BoxGeometry(0.018, 0.016, 0.006), M(T, '#fff'), sd * 0.013, -0.048, hr * 0.96, r.head));
+      const cp = mesh(T, new T.CylinderGeometry(0.035, 0.035, 0.012, 14), M(T, '#c8a040', { metalness: 0.8, roughness: 0.3 }), 0, -0.03, 0.04, r.handR); cp.rotation.x = Math.PI / 2;
+    }
+    if (i === 3) { // 滑板女孩：紅褐長髮馬尾、耳機、夾著滑板
+      mesh(T, new T.SphereGeometry(hr + 0.008, 16, 10, 0, Math.PI * 2, 0, Math.PI / 1.8), hairM, 0, 0.012, -0.01, r.head);
+      for (let k = 0; k < 5; k++) mesh(T, new T.SphereGeometry(0.05 - k * 0.006, 8, 6), hairM, 0, 0.02 - k * 0.06, -0.15 - k * 0.012, r.head);
+      const band = mesh(T, new T.TorusGeometry(0.14, 0.01, 6, 20, Math.PI), M(T, '#ffd23a'), 0, 0.02, 0, r.head); band.rotation.y = Math.PI / 2;
+      [-1, 1].forEach(sd => { const cup = mesh(T, new T.CylinderGeometry(0.04, 0.04, 0.03, 14), M(T, '#ff8c1a'), sd * 0.14, 0.0, 0, r.head); cup.rotation.z = Math.PI / 2; });
+      const board = new T.Group(); board.position.set(0.06, -0.02, 0); board.rotation.set(0, 0, 0.2); r.handR.add(board);
+      mesh(T, new T.BoxGeometry(0.03, 0.5, 0.12), PM(T, 'stripes', '#2a2a2a', '#ff8c1a', 2), 0, 0, 0, board);
+      [-1, 1].forEach(e => [-1, 1].forEach(sd => { const w = mesh(T, new T.CylinderGeometry(0.022, 0.022, 0.02, 10), M(T, '#ffe08a'), 0.03, e * 0.17, sd * 0.05, board); w.rotation.z = Math.PI / 2; }));
+    }
+    if (i === 4) { // 小鎮警長：寬邊警帽、金色星徽、咖啡杯、鬍子、腰帶
+      const hat = new T.Group(); hat.position.y = 0.1; r.head.add(hat);
+      mesh(T, new T.CylinderGeometry(0.24, 0.24, 0.015, 24), M(T, '#6a5232'), 0, 0, 0, hat); const cr = mesh(T, new T.CylinderGeometry(0.1, 0.13, 0.11, 16), M(T, '#6a5232'), 0, 0.06, 0, hat); void cr;
+      mesh(T, new T.CylinderGeometry(0.132, 0.132, 0.02, 16), M(T, '#3a2a18'), 0, 0.015, 0, hat);
+      const must = mesh(T, new T.CapsuleGeometry(0.012, 0.05, 4, 8), hairM, 0, -0.03, hr * 0.97, r.head); must.rotation.z = Math.PI / 2;
+      const brd = mesh(T, new T.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), hairM, 0, -0.035, 0.07, r.head); brd.scale.set(1.25, 0.9, 0.8);
+      const star = new T.Shape(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? 0.014 : 0.032; k ? star.lineTo(Math.cos(a) * rr, -Math.sin(a) * rr) : star.moveTo(Math.cos(a) * rr, -Math.sin(a) * rr); }
+      mesh(T, new T.ExtrudeGeometry(star, { depth: 0.006, bevelEnabled: false }), M(T, '#e8c04a', { metalness: 0.9, roughness: 0.25 }), -0.06, 0.7, 0.1, r.body);
+      mesh(T, new T.TorusGeometry(0.135, 0.02, 6, 18), M(T, '#2a1a10'), 0, 0.48, 0, r.body).rotation.x = Math.PI / 2;
+      const cup = mesh(T, new T.CylinderGeometry(0.035, 0.03, 0.08, 12), M(T, '#f4f0e8'), 0, -0.02, 0.05, r.handR); mesh(T, new T.CylinderGeometry(0.03, 0.03, 0.005, 12), M(T, '#3a2010'), 0, 0.038, 0, cup);
+      const steam = mesh(T, new T.SphereGeometry(0.02, 8, 6), M(T, '#ffffff', { transparent: true, opacity: 0.4 }), 0, 0.09, 0, cup);
+      r.tick = (t) => { steam.position.y = 0.06 + (t * 0.08 % 0.1); steam.material.opacity = 0.45 - (t * 0.08 % 0.1) * 4; };
+    }
+    if (i === 5) { // 球棒帥哥：超蓬的頭髮、深藍夾克、釘滿釘子的球棒扛在肩上
+      const puff = mesh(T, new T.SphereGeometry(0.16, 16, 12), hairM, 0, 0.07, -0.02, r.head); puff.scale.set(1, 0.85, 1.05);
+      const front = mesh(T, new T.SphereGeometry(0.08, 12, 10), hairM, 0, 0.12, 0.08, r.head); front.scale.set(1.3, 0.8, 0.9);
+      mesh(T, new T.TorusGeometry(0.09, 0.03, 8, 16), M(T, '#f2f2ee'), 0, 0.86, 0, r.body).rotation.x = Math.PI / 2;
+      const bat = new T.Group(); bat.position.set(0, -0.02, 0.02); bat.rotation.set(-2.4, 0, 0.2); r.handR.add(bat);
+      mesh(T, new T.CylinderGeometry(0.035, 0.015, 0.55, 10), M(T, '#a8743a', { roughness: 0.6 }), 0, 0.28, 0, bat);
+      for (let k = 0; k < 14; k++) { const a = k * 1.9, y = 0.36 + (k % 7) * 0.025; const n = mesh(T, new T.CylinderGeometry(0.003, 0.003, 0.06, 4), M(T, '#9a9aa2', { metalness: 0.9, roughness: 0.3 }), Math.cos(a) * 0.035, y, Math.sin(a) * 0.035, bat); n.rotation.set(Math.sin(a) * 1.57, 0, -Math.cos(a) * 1.57); }
+      r.arms[1].rotation.x = -2.6;
+      r.tick = (t, s) => { if (s === 'idle') r.arms[1].rotation.x = -2.6 + Math.sin(t * 1.4) * 0.08; };
+    }
+    if (i === 6) { // 重金屬吉他手：黑色長捲髮、皮衣鉚釘、紅色 V 型電吉他
+      curls(r.head, hairM, 40, 0.13, 0.11); for (let k = 0; k < 10; k++) mesh(T, new T.SphereGeometry(0.045, 8, 6), hairM, Math.cos(k * 0.65 + 2.2) * 0.12, -0.08 - (k % 3) * 0.05, Math.sin(k * 0.65 + 2.2) * 0.1 - 0.03, r.head);
+      for (let k = 0; k < 8; k++) mesh(T, new T.SphereGeometry(0.008, 6, 4), M(T, '#ddd', { metalness: 1, roughness: 0.2 }), -0.12 + (k % 4) * 0.08, 0.84 - Math.floor(k / 4) * 0.03, 0.09, r.body);
+      const gtr = new T.Group(); gtr.position.set(0.02, 0.5, 0.16); gtr.rotation.set(0, 0, 0.95); r.body.add(gtr);
+      const vs = new T.Shape(); vs.moveTo(0, 0); vs.lineTo(-0.15, -0.3); vs.lineTo(-0.08, -0.32); vs.lineTo(0, -0.12); vs.lineTo(0.08, -0.32); vs.lineTo(0.15, -0.3); vs.lineTo(0, 0);
+      const body = mesh(T, new T.ExtrudeGeometry(vs, { depth: 0.03, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 2 }), M(T, '#c8121e', { roughness: 0.2, metalness: 0.3 }), 0, 0.08, -0.015, gtr); body.rotation.z = Math.PI;
+      mesh(T, new T.BoxGeometry(0.03, 0.38, 0.015), M(T, '#2a1a10'), 0, 0.27, 0, gtr); mesh(T, new T.BoxGeometry(0.06, 0.07, 0.015), M(T, '#111'), 0, 0.48, 0, gtr);
+      r.arms[1].rotation.x = -0.9; r.arms[0].rotation.x = -1.2; r.arms[0].rotation.z = 0.6;
+      r.tick = (t, s) => { r.arms[1].rotation.x = -0.9 + Math.sin(t * (s === 'joy' ? 22 : 8)) * 0.18; r.head.rotation.x = s === 'joy' ? Math.sin(t * 14) * 0.25 : Math.sin(t * 3) * 0.06; };
+    }
+    mesh(T, new T.TorusGeometry(0.135, 0.016, 6, 18), M(T, color), 0, 0.5, 0, r.body).rotation.x = Math.PI / 2;
+    return r;
+  }
+
   // ---------- 對外：建立角色 ----------
   // ---------- 質感加工：所有角色共用 ----------
   // 1. 邊緣光（菲涅耳）：輪廓有一圈主題色的亮邊，角色從背景跳出來，看起來像精緻的公仔
   // 2. 細微凹凸：布料、皮毛、皮膚表面加一點噪點凹凸，不再像塑膠
-  const RIM = { ragnarok: [1.0, 0.85, 0.55, 0.55], cyber: [0.3, 0.9, 1.0, 0.7], animal: [1.0, 0.95, 0.8, 0.45], alien: [0.9, 0.5, 1.0, 0.6], buddha: [1.0, 0.75, 0.35, 0.6], magic: [0.55, 0.7, 1.0, 0.6] };
+  const RIM = { ragnarok: [1.0, 0.85, 0.55, 0.55], cyber: [0.3, 0.9, 1.0, 0.7], animal: [1.0, 0.95, 0.8, 0.45], alien: [0.9, 0.5, 1.0, 0.6], buddha: [1.0, 0.75, 0.35, 0.6], magic: [0.55, 0.7, 1.0, 0.6], town: [1.0, 0.45, 0.35, 0.55] };
   let bumpTex = null; const polished = new WeakMap();
   function noiseTex(T) {
     if (bumpTex) return bumpTex; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), im = g.createImageData(128, 128);
@@ -587,6 +697,7 @@
     else if (theme === 'animal') r = animal(T, idx, color);
     else if (theme === 'buddha') r = buddha(T, idx, color);
     else if (theme === 'magic') r = magic(T, idx, color);
+    else if (theme === 'town') r = town(T, idx, color);
     else r = alien(T, idx, color);
     // 腳下的玩家色光圈
     const ring = new T.Mesh(new T.RingGeometry(0.2, 0.26, 28), new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; r.g.add(ring); r.ring = ring;

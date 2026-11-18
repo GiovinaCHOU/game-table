@@ -8,6 +8,7 @@
     cyber: { start: '🚉', jail: '🔒', free: '💉', gotojail: '🚨', luck: '💾', bad: '☠️', tax: '💰', teleport: '🚄', item: '🕶️' },
     animal: { start: '🌅', jail: '🦓', free: '💧', gotojail: '🪤', luck: '🌿', bad: '🔥', tax: '🌧️', teleport: '🌪️', item: '🌰' },
     buddha: { start: '🏮', jail: '👹', free: '♨️', gotojail: '⛓️', luck: '🧧', bad: '👻', tax: '🪔', teleport: '☁️', item: '📿' },
+    town: { start: '🚲', jail: '🔒', free: '🕹️', gotojail: '🚨', luck: '📻', bad: '🩸', tax: '🧾', teleport: '🌀', item: '🎲' },
     magic: { start: '🏰', jail: '🔒', free: '🔥', gotojail: '🕯️', luck: '⭐', bad: '💥', tax: '📜', teleport: '🌀', item: '🧪' },
     alien: { start: '🛸', jail: '⛓️', free: '🛰️', gotojail: '🚨', luck: '🧬', bad: '☄️', tax: '📦', teleport: '🕳️', item: '🧰' }
   };
@@ -159,7 +160,7 @@
       shape.lineTo(-s + rr, s); shape.quadraticCurveTo(-s, s, -s, s - rr); shape.lineTo(-s, -s + rr); shape.quadraticCurveTo(-s, -s, -s + rr, -s);
       const geo = new T.ExtrudeGeometry(shape, { depth: 0.24, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 });
       geo.rotateX(-Math.PI / 2); geo.translate(0, -0.27, 0);
-      const side = { ragnarok: ['#e9e2d2', 0.35, 0.1], cyber: ['#1a1830', 0.3, 0.7], animal: ['#6e5a3e', 0.95, 0], alien: ['#2a2232', 0.3, 0.6], buddha: ['#3a1012', 0.4, 0.2], magic: ['#3a3446', 0.8, 0.1] }[this.theme];
+      const side = { ragnarok: ['#e9e2d2', 0.35, 0.1], cyber: ['#1a1830', 0.3, 0.7], animal: ['#6e5a3e', 0.95, 0], alien: ['#2a2232', 0.3, 0.6], buddha: ['#3a1012', 0.4, 0.2], magic: ['#3a3446', 0.8, 0.1], town: ['#2a2024', 0.7, 0.1] }[this.theme] || ['#333', 0.7, 0];
       const sideMat = new T.MeshStandardMaterial({ color: side[0], roughness: side[1], metalness: side[2] });
       for (let i = 0; i < N; i++) {
         const [x, z] = tileXZ(i), b = this.R.BOARD[i];

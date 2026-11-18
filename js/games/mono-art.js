@@ -16,6 +16,7 @@
     animal: { bg: '#a9cde6', fog: ['#c9dbe2', 30, 90], hemi: [0xfff3d6, 0x6b5a3a, 0.9], sun: [0xffe2b0, 2.6], env: ['#cfe6f5', '#7a6a48'], envI: 0.5 },
     buddha: { bg: '#120508', fog: ['#2a0c18', 26, 95], hemi: [0xffc8a0, 0x3a1838, 1.25], sun: [0xffb080, 1.4], env: ['#5a2030', '#120508'], panels: [['#ff6a3a', 6, 3, 0], ['#ff6a3a', -6, 3, 0], ['#ffd27a', 0, 8, 0]], envI: 0.9 },
     magic: { bg: '#0a0a1a', fog: ['#141638', 28, 100], hemi: [0xc8c0ff, 0x2a2a48, 1.45], sun: [0xd8e0ff, 1.5], env: ['#3a3a7a', '#0a0a1a'], panels: [['#ffc070', 5, 3, 0], ['#8ac8ff', -5, 4, 0], ['#ffffff', 0, 8, 0]], envI: 1.0 },
+    town: { bg: '#2a1830', fog: ['#4a2a3a', 26, 95], hemi: [0xffd0b0, 0x3a2a40, 1.25], sun: [0xffb070, 1.9], env: ['#c86a4a', '#2a1830'], panels: [['#ff9a4a', 6, 3, 0], ['#7ab0ff', -6, 3, 0], ['#ffffff', 0, 8, 0]], envI: 0.85 },
     alien: { bg: '#f29ab8', fog: ['#f4a7a6', 34, 120], hemi: [0xffe0f2, 0x6a3f8a, 1.25], sun: [0xfff0d6, 2.3], env: ['#ffc2dc', '#5a3a8a'], panels: [['#7df9ff', 6, 2, 0], ['#ff79c6', -6, 2, 0], ['#ffd27a', 0, 8, 0]], envI: 0.8 }
   };
 
@@ -65,6 +66,20 @@
       g.font = `bold ${prop ? 40 : 34}px ${SERIF}`;
       const ls = wrap(g, name, 210); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 112 : 182) + k * 42 - (ls.length - 1) * (prop ? 20 : 0)));
       if (prop) { g.font = `bold 25px ${SERIF}`; g.fillStyle = '#e8b83a'; g.fillText(b.price.toLocaleString() + ' 功德', 128, 214); }
+    } else if (theme === 'town') {
+      // 80 年代錄影帶封面：米白底、雜訊、粗黑框、彩虹條紋
+      g.fillStyle = '#efe4cc'; g.fillRect(0, 0, 256, 256);
+      for (let k = 0; k < 500; k++) { g.fillStyle = `rgba(80,60,40,${rnd(0.02, 0.08)})`; g.fillRect(rnd(0, 256), rnd(0, 256), rnd(1, 3), 1); }
+      g.strokeStyle = '#1a1418'; g.lineWidth = 8; g.strokeRect(8, 8, 240, 240);
+      const acc = prop ? b.color : ({ item: '#ff9f1c', luck: '#3ab0e0', bad: '#b0202a', start: '#e5383b', jail: '#5a3a6a', gotojail: '#b0202a', free: '#3ab06a', tax: '#7a6a5a', teleport: '#b0202a' }[b.type] || '#e5383b');
+      if (prop) { g.fillStyle = acc; g.fillRect(16, 16, 224, 30); }
+      else { ['#e5383b', '#ff8c1a', '#ffd23a', '#3ab0e0'].forEach((c2, k) => { g.fillStyle = c2; g.fillRect(16, 16 + k * 7, 224, 6); }); }
+      g.fillStyle = 'rgba(0,0,0,.08)'; for (let y = 0; y < 256; y += 4) g.fillRect(0, y, 256, 1);
+      g.fillStyle = '#1a1418';
+      if (!prop) { g.font = `78px ${EMOJI}`; g.fillText(icon, 128, 102); }
+      g.font = `900 ${prop ? 38 : 32}px ${SANS}`;
+      const ls = wrap(g, name, 210); ls.forEach((l, k) => g.fillText(l, 128, (prop ? 112 : 186) + k * 40 - (ls.length - 1) * (prop ? 20 : 0)));
+      if (prop) { g.font = `bold 24px ${SANS}`; g.fillStyle = '#b0202a'; g.fillText(b.price.toLocaleString() + ' 代幣', 128, 214); }
     } else if (theme === 'magic') {
       // 羊皮紙＋墨線花框＋四角星
       const gr = g.createRadialGradient(128, 128, 30, 128, 128, 190); gr.addColorStop(0, '#f3e6c4'); gr.addColorStop(1, '#cdb487');
@@ -294,6 +309,84 @@
       const wisps = []; const wm = new T.MeshBasicMaterial({ color: '#7affd0', transparent: true, opacity: 0.7, blending: T.AdditiveBlending, depthWrite: false });
       for (let k = 0; k < (q.high ? 18 : 8); k++) { const a = rnd(0, 6.28), d = rnd(10.5, 20); const w = add(new T.SphereGeometry(0.12, 8, 6), wm, Math.cos(a) * d, rnd(0.5, 3), Math.sin(a) * d, false); w.userData = { a, d, h: w.position.y, s: rnd(0.2, 0.5) }; wisps.push(w); }
       upd.push(t => wisps.forEach((w, k) => { const u = w.userData; const a = u.a + t * u.s * 0.2; w.position.set(Math.cos(a) * u.d, u.h + Math.sin(t * 2 + k) * 0.4, Math.sin(a) * u.d); w.material.opacity = 0.4 + Math.sin(t * 5 + k) * 0.3; }));
+    } else if (theme === 'town') {
+      // ===== 1983 年秋天的小鎮黃昏：郊區房子、楓樹、路燈、水塔；中央大楓樹底下有紅光裂縫；回合越後面越被藤蔓和孢子侵蝕 =====
+      { const [c, g] = cvs(64, 512); const gr = g.createLinearGradient(0, 0, 0, 512);
+        gr.addColorStop(0, '#1a1030'); gr.addColorStop(0.38, '#4a2448'); gr.addColorStop(0.55, '#c8584a'); gr.addColorStop(0.63, '#f2a05a'); gr.addColorStop(0.68, '#6a3a4a'); gr.addColorStop(1, '#1a1018');
+        g.fillStyle = gr; g.fillRect(0, 0, 64, 512); for (let k = 0; k < 80; k++) { g.fillStyle = `rgba(255,240,220,${rnd(0.2, 0.8)})`; g.fillRect(rnd(0, 64), rnd(0, 160), 1, 1); }
+        scene.add(new T.Mesh(new T.SphereGeometry(140, 32, 16), new T.MeshBasicMaterial({ map: tex(T, c), side: T.BackSide, fog: false, depthWrite: false }))); }
+      scene.background = null;
+      // 草地＋落葉
+      { const [c, g] = cvs(512); g.fillStyle = '#4e5230'; g.fillRect(0, 0, 512, 512);
+        for (let k = 0; k < 2600; k++) { g.fillStyle = `rgba(${rnd(60, 90)},${rnd(70, 90)},${rnd(30, 45)},${rnd(0.2, 0.5)})`; g.fillRect(rnd(0, 512), rnd(0, 512), rnd(1, 3), rnd(2, 5)); }
+        for (let k = 0; k < 260; k++) { g.fillStyle = ['#c8461e', '#e07a2a', '#a8321e', '#d8a03a', '#7a3a1e'][k % 5]; g.globalAlpha = rnd(0.5, 0.9); g.save(); g.translate(rnd(0, 512), rnd(0, 512)); g.rotate(rnd(0, 6.28)); g.beginPath(); g.ellipse(0, 0, rnd(2, 4), rnd(1.5, 2.5), 0, 0, 7); g.fill(); g.restore(); } g.globalAlpha = 1;
+        const gnd = add(new T.PlaneGeometry(160, 160), M('#ffffff', { map: tex(T, c, 28), roughness: 1 }), 0, -0.36, 0, false); gnd.rotation.x = -Math.PI / 2; gnd.receiveShadow = q.high; }
+      // 柏油路（十字）
+      const asph = M('#2a2628', { roughness: 0.95 }), line = new T.MeshBasicMaterial({ color: '#e8c84a' });
+      [[0, 1], [1, 0]].forEach(([dx, dz]) => { const r0 = add(new T.PlaneGeometry(dx ? 160 : 3.4, dz ? 160 : 3.4), asph, 0, -0.35, 0, false); r0.rotation.x = -Math.PI / 2; r0.receiveShadow = q.high;
+        for (let k = -24; k <= 24; k++) { if (Math.abs(k) < 4) continue; const d = add(new T.PlaneGeometry(dx ? 1.2 : 0.12, dz ? 1.2 : 0.12), line, dx ? k * 3 : 0, -0.34, dz ? k * 3 : 0, false); d.rotation.x = -Math.PI / 2; } });
+      // 郊區房子
+      const houseCols = ['#e8dcc0', '#c8d8e0', '#e0c8a0', '#d8b0a0', '#c8d0b0', '#f0e8d8'], roofC = ['#4a3a3a', '#3a3a4a', '#5a3a2a', '#2a3a3a'];
+      const winM = M('#ffd890', { emissive: '#ffb050', emissiveIntensity: 1.4 }), houses = [];
+      const house = (x, z, rot) => { const g2 = new T.Group(); g2.position.set(x, -0.36, z); g2.rotation.y = rot; scene.add(g2);
+        const w = rnd(2.2, 3), d = rnd(1.8, 2.4), h = rnd(1.4, 2.2); const bm = M(houseCols[Math.floor(rnd(0, 6))], { roughness: 0.85 });
+        const b = new T.Mesh(new T.BoxGeometry(w, h, d), bm); b.position.y = h / 2; b.castShadow = q.high; g2.add(b);
+        { const sh = new T.Shape(); sh.moveTo(-w / 2 - 0.15, 0); sh.lineTo(w / 2 + 0.15, 0); sh.lineTo(0, d * 0.55); sh.lineTo(-w / 2 - 0.15, 0); const rf = new T.Mesh(new T.ExtrudeGeometry(sh, { depth: d + 0.2, bevelEnabled: false }), M(roofC[Math.floor(rnd(0, 4))], { roughness: 0.8 })); rf.position.set(0, h, -d / 2 - 0.1); rf.castShadow = q.high; g2.add(rf); }
+        for (let k = 0; k < 2; k++) { const wn = new T.Mesh(new T.PlaneGeometry(0.4, 0.45), winM); wn.position.set(-w * 0.25 + k * w * 0.5, h * 0.62, d / 2 + 0.01); g2.add(wn); }
+        const door = new T.Mesh(new T.PlaneGeometry(0.4, 0.75), M('#5a3a2a')); door.position.set(0, 0.38, d / 2 + 0.012); g2.add(door);
+        for (let k = 0; k < 9; k++) { const pk = new T.Mesh(new T.BoxGeometry(0.06, 0.4, 0.03), M('#f2f0ea')); pk.position.set(-w / 2 + k * w / 8, 0.2, d / 2 + 0.9); g2.add(pk); }
+        houses.push(g2); return g2; };
+      for (let k = 0; k < (q.high ? 22 : 14); k++) { const a = k / (q.high ? 22 : 14) * Math.PI * 2 + rnd(-0.06, 0.06), d = rnd(13, 19); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.abs(x) < 2.6 || Math.abs(z) < 2.6) continue; house(x, z, -a - Math.PI / 2); }
+      // 楓樹
+      const trunkM = M('#4a3020', { roughness: 0.95 }), leafMs = ['#c8461e', '#e07a2a', '#a8321e', '#d89a3a'].map(c2 => M(c2, { roughness: 0.9, flatShading: true }));
+      const maple = (x, z, sc) => { const g2 = new T.Group(); g2.position.set(x, -0.36, z); g2.scale.setScalar(sc); scene.add(g2);
+        const tr = new T.Mesh(new T.CylinderGeometry(0.12, 0.2, 1.8, 7), trunkM); tr.position.y = 0.9; g2.add(tr);
+        for (let k = 0; k < 7; k++) { const lf = new T.Mesh(new T.IcosahedronGeometry(rnd(0.55, 0.85), 0), leafMs[k % 4]); lf.position.set(rnd(-0.6, 0.6), rnd(1.8, 2.7), rnd(-0.6, 0.6)); lf.castShadow = q.high; g2.add(lf); } return g2; };
+      for (let k = 0; k < (q.high ? 34 : 18); k++) { const a = rnd(0, 6.28), d = rnd(10, 30); const x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.abs(x) < 2.4 || Math.abs(z) < 2.4) continue; maple(x, z, rnd(0.8, 1.4)); }
+      // 路燈（會偶爾閃爍）
+      const lampM = M('#fff0c0', { emissive: '#ffd27a', emissiveIntensity: 2 }), lamps = [];
+      [[-2.2, 9], [2.2, -9], [9, 2.2], [-9, -2.2], [-2.2, -15], [2.2, 15], [15, -2.2], [-15, 2.2]].forEach(([x, z]) => { add(new T.CylinderGeometry(0.05, 0.07, 3.2, 6), M('#2a2a2e', { metalness: 0.6 }), x, 1.24, z); const b = add(new T.SphereGeometry(0.16, 10, 8), lampM, x, 2.9, z, false); lamps.push(b); });
+      // 遠方水塔＋森林
+      { const wt = new T.Group(); wt.position.set(-18, -0.36, -24); scene.add(wt); const leg = M('#6a6a70', { metalness: 0.5 }); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => { const l = new T.Mesh(new T.CylinderGeometry(0.08, 0.08, 6, 5), leg); l.position.set(a * 0.9, 3, b * 0.9); wt.add(l); });
+        const tank = new T.Mesh(new T.CylinderGeometry(1.6, 1.6, 2, 16), M('#c8c8cc', { metalness: 0.4, roughness: 0.5 })); tank.position.y = 7; wt.add(tank); const cap = new T.Mesh(new T.ConeGeometry(1.7, 0.8, 16), M('#9a9aa0')); cap.position.y = 8.4; wt.add(cap); }
+      const pine = M('#1a2418', { flatShading: true, roughness: 1 });
+      for (let k = 0; k < (q.high ? 70 : 34); k++) { const a = rnd(0, 6.28), d = rnd(32, 55), h = rnd(4, 9); add(new T.ConeGeometry(h * 0.25, h, 6), pine, Math.cos(a) * d, h / 2 - 0.36, Math.sin(a) * d, false); }
+      // ===== 中央：大楓樹＋樹根下的紅光裂縫 =====
+      const big = new T.Group(); big.position.set(0, -0.36, 0); big.scale.setScalar(0.78); scene.add(big);
+      const tb = new T.Mesh(new T.CylinderGeometry(0.35, 0.6, 3.2, 9), trunkM); tb.position.y = 1.6; tb.castShadow = q.high; big.add(tb);
+      for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28 + 0.3; const br = new T.Mesh(new T.CylinderGeometry(0.08, 0.16, 1.8, 6), trunkM); br.position.set(Math.cos(a) * 0.5, 3.2, Math.sin(a) * 0.5); br.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6); big.add(br); }
+      for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; const rt = new T.Mesh(new T.CylinderGeometry(0.05, 0.16, 1.4, 6), trunkM); rt.position.set(Math.cos(a) * 0.65, 0.12, Math.sin(a) * 0.65); rt.rotation.set(Math.sin(a) * 1.25, 0, -Math.cos(a) * 1.25); big.add(rt); }
+      const crown = []; for (let k = 0; k < (q.high ? 22 : 14); k++) { const a = rnd(0, 6.28), d = rnd(0, 1.6); const lf = new T.Mesh(new T.IcosahedronGeometry(rnd(0.6, 1.0), 1), leafMs[k % 4]); lf.position.set(Math.cos(a) * d, rnd(3.6, 5.2), Math.sin(a) * d); lf.castShadow = q.high; big.add(lf); crown.push(lf); }
+      // 裂縫：不規則的發光紅線＋地面紅光
+      const [cc, cg] = cvs(256); cg.clearRect(0, 0, 256, 256); const crackPath = () => { cg.beginPath(); let x = 128, y = 128; cg.moveTo(x, y); for (let k = 0; k < 9; k++) { x += rnd(-22, 22); y += rnd(-22, 22); cg.lineTo(x, y); } cg.stroke(); };
+      cg.strokeStyle = 'rgba(255,70,50,1)'; cg.shadowColor = '#ff2a1a'; cg.shadowBlur = 18; for (let k = 0; k < 9; k++) { cg.lineWidth = rnd(3, 8); crackPath(); }
+      const glowM = new T.MeshBasicMaterial({ map: tex(T, cc), transparent: true, blending: T.AdditiveBlending, depthWrite: false, color: '#ff4a3a' });
+      const crack = add(new T.PlaneGeometry(4.2, 4.2), glowM, 0, -0.33, 0, false); crack.rotation.x = -Math.PI / 2;
+      const [hc, hg] = cvs(128); const rg = hg.createRadialGradient(64, 64, 0, 64, 64, 64); rg.addColorStop(0, 'rgba(255,60,40,.55)'); rg.addColorStop(1, 'rgba(255,60,40,0)'); hg.fillStyle = rg; hg.fillRect(0, 0, 128, 128);
+      const halo = add(new T.PlaneGeometry(5, 5), new T.MeshBasicMaterial({ map: tex(T, hc), transparent: true, blending: T.AdditiveBlending, depthWrite: false }), 0, -0.32, 0, false); halo.rotation.x = -Math.PI / 2;
+      const redL = new T.PointLight('#ff3a2a', 3, 7, 1.6); redL.position.set(0, 0.6, 0); scene.add(redL);
+      // 孢子（倒影世界飄過來的灰白碎屑）
+      const sporeM = new T.MeshBasicMaterial({ color: '#d8d0c8', transparent: true, opacity: 0.7, depthWrite: false }), spores = [];
+      for (let k = 0; k < (q.high ? 90 : 45); k++) { const m = add(new T.SphereGeometry(0.035, 5, 4), sporeM, 0, 0, 0, false); m.userData = { a: rnd(0, 6.28), d: rnd(0.5, 14), h: rnd(0, 5), s: rnd(0.1, 0.35), on: k / (q.high ? 90 : 45) }; spores.push(m); }
+      // 飄落的楓葉
+      const leaves = [], leafG = new T.PlaneGeometry(0.16, 0.12);
+      for (let k = 0; k < (q.high ? 40 : 20); k++) { const m = add(leafG, new T.MeshBasicMaterial({ color: ['#e07a2a', '#c8461e', '#d89a3a'][k % 3], side: T.DoubleSide }), 0, 0, 0, false); m.userData = { x: rnd(-12, 12), z: rnd(-12, 12), o: rnd(0, 1), s: rnd(0.08, 0.16) }; leaves.push(m); }
+      // 侵蝕用的藤蔓：從裂縫往外爬、也爬上房子
+      const vineM = M('#2a0e14', { roughness: 0.6, emissive: '#3a0610', emissiveIntensity: 0.4 }), vines = [];
+      for (let k = 0; k < (q.high ? 26 : 14); k++) { const a = k / (q.high ? 26 : 14) * 6.28 + rnd(-0.1, 0.1); const pts = []; let x = Math.cos(a) * 0.8, z = Math.sin(a) * 0.8; for (let j = 0; j < 9; j++) { pts.push(new T.Vector3(x, -0.3 + Math.abs(Math.sin(j)) * 0.08, z)); const d = 0.8 + j * 0.5; x = Math.cos(a + Math.sin(j * 1.3) * 0.25) * d * (1 + j * 0.25); z = Math.sin(a + Math.sin(j * 1.3) * 0.25) * d * (1 + j * 0.25); }
+        const v = add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 40, 0.05, 5, false), vineM, 0, 0, 0, false); v.userData.k = k / (q.high ? 26 : 14); v.visible = false; vines.push(v); }
+      houses.forEach((h, k) => { if (k % 2) return; for (let j = 0; j < 3; j++) { const pts = []; for (let q2 = 0; q2 < 6; q2++) pts.push(new T.Vector3(-1 + j * 0.9 + Math.sin(q2 * 1.7) * 0.25, q2 * 0.35, 1.2)); const v = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 20, 0.04, 4, false), vineM); v.visible = false; v.userData.k = 0.3 + (k % 7) / 10; h.add(v); vines.push(v); } });
+      let decay = 0; scene.userData.decay = (round) => { decay = Math.max(0, Math.min(1, ((round || 1) - 4) / 30)); vines.forEach(v => { v.visible = decay > v.userData.k * 0.9; }); scene.fog && scene.fog.color.set('#4a2a3a').lerp(new T.Color('#3a0a14'), decay * 0.8); };
+      scene.userData.decay(1);
+      upd.push((t, dt) => {
+        const flick = Math.random() < 0.004 ? 0.2 : 1; // 偶爾整個小鎮的燈閃一下
+        lamps.forEach((l, k) => { l.material.emissiveIntensity = (Math.sin(t * 13 + k * 7) > 0.97 ? 0.3 : 2) * flick; });
+        const pulse = 0.6 + Math.sin(t * 1.3) * 0.25 + Math.max(0, Math.sin(t * 0.37)) * 0.4 * decay + (Math.random() < 0.01 ? 0.6 : 0);
+        glowM.opacity = Math.min(1, pulse); halo.material.opacity = Math.min(1, 0.5 + pulse * 0.5); redL.intensity = (2 + pulse * 2) * (1 + decay);
+        spores.forEach(m => { const u = m.userData; m.visible = u.on < 0.25 + decay * 0.75; if (!m.visible) return; const a = u.a + t * u.s * 0.3; m.position.set(Math.cos(a) * u.d, (u.h + t * u.s) % 5, Math.sin(a) * u.d); });
+        leaves.forEach(m => { const u = m.userData, p = (t * u.s + u.o) % 1; m.position.set(u.x + Math.sin(t + u.o * 9) * 0.8, 5.5 - p * 5.8, u.z + Math.cos(t * 0.8 + u.o * 7) * 0.6); m.rotation.set(t * 2 + u.o * 9, t * 1.5, t * 3); });
+        crown.forEach((c2, k) => { c2.rotation.y = Math.sin(t * 0.5 + k) * 0.05; });
+      });
     } else if (theme === 'magic') {
       // ===== 夜晚的魔法古堡：星空、月亮、漂浮蠟燭、尖塔、黑湖、森林 =====
       { const [c, g] = cvs(64, 512); const gr = g.createLinearGradient(0, 0, 0, 512);
@@ -640,6 +733,49 @@
         const L = Object.assign(new T.Object3D(), { intensity: 0 }) /* 建築不放真的光源：每多一盞燈所有材質都要重編譯，手機會卡又燙 */; L.position.set(0, 0.9, 0.4); g.add(L);
         upd.push(t => { L.intensity = 1.8 + Math.sin(t * 3) * 0.5; lotus.forEach((lg, k) => { const a = lg.userData.a + t * 0.25; lg.position.set(Math.cos(a) * 0.48, 0.5 + Math.sin(t * 1.3 + k) * 0.12 + k * 0.05, Math.sin(a) * 0.48); }); });
         banner(-0.36, 0.36);
+      }
+    } else if (theme === 'town') { // 怪奇小鎮：檸檬汁攤 → 車庫樂團練團室 → 掛滿聖誕燈的木造雙層民宅 → 霓虹招牌購物中心
+      const wood = M('#8a5a34', { roughness: 0.85 }), white = M('#f2ece0', { roughness: 0.8 }), dark = M('#2a2228', { roughness: 0.6 });
+      const sign = (txt, w, h, bg, fg) => { const [c, cg] = cvs(160, Math.round(160 * h / w)); cg.fillStyle = bg; cg.fillRect(0, 0, c.width, c.height); cg.fillStyle = fg; cg.font = `900 ${Math.round(c.height * 0.62)}px ${SANS}`; cg.textAlign = 'center'; cg.textBaseline = 'middle'; cg.fillText(txt, c.width / 2, c.height / 2 + 2); return new T.MeshBasicMaterial({ map: tex(T, c) }); };
+      const gable = (w, h, d, y, mat) => { const sh = new T.Shape(); sh.moveTo(-w / 2, 0); sh.lineTo(w / 2, 0); sh.lineTo(0, h); sh.lineTo(-w / 2, 0); const m = add(new T.ExtrudeGeometry(sh, { depth: d, bevelEnabled: false }), mat, 0, y, -d / 2); return m; };
+      const flag = (x, y, z) => { add(new T.CylinderGeometry(0.006, 0.006, 0.22, 4), M('#ddd', { metalness: 0.6 }), x, y + 0.11, z); const f = add(new T.PlaneGeometry(0.1, 0.06), M(ctx.color, { side: T.DoubleSide, emissive: ctx.color, emissiveIntensity: 0.4 }), x + 0.05, y + 0.18, z); upd.push(t => { f.rotation.y = Math.sin(t * 3) * 0.4; }); };
+      const xmas = (pts, n) => { const cols = ['#ff3a3a', '#3aff6a', '#3ab0ff', '#ffd23a', '#ff8ac0'], bulbs = []; for (let k = 0; k <= n; k++) { const u = k / n, p0 = pts[Math.min(pts.length - 2, Math.floor(u * (pts.length - 1)))], p1 = pts[Math.min(pts.length - 1, Math.floor(u * (pts.length - 1)) + 1)], f = u * (pts.length - 1) % 1;
+          const b = add(new T.SphereGeometry(0.014, 8, 6), M(cols[k % 5], { emissive: cols[k % 5], emissiveIntensity: 2.4 }), p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f - Math.sin(f * Math.PI) * 0.03, p0[2] + (p1[2] - p0[2]) * f); bulbs.push(b); }
+        upd.push(t => bulbs.forEach((b, k) => { b.material.emissiveIntensity = (Math.floor(t * 2.5) + k) % 4 === 0 ? 0.3 : 2.6; })); };
+      if (level === 1) { // 路邊檸檬汁攤：木箱攤子、紅白條紋小棚、黃色水壺、手寫招牌、紙杯
+        add(new T.BoxGeometry(0.46, 0.26, 0.24), wood, 0, 0.13, 0); add(new T.BoxGeometry(0.5, 0.02, 0.28), M('#c8a070'), 0, 0.27, 0);
+        [-0.22, 0.22].forEach(x => add(new T.CylinderGeometry(0.01, 0.01, 0.38, 5), wood, x, 0.45, -0.1));
+        const awn = new T.Group(); awn.position.set(0, 0.64, -0.02); awn.rotation.x = 0.35; g.add(awn); for (let k = 0; k < 6; k++) add(new T.BoxGeometry(0.084, 0.012, 0.26), M(k % 2 ? '#ffffff' : '#e5383b'), -0.21 + k * 0.084, 0, 0, awn);
+        const jug = add(new T.CylinderGeometry(0.05, 0.055, 0.13, 14), M('#ffe86a', { transparent: true, opacity: 0.85, roughness: 0.1 }), -0.1, 0.34, 0.02); void jug;
+        [0.06, 0.12, 0.18].forEach(x => add(new T.CylinderGeometry(0.02, 0.016, 0.05, 8), white, x, 0.305, 0.04));
+        const sg = add(new T.PlaneGeometry(0.34, 0.1), sign('檸檬汁', 0.34, 0.1, '#ffe86a', '#c8202a'), 0, 0.15, 0.121); void sg; flag(0.24, 0.27, 0.1);
+      } else if (level === 2) { // 車庫樂團練團室：車庫半開、裡面的鼓組和音箱、閃著的紅燈「練團中」
+        add(new T.BoxGeometry(0.6, 0.42, 0.46), M('#d8ccb0', { roughness: 0.85 }), 0, 0.21, 0);
+        gable(0.66, 0.2, 0.5, 0.42, M('#5a3a3a', { roughness: 0.8 }));
+        add(new T.BoxGeometry(0.46, 0.28, 0.02), M('#1a1418'), 0, 0.15, 0.225); const door = add(new T.BoxGeometry(0.46, 0.14, 0.015), M('#e8e2d4'), 0, 0.27, 0.235); for (let k = 0; k < 3; k++) add(new T.BoxGeometry(0.46, 0.006, 0.004), M('#a8a090'), 0, 0.22 + k * 0.04, 0.244);
+        const kick = add(new T.CylinderGeometry(0.06, 0.06, 0.05, 16), M('#c8202a'), -0.08, 0.07, 0.12); kick.rotation.x = Math.PI / 2; add(new T.CylinderGeometry(0.035, 0.035, 0.03, 12), M('#eee'), 0.02, 0.1, 0.13);
+        const cym = add(new T.CylinderGeometry(0.045, 0.045, 0.004, 14), M('#e8c04a', { metalness: 0.9, roughness: 0.2 }), 0.06, 0.17, 0.1); add(new T.BoxGeometry(0.1, 0.12, 0.07), M('#1a1a1a'), 0.16, 0.06, 0.13); add(new T.PlaneGeometry(0.08, 0.08), M('#3a3a3a'), 0.16, 0.06, 0.166);
+        const rec = add(new T.SphereGeometry(0.02, 8, 6), M('#ff2a1a', { emissive: '#ff2a1a', emissiveIntensity: 2.5 }), 0.22, 0.38, 0.235);
+        add(new T.PlaneGeometry(0.22, 0.06), sign('練團中', 0.22, 0.06, '#1a1418', '#ff3a3a'), 0, 0.38, 0.232); flag(-0.26, 0.42, -0.1);
+        upd.push(t => { rec.material.emissiveIntensity = Math.floor(t * 2) % 2 ? 0.3 : 2.6; cym.rotation.z = Math.sin(t * 12) * 0.15; });
+      } else if (level === 3) { // 雙層木造民宅：白色木板外牆、門廊、屋頂掛滿會閃的聖誕燈、窗戶亮著
+        add(new T.BoxGeometry(0.56, 0.62, 0.44), M('#e8e0d0', { roughness: 0.85 }), 0, 0.31, 0); for (let k = 0; k < 9; k++) add(new T.BoxGeometry(0.565, 0.006, 0.445), M('#c8bca8'), 0, 0.04 + k * 0.068, 0);
+        gable(0.64, 0.26, 0.5, 0.62, M('#3a3a4a', { roughness: 0.8 }));
+        add(new T.BoxGeometry(0.07, 0.2, 0.07), M('#8a4a3a'), 0.17, 0.85, -0.06);
+        const win = M('#ffd890', { emissive: '#ffb050', emissiveIntensity: 1.4 }); [[-0.15, 0.45], [0.15, 0.45], [-0.15, 0.18]].forEach(([x, y]) => { add(new T.PlaneGeometry(0.1, 0.11), win, x, y, 0.222); add(new T.BoxGeometry(0.11, 0.008, 0.01), M('#3a5a4a'), x, y, 0.224); });
+        add(new T.BoxGeometry(0.1, 0.17, 0.01), M('#2a4a3a'), 0.12, 0.085, 0.223); add(new T.BoxGeometry(0.58, 0.02, 0.12), wood, 0, 0.26, 0.28); [-0.26, 0.26].forEach(x => add(new T.CylinderGeometry(0.01, 0.01, 0.26, 5), white, x, 0.13, 0.33));
+        xmas([[-0.3, 0.63, 0.24], [0, 0.88, 0.24], [0.3, 0.63, 0.24]], 18); xmas([[-0.3, 0.27, 0.35], [0.3, 0.27, 0.35]], 12); flag(-0.2, 0.9, -0.05);
+      } else { // 霓虹招牌購物中心：寬大的兩層商場、玻璃正門、大型霓虹招牌、屋頂天窗、門口的街機
+        g.userData.s = 0.9;
+        add(new T.BoxGeometry(0.9, 0.5, 0.6), M('#e8d8e0', { roughness: 0.6 }), 0, 0.25, 0); add(new T.BoxGeometry(0.92, 0.04, 0.62), M('#b03a6a'), 0, 0.52, 0);
+        add(new T.BoxGeometry(0.5, 0.26, 0.4), M('#d8c8d8', { roughness: 0.6 }), 0.1, 0.67, -0.05); add(new T.BoxGeometry(0.3, 0.06, 0.3), M('#9ad8ff', { transparent: true, opacity: 0.6, roughness: 0.05, metalness: 0.5 }), 0.1, 0.83, -0.05);
+        const glass = M('#8ac8e8', { roughness: 0.05, metalness: 0.6, emissive: '#3a6a8a', emissiveIntensity: 0.6 }); add(new T.PlaneGeometry(0.6, 0.3), glass, 0, 0.17, 0.302); for (let k = 0; k < 5; k++) add(new T.BoxGeometry(0.008, 0.3, 0.01), dark, -0.3 + k * 0.15, 0.17, 0.305);
+        const [nc, ng] = cvs(256, 64); ng.fillStyle = '#120814'; ng.fillRect(0, 0, 256, 64); ng.shadowColor = '#ff3ab0'; ng.shadowBlur = 16; ng.fillStyle = '#ff6ac8'; ng.font = `italic 900 40px ${SANS}`; ng.textAlign = 'center'; ng.textBaseline = 'middle'; ng.fillText('購物中心', 128, 34);
+        const nsM = new T.MeshBasicMaterial({ map: tex(T, nc) }); const ns = add(new T.PlaneGeometry(0.6, 0.15), nsM, 0, 0.43, 0.305); void ns;
+        const tubes = []; ['#3af0ff', '#ffd23a', '#ff3ab0'].forEach((c2, k) => { const tb = add(new T.BoxGeometry(0.9, 0.012, 0.012), M(c2, { emissive: c2, emissiveIntensity: 2.6 }), 0, 0.02 + k * 0.012 + (k ? 0.52 : 0), 0.31); tubes.push(tb); });
+        [-0.36, 0.36].forEach(x => { add(new T.BoxGeometry(0.08, 0.16, 0.07), M('#2a1a4a'), x, 0.08, 0.38); add(new T.PlaneGeometry(0.06, 0.05), M('#7aff6a', { emissive: '#3aff3a', emissiveIntensity: 1.8 }), x, 0.12, 0.416); });
+        flag(0.38, 0.54, -0.2);
+        upd.push(t => { nsM.color.setScalar(Math.random() < 0.02 ? 0.25 : 1); tubes.forEach((tb, k) => { tb.material.emissiveIntensity = (Math.floor(t * 3) + k) % 3 ? 2.6 : 0.4; }); });
       }
     } else if (theme === 'magic') { // 魔法學院：魔藥攤 → 歪斜魔杖店 → 觀星塔 → 浮空魔法城堡
       const stone = M('#8a8496', { roughness: 0.85 }), wood = M('#5a3a22', { roughness: 0.85 }), brass = M('#c8a050', { metalness: 0.85, roughness: 0.3 }), win = M('#ffcf6a', { emissive: '#ffb030', emissiveIntensity: 1.6 }), roofM = M('#2e3550', { roughness: 0.55, metalness: 0.25 });
