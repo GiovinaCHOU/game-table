@@ -178,7 +178,7 @@
   }
   function humanArms(r, p, o, shY, k0x, k1x) {
     const hands = []; (p.arms || ['down', 'down']).forEach((m, k) => { const sx = k ? k1x : k0x, dir = k ? 1 : -1, sl = k ? o.sleeveD : o.sleeve, hs = k ? o.skinD : o.skin;
-      if (m === 'up') { r(sx, shY - 10, 3, 11, sl); r(sx, shY - 12, 3, 2, hs); hands.push([sx + 1, shY - 12]); }
+      if (m === 'up') { const ex = sx + dir * 3; r(Math.min(sx, ex), shY, 6, 3, sl); r(ex, shY - 9, 3, 11, sl); r(ex + (k ? 2 : 0), shY - 9, 1, 11, k ? o.sleeveD : o.sleeve); r(ex, shY - 12, 3, 3, hs); r(ex + (k ? 0 : 2), shY - 13, 1, 1, hs); hands.push([ex + 1, shY - 12]); } // 手肘往外彎、前臂直直舉高，跟頭分開不會黏成一塊
       else if (m === 'out') { const x0 = k ? sx : sx - 6; r(x0, shY + 1, 9, 3, sl); r(k ? sx + 9 : sx - 8, shY + 1, 2, 3, hs); hands.push([k ? sx + 10 : sx - 7, shY + 2]); }
       else if (m === 'fwd') { r(sx, shY + 1, 3, 6, sl); r(sx - dir * 2, shY + 6, 3, 4, sl); r(sx - dir * 2, shY + 10, 3, 2, hs); hands.push([sx - dir * 2 + 1, shY + 10]); }
       else if (m === 'pocket') { r(sx, shY + 1, 3, 8, sl); r(sx + (k ? -1 : 1), shY + 8, 3, 3, sl); hands.push([sx + 1, shY + 10]); }

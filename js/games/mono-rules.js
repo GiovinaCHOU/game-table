@@ -207,8 +207,8 @@
   }
   function mine(st, s) { return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s); }
 
-  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin', 'xlights', 'd20'];
-  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix', 'xlights', 'd20'];
+  const EGG_MONEY = ['gm', 'link', 'war', 'sync', 'bag', 'goblin', 'xlights', 'd20', 'toilet', 'ring', 'shroom'];
+  const MONEY_KEYS = ['m', 'each', 'give', 'house', 'gm', 'link', 'war', 'sync', 'bag', 'goblin', 'phoenix', 'xlights', 'd20', 'toilet', 'ring', 'shroom'];
   const PLAIN_CARD = ['m', 'up', 'mv', 'go', 'jailfree', 'each', 'immune', 'teleport', 'jail', 'skip', 'house', 'down', 'give', 'pct', 'gonb', 'again'];
   function drawCard(st, deck) {
     const th = TH()[st.theme]; const list = th[deck === 'luck' ? 'lucky' : 'bad'];
@@ -222,7 +222,7 @@
     if (eggs.includes(idx)) { st.decks[deck] = U.shuffle(U.range(list.length).filter(i => !eggs.includes(i))); idx = st.decks[deck].pop(); }
     return { idx, text: list[idx][0], eff: list[idx][1] };
   }
-  // 郵差先生（幸運 ×1.5、厄運 ×1.5）、美麗妄娜（厄運 ×0.6）：用這張卡實際拿到／付出的錢來加減
+  // 郵差先生（幸運 ×1.3、厄運 ×1.5）、美麗妄娜（厄運 ×0.6）：用這張卡實際拿到／付出的錢來加減
   function cardWithPerk(st, s, deck, card, depth) {
     const m = perk(st, s), mul = deck === 'luck' ? m.luckMul : m.badMul;
     if (!mul || mul === 1) return applyCard(st, s, deck, card, depth);
@@ -261,6 +261,14 @@
         else if (r >= 11) { const a = Math.round(v * r / 20 / 100) * 100; p.cash += a; ev(st, { t: 'cash', seat: s, amt: a, why: `命運之骰 ${r} 點` }); }
         else pay(st, s, -1, Math.round(v * (11 - r) / 40 / 100) * 100, `命運之骰 ${r} 點`);
         break; }
+      // ===== 幫派街區 =====
+      case 'toilet': st.anim += 7000; p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '馬桶潛水' }); break;
+      case 'ring': st.anim += 6000; p.cash += v; p.jailfree++; ev(st, { t: 'cash', seat: s, amt: v, why: '老大的賞識' }); break;
+      case 'shroom': st.anim += 6500; p.cash += v; p.trance = true; ev(st, { t: 'cash', seat: s, amt: v, why: '蘑菇森林' }); ev(st, { t: 'note', seat: s, feed: true, text: '🍄 看見未來：下一次擲骰自己選點數' }); break;
+      case 'horse': { st.anim += 6500; const c = mine(st, s).filter(t => st.levels[t.i] > 0).sort((a, b) => (b.price + st.levels[b.i] * b.up) - (a.price + st.levels[a.i] * a.up))[0];
+        if (c) { st.levels[c.i]--; ev(st, { t: 'down', tile: c.i, level: st.levels[c.i], seat: s }); } else pay(st, s, -1, Math.floor(p.cash * v / 100 / 100) * 100, '老大的警告'); break; }
+      case 'pizza': st.anim += 5500; pay(st, s, -1, Math.floor(p.cash * v / 100 / 100) * 100, '披薩上屋頂'); break;
+      case 'friend': st.anim += 6500; pay(st, s, -1, Math.floor(p.cash * v / 100 / 100) * 100, '被轟出豪宅'); if (p.alive) { p.skip += 1; ev(st, { t: 'skipset', seat: s, n: 1 }); } break;
       case 'frog': st.anim += 4500; p.skip += v; p.frog = true; p.frogT = 3; ev(st, { t: 'skipset', seat: s, n: v }); ev(st, { t: 'frog', seat: s }); break;
       case 'gm': p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '星門彼端' }); break;
       case 'again': st.extra = true; ev(st, { t: 'note', seat: s, text: '⏳ 再擲一次！' }); break;
