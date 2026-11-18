@@ -37,11 +37,98 @@
     st.turn = (st.turn + 1) % st.n; st.turnId++;
     st.deadline = st.limit ? now + st.limit * 1000 : 0;
   }
-  function drawOne(st, seat) { if (st.pool.length) st.racks[seat].push(st.pool.pop()); }
+  // 抽一張；牌池空了就算「跳過」。所有人連續跳過一輪 → 結算（手牌點數最少的人贏）
+  function drawOne(st, seat) {
+    if (st.pool.length) { st.racks[seat].push(st.pool.pop()); st.passes = 0; return true; }
+    st.passes = (st.passes || 0) + 1; return false;
+  }
+  function finish(st, winner, reason) {
+    st.phase = 'over'; st.winner = winner; st.endReason = reason;
+    const sums = st.racks.map(r => r.reduce((a, t) => a + tileVal(t), 0));
+    const pts = sums.map(x => -(x - sums[winner]));
+    pts[winner] = -pts.reduce((a, b, i) => i === winner ? a : a + b, 0);
+    st.lastPts = pts; pts.forEach((p, i) => st.total[i] += p);
+  }
+  function afterPass(st, now) {
+    if ((st.passes || 0) >= st.n) {
+      const sums = st.racks.map(r => r.reduce((a, t) => a + tileVal(t), 0));
+      finish(st, sums.indexOf(Math.min(...sums)), 'pool'); return;
+    }
+    nextTurn(st, now);
+  }
+
+  // ===== 電腦玩家（簡單）：只用自己的牌組牌組，再把單張接到桌上現成的牌組，不會拆桌上的牌 =====
+  function findSets(rack) {
+    let left = rack.filter(t => !JOKER(t)); let jokers = rack.filter(JOKER); const sets = [];
+    const pickRun = () => {
+      let best = null;
+      for (let c = 0; c < 4; c++) {
+        const byNum = {}; left.filter(t => color(t) === c).forEach(t => { if (!(num(t) in byNum)) byNum[num(t)] = t; });
+        let cur = [];
+        for (let k = 1; k <= 14; k++) {
+          if (byNum[k] != null) cur.push(byNum[k]);
+          else { if (cur.length >= 3 && (!best || cur.length > best.length)) best = cur; cur = []; }
+        }
+      }
+      return best;
+    };
+    const pickGroup = () => {
+      let best = null;
+      for (let k = 13; k >= 1; k--) {
+        const byCol = {}; left.filter(t => num(t) === k).forEach(t => { if (!(color(t) in byCol)) byCol[color(t)] = t; });
+        const g = Object.values(byCol);
+        if (g.length >= 3 && (!best || g.length > best.length)) best = g;
+      }
+      return best;
+    };
+    for (;;) {
+      const r = pickRun(), g = pickGroup();
+      const s = r && g ? (r.length >= g.length ? r : g) : (r || g);
+      if (!s) break;
+      sets.push(s); left = left.filter(t => !s.includes(t));
+    }
+    // 鬼牌補兩張的半成品（同數字不同色，或同色差 1～2）
+    while (jokers.length) {
+      let pair = null;
+      outer: for (let i = 0; i < left.length; i++) for (let j = i + 1; j < left.length; j++) {
+        const a = left[i], b = left[j];
+        if (num(a) === num(b) && color(a) !== color(b)) { pair = [a, b]; break outer; }
+        if (color(a) === color(b) && Math.abs(num(a) - num(b)) >= 1 && Math.abs(num(a) - num(b)) <= 2) { pair = [a, b]; break outer; }
+      }
+      if (!pair) break;
+      const s = pair.concat(jokers.shift());
+      if (!analyze(s)) break;
+      sets.push(s); left = left.filter(t => !pair.includes(t));
+    }
+    return sets;
+  }
+  function botMove(st) {
+    const seat = st.turn, rack = st.racks[seat];
+    let sets = findSets(rack).filter(s => analyze(s));
+    if (!st.melded[seat]) {
+      const sum = sets.reduce((a, s) => a + analyze(s).value, 0);
+      if (sum < 30) return { type: 'draw' };
+      return { type: 'commit', table: st.table.map(s => s.slice()).concat(sets) };
+    }
+    const table = st.table.map(s => s.slice()).concat(sets);
+    let hand = rack.filter(t => !sets.some(s => s.includes(t)));
+    // 單張接到桌上的牌組（含剛放下的），一直接到接不上為止
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const t of hand.slice()) {
+        for (let i = 0; i < table.length; i++) {
+          const r = analyze(table[i].concat(t));
+          if (r) { table[i] = r.order; hand = hand.filter(x => x !== t); changed = true; break; }
+        }
+      }
+    }
+    if (hand.length === rack.length) return { type: 'draw' };
+    return { type: 'commit', table };
+  }
 
   const M = {
     id: 'rummi', name: '拉密', icon: '🔢', min: 2, max: 4,
-    desc: '4 色 × 1–13 各兩張數字牌，加上鬼牌（可以當任何數字和顏色，圖案是家裡的毛孩）。每人 14 張，輪流把牌組成「同數字不同色 3–4 張」或「同色連號 3 張以上」放到桌上，也可以拆改桌上的牌組。第一次下牌需要自己的牌總和 ≥30。不出牌就要抽一張。先出完的人贏。',
+    desc: '4 色 × 1–13 各兩張數字牌，加上鬼牌（可以當任何數字和顏色，圖案是家裡的毛孩）。每人 14 張，輪流把牌組成「同數字不同色 3–4 張」或「同色連號 3 張以上」放到桌上，也可以拆改桌上的牌組。第一次下牌需要自己的牌總和 ≥30。不出牌就要抽一張；牌池抽完後不出牌就跳過，所有人連續跳過一輪就結算，手牌點數最少的人贏。先出完的人贏。',
     options: [{ key: 'limit', label: '每回合時間', choices: [[0, '不限'], [60, '60 秒'], [120, '120 秒']], def: 120 },
       { key: 'jokers', label: '鬼牌數量', choices: [[2, '2 張（每局隨機兩隻）'], [4, '4 張（四隻都出場）']], def: 2 }],
     analyze,
@@ -60,7 +147,7 @@
       }
       if (st.phase !== 'play') return 'silent';
       if (seat !== st.turn) return '還沒輪到你';
-      if (a.type === 'draw') { drawOne(st, seat); st.log = `${ctx.names[seat]} 抽了一張`; nextTurn(st, now); return; }
+      if (a.type === 'draw') { const got = drawOne(st, seat); st.log = got ? `${ctx.names[seat]} 抽了一張` : `${ctx.names[seat]} 跳過（牌池已空）`; afterPass(st, now); return; }
       if (a.type === 'commit') {
         const table = a.table;
         if (!Array.isArray(table) || !table.every(Array.isArray)) return '資料錯誤';
@@ -86,24 +173,27 @@
         st.table = table.map(s => analyze(s).order);
         st.racks[seat] = st.racks[seat].filter(t => !played.includes(t));
         st.log = `${ctx.names[seat]} 出了 ${played.length} 張`;
-        if (!st.racks[seat].length) {
-          st.phase = 'over'; st.winner = seat;
-          const pts = st.racks.map(r => -r.reduce((a, t) => a + tileVal(t), 0));
-          pts[seat] = -pts.reduce((a, b) => a + b, 0); st.lastPts = pts; pts.forEach((p, i) => st.total[i] += p);
-          return;
-        }
+        st.passes = 0;
+        if (!st.racks[seat].length) { finish(st, seat, 'out'); return; }
         nextTurn(st, now); return;
       }
     },
     tick(st, now) {
-      if (st.phase === 'play' && st.deadline && now > st.deadline) { drawOne(st, st.turn); st.log = '時間到，自動抽牌'; nextTurn(st, now); return true; }
+      if (st.phase === 'play' && st.deadline && now > st.deadline) { const got = drawOne(st, st.turn); st.log = got ? '時間到，自動抽牌' : '時間到，跳過'; afterPass(st, now); return true; }
       return false;
     },
-    auto(st) { return st.phase === 'play' ? { seat: st.turn, a: { type: 'draw' } } : null; },
+    // 電腦／託管／斷線代打：同一個回合只算一次（房主每個 tick 都會問）
+    _memo: null,
+    auto(st) {
+      if (st.phase !== 'play') return null;
+      const k = st.turnId + ':' + st.racks[st.turn].length + ':' + st.table.length;
+      if (!this._memo || this._memo.k !== k) { let a; try { a = botMove(st); } catch (e) { a = { type: 'draw' }; } this._memo = { k, a }; }
+      return { seat: st.turn, a: this._memo.a };
+    },
     view(st, seat) {
       return { phase: st.phase, turn: st.turn, turnId: st.turnId, table: st.table, rack: seat >= 0 ? st.racks[seat] : null,
         counts: st.racks.map(r => r.length), pool: st.pool.length, melded: st.melded, deadline: st.deadline, log: st.log,
-        winner: st.winner, lastPts: st.lastPts, total: st.total, reveal: st.phase === 'over' ? st.racks : null, pets: st.pets || [3, 0] };
+        winner: st.winner, endReason: st.endReason, lastPts: st.lastPts, total: st.total, reveal: st.phase === 'over' ? st.racks : null, pets: st.pets || [3, 0] };
     },
 
     // ================= 畫面 =================
@@ -132,7 +222,7 @@
       el.innerHTML = `
         <div class="players-row">${v.names.map((n, i) => `<div class="pchip ${i === v.turn && v.phase === 'play' ? 'turn' : ''}">${U.esc(n)}<b>${v.counts[i]} 張</b><small>${v.melded[i] ? '已破冰' : '未破冰'} · ${v.total[i] >= 0 ? '+' : ''}${v.total[i]}</small></div>`).join('')}</div>
         <div class="rm-status">牌池 ${v.pool} 張 · ${v.phase === 'play' ? `輪到 <b>${U.esc(v.names[v.turn])}</b>` : ''} <span class="timer" data-deadline="${v.deadline || ''}"></span> <small>${U.esc(v.log || '')}</small></div>
-        ${v.phase === 'over' ? `<div class="b2-over"><h3>🎉 ${U.esc(v.names[v.winner])} 出完了！</h3>${v.names.map((n, i) => `<p>${U.esc(n)}：${v.lastPts[i] >= 0 ? '+' : ''}${v.lastPts[i]}</p>`).join('')}${me >= 0 ? '<button class="btn" data-a="next">下一局</button>' : ''}</div>` : ''}
+        ${v.phase === 'over' ? `<div class="b2-over"><h3>🎉 ${v.endReason === 'pool' ? `牌池抽完，${U.esc(v.names[v.winner])} 手牌點數最少！` : `${U.esc(v.names[v.winner])} 出完了！`}</h3>${v.names.map((n, i) => `<p>${U.esc(n)}：${v.lastPts[i] >= 0 ? '+' : ''}${v.lastPts[i]}</p>`).join('')}${me >= 0 ? '<button class="btn" data-a="next">下一局</button>' : ''}</div>` : ''}
         <div class="rm-table ${(n => n > 70 ? 'd2' : n > 36 ? 'd1' : '')(w.table.reduce((a, x) => a + x.length, 0))}">${w.table.map((s, i) => { const r = analyze(s); return `<div class="rm-set ${r ? '' : 'bad'}" data-set="${i}">${(r ? r.order : s).map(t => this.tileHTML(t, w.sel.has(t) ? 'sel' : '')).join('')}${myTurn && w.sel.size ? '<span class="rm-plus">＋</span>' : ''}</div>`; }).join('') || '<p class="hint">桌上還沒有牌</p>'}</div>
         ${v.rack ? `<div class="rm-rack-tools">
             ${myTurn && !v.melded[me] ? `<span class="hint">破冰進度：${freshVal()}/30</span>` : ''}
@@ -142,7 +232,7 @@
             <button class="btn sm" data-a="new" ${w.sel.size ? '' : 'disabled'}>選的牌→新牌組</button>
             <button class="btn sm ghost" data-a="back" ${w.sel.size ? '' : 'disabled'}>收回手上</button>
             <button class="btn sm ghost" data-a="reset" ${changed ? '' : 'disabled'}>重來</button></div>
-            <div class="act-row"><button class="btn" data-a="commit" ${changed ? '' : 'disabled'}>完成出牌</button><button class="btn ghost" data-a="draw" ${changed ? 'disabled' : ''}>抽一張 / 跳過</button></div>
+            <div class="act-row"><button class="btn" data-a="commit" ${changed ? '' : 'disabled'}>完成出牌</button><button class="btn ghost" data-a="draw" ${changed ? 'disabled' : ''}>${v.pool ? '抽一張' : '跳過（牌池已空）'}</button></div>
             <p class="hint">點選牌 → 點桌上的牌組加進去，或按「新牌組」。桌上的牌可以拆開重組。</p>` : ''}` : '<p class="spec-note">觀戰中</p>'}`;
       const rerender = () => this.render(el, v, ui);
       const removeSel = () => {
