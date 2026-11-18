@@ -142,7 +142,7 @@
     view(st, seat) {
       return {
         theme: st.theme, layout: st.layout, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, pill: p.pill || null, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, pill: p.pill || null, stamp: p.stamp == null ? null : p.stamp, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
         pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
@@ -173,7 +173,7 @@
       const ch = this.charOf(v, s); const img = ch && ch.custom ? this.avatarOf(s) : null;
       const sz = size || 34;
       if (!ch) return `<span class="mface" style="width:${sz}px;height:${sz}px">？</span>`;
-      const px = !img && v.theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFace && v.players[s].char ? root.MONO_PIXEL.gangFace(v.players[s].char.i, this.pillImg(v.players[s].pill)) : null;
+      const px = !img && v.theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFace && v.players[s].char ? root.MONO_PIXEL.gangFace(v.players[s].char.i, { img: this.pillImg(v.players[s].pill), stamp: v.players[s].stamp || 0 }) : null;
       return `<span class="mface" style="width:${sz}px;height:${sz}px;border-color:${ch.color}">${img ? `<img src="${img}">` : px ? `<img class="px" src="${px}">` : `<i style="font-size:${sz * 0.6}px">${ch.emoji}</i>`}</span>`;
     },
     render(el, v, ui) {
@@ -281,13 +281,14 @@
       const v = this.v, myI = mine && mine.kind === 'preset' ? mine.i : -1;
       box.innerHTML = `<div class="pick-card perks"><h3>${th.icon} ${th.name}：選角色</h3><p class="hint">每個角色都有一個優點和一個缺點，想清楚再選</p>
         <div class="perk-list">${th.chars.map((c, i) => { const k = th.perks[i], off = (taken.includes(i) && myI !== i) || v.seat < 0, who = v.players.findIndex(p => p.char && p.char.kind === 'preset' && p.char.i === i);
-          const who2 = v.players.findIndex(p => p.char && p.char.kind === 'preset' && p.char.i === i), face = v.theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFace ? `<img class="px" src="${root.MONO_PIXEL.gangFace(i, who2 >= 0 ? this.pillImg(v.players[who2].pill) : null)}">` : c[0];
+          const who2 = v.players.findIndex(p => p.char && p.char.kind === 'preset' && p.char.i === i), face = v.theme === 'gang' && root.MONO_PIXEL && root.MONO_PIXEL.gangFace ? `<img class="px" src="${root.MONO_PIXEL.gangFace(i, who2 >= 0 ? { img: this.pillImg(v.players[who2].pill), stamp: v.players[who2].stamp || 0 } : null)}">` : c[0];
           return `<button class="pk ${myI === i ? 'on' : ''}" data-i="${i}" ${off ? 'disabled' : ''} style="--c:${c[2]}"><i>${face}</i><div class="pk-t"><b>${U.esc(c[1])}${who >= 0 && myI !== i ? `<em>${U.esc(v.names[who])} 選了</em>` : ''}</b><span class="pro">＋ ${U.esc(k.pro)}</span><span class="con">－ ${U.esc(k.con)}</span></div></button>`; }).join('')}</div>
-        ${myI === 0 ? '<button class="btn sm" data-pill>🎨 畫我的藥丸（顏色、圖案）</button>' : ''}
+        ${myI === 0 ? '<button class="btn sm" data-pill>🎨 畫我的藥丸</button>' : myI === 1 ? '<button class="btn sm" data-stamp>📮 換郵票圖案</button>' : ''}
         <div class="pick-who">${v.players.map((p, s) => `<span class="${p.char ? 'ok' : ''}">${p.char ? '✔' : '…'} ${U.esc(v.names[s])}</span>`).join('')}</div>
         <p class="hint">所有人選好就開始，<span class="timer" data-deadline="${v.deadline}"></span> 後自動分配</p></div>`;
-      box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const mdma = +b.dataset.i === 0 && !(v.players[v.seat] && v.players[v.seat].pill); this.ui.send({ type: 'pick', i: +b.dataset.i, pad: mdma }); if (mdma) setTimeout(() => this.pillPad(), 200); });
+      box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const ii = +b.dataset.i, me = v.players[v.seat] || {}, mdma = ii === 0 && !me.pill, post = ii === 1 && me.stamp == null; this.ui.send({ type: 'pick', i: ii, pad: mdma || post }); if (mdma) setTimeout(() => this.pillPad(), 200); if (post) setTimeout(() => this.stampPad(), 200); });
       const pb = box.querySelector('[data-pill]'); if (pb) pb.onclick = () => this.pillPad();
+      const sb = box.querySelector('[data-stamp]'); if (sb) sb.onclick = () => this.stampPad();
     },
     // 媽的媽啊：在像素格上畫藥丸（23×23，跟棋盤上的藥丸一格對一格，不會糊掉）；只有圓圈裡的格子能畫
     pillPad() {
@@ -317,6 +318,16 @@
       };
       paint();
     },
+    // 郵差先生：選郵票圖案（6 款，直接看預覽）
+    stampPad() {
+      const P = root.MONO_PIXEL; if (!P || !P.STAMP_NAMES) return; const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null; m.classList.add('top');
+      const close = () => { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); };
+      const shot = (k) => { const c = P.gangSprite(1, {}, 0, { stamp: k }), o = document.createElement('canvas'); o.width = 72; o.height = 104; const g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, 72, 104); return o.toDataURL(); };
+      m.innerHTML = `<div class="mm-card"><h3>📮 選你的郵票</h3><div class="stamp-grid">${P.STAMP_NAMES.map((n, k) => `<button data-k="${k}"><img src="${shot(k)}"><span>${n}</span></button>`).join('')}</div>
+        <div class="act-row"><button class="btn sm ghost" data-a="skip">用預設的</button></div></div>`;
+      m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { this.ui.send({ type: 'stamp', k: +b.dataset.k }); close(); setTimeout(() => this.showPrompt(), 300); });
+      m.querySelector('[data-a="skip"]').onclick = () => { this.ui.send({ type: 'stamp', skip: true }); close(); this.showPrompt(); };
+    },
     drawPad(after) {
       const m = this.el.querySelector('.mono-modal'); m.hidden = false;
       m.innerHTML = `<div class="mm-card"><h3>畫你的角色</h3><p class="hint">畫好的圖本身就是你的角色（白色部分會變透明，做成立牌在地圖上走）</p><canvas class="pad" width="240" height="240"></canvas>
@@ -341,7 +352,7 @@
     syncBoard(first, mid) {
       // mid＝播放中途呼叫：只更新棋盤，不換鏡頭
       const b = this.board, v = this.v; if (!b || !v || v.phase === 'pick') return;
-      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, pill: p.pill || null, alive: p.alive, name: v.names[s], evolved: p.evolved, frog: !!p.frog }; }));
+      b.setTokens(v.players.map((p, s) => { const ch = this.charOf(v, s); const c = v.players[s].char; return { seat: s, idx: c ? c.i : s, color: ch ? ch.color : '#999', img: ch && ch.custom ? this.avatarOf(s) : null, pill: p.pill || null, stamp: p.stamp || 0, alive: p.alive, name: v.names[s], evolved: p.evolved, frog: !!p.frog }; }));
       v.players.forEach((p, s) => { const tk = b.tokens[s]; if (tk && !tk.busy && tk.pos !== p.pos) b.place(s, p.pos); });
       b.setBuildings(v.owners, v.levels, v.players.map((p, s) => ({ color: (this.charOf(v, s) || {}).color, charIdx: p.char ? p.char.i : 0 })));
       if (b.scene && b.scene.userData.decay) b.scene.userData.decay(v.round); // 怪奇小鎮：回合越後面越被倒影世界侵蝕
@@ -587,7 +598,7 @@
       if (!(v.phase === 'passbuild' && v.turn === v.seat)) this.buildBar(false);
       if (!(v.phase === 'roll' && v.turn === v.seat && v.players[v.seat] && v.players[v.seat].trance)) this.diceBar(false); else if (this.canAct('roll')) this.diceBar(true);
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
-      if (m.classList.contains('top') && v.phase !== 'pick' && !m.hidden && m.querySelector('.pill-wrap')) { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); } // 畫藥丸畫到遊戲開始：關掉，避免擋住輪到你的提示
+      if (m.classList.contains('top') && v.phase !== 'pick' && !m.hidden && m.querySelector('.pxpad, .stamp-grid')) { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); } // 畫藥丸畫到遊戲開始：關掉，避免擋住輪到你的提示
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
       if (!m.hidden && m.querySelector('.pad')) return;
       // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）

@@ -450,7 +450,7 @@
           const i = a.i | 0; if (i < 0 || i >= th.chars.length) return '沒有這個角色';
           if (st.players.some((p, k) => k !== s && p.char && p.char.kind === 'preset' && p.char.i === i)) return '這個角色已經被選走了';
           st.players[s].char = { kind: 'preset', i };
-          st.players[s].pillPending = !!(a.pad && i === 0 && th.perks && !st.players[s].pill); // 真人選了媽的媽啊：等他畫完藥丸再開始
+          st.players[s].pillPending = !!(a.pad && th.perks && ((i === 0 && !st.players[s].pill) || (i === 1 && st.players[s].stamp == null))); // 真人選了媽的媽啊／郵差先生：等他畫完藥丸、選好郵票圖案再開始
         }
         if (st.players.every(p => p.char && !p.pillPending)) R.begin(st, now);
         return;
@@ -458,6 +458,10 @@
       if (a.type === 'pill') { // 媽的媽啊：自己畫的藥丸圖案（32×32 PNG）
         const p0 = st.players[s], th0 = TH()[st.theme]; if (!p0 || !p0.char || p0.char.kind !== 'preset' || p0.char.i !== 0 || !th0.perks) return 'silent';
         if (a.skip) p0.pillPending = false; else { if (typeof a.img !== 'string' || !a.img.startsWith('data:image/png;base64,') || a.img.length > 9000) return '圖案太大了'; p0.pill = a.img; p0.pillPending = false; }
+        if (st.phase === 'pick' && st.players.every(p => p.char && !p.pillPending)) R.begin(st, now); return; }
+      if (a.type === 'stamp') { // 郵差先生：選郵票圖案（0～5）
+        const p0 = st.players[s], th0 = TH()[st.theme]; if (!p0 || !p0.char || p0.char.kind !== 'preset' || p0.char.i !== 1 || !th0.perks) return 'silent';
+        if (!a.skip) { const k = a.k | 0; if (k < 0 || k > 5) return '沒有這個圖案'; p0.stamp = k; } p0.pillPending = false;
         if (st.phase === 'pick' && st.players.every(p => p.char && !p.pillPending)) R.begin(st, now); return; }
       if (a.type === 'start' ) { if (st.phase === 'pick') R.begin(st, now); return; }
       if (a.type === 'answer') { // 搶答：只有破產者和收錢者可以作答，各答一次

@@ -693,7 +693,7 @@
       const base = new T.Mesh(new T.CylinderGeometry(0.17, 0.2, 0.06, 20), M(T, color, { roughness: 0.4, metalness: 0.2 })); base.position.y = 0.03; base.castShadow = true; g.add(base);
       r = { g, body, head: null, skull: null, legs: [], arms: [], kind: 'standee', billboard: card };
     } else if ((theme === 'town' || theme === 'gang') && root.MONO_PIXEL && (theme !== 'gang' || root.MONO_PIXEL.gangFrame)) { // 怪奇小鎮／幫派街區：16-bit 像素立牌（永遠面向鏡頭，動作換影格）
-      const P0 = root.MONO_PIXEL, pillIm = theme === 'gang' && extra && extra.pill ? Object.assign(new Image(), { src: extra.pill }) : null, P = theme === 'gang' ? { tokenFrame: (i, s, t) => P0.gangFrame(i, s, t, pillIm && pillIm.complete && pillIm.naturalWidth ? { img: pillIm } : null), SW: P0.SW, SH: P0.SH } : P0, g = new T.Group(), body = new T.Group(); g.add(body);
+      const P0 = root.MONO_PIXEL, pillIm = theme === 'gang' && extra && extra.pill ? Object.assign(new Image(), { src: extra.pill }) : null, stp = (extra && extra.stamp) || 0, P = theme === 'gang' ? { tokenFrame: (i, s, t) => P0.gangFrame(i, s, t, { img: pillIm && pillIm.complete && pillIm.naturalWidth ? pillIm : null, stamp: stp }), SW: P0.SW, SH: P0.SH } : P0, g = new T.Group(), body = new T.Group(); g.add(body);
       const card = new T.Group(); body.add(card);
       const tx = new T.CanvasTexture(P.tokenFrame(idx, 'idle', 0)); tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.colorSpace = T.SRGBColorSpace;
       const sc = theme === 'town' && idx === 7 ? 1.25 : 1, pic = new T.Mesh(new T.PlaneGeometry(0.78 * sc, 0.78 * sc * P.SH / P.SW), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide }));

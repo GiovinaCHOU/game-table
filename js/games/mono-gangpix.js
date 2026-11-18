@@ -79,38 +79,56 @@
     const h1 = arm(R, cx - 11, cy + 2, -1, (p.arms || [])[0], '#2a1a22'), h2 = arm(R, cx + 11, cy + 2, 1, (p.arms || [])[1], '#2a1a22');
     return [h1, h2];
   }
-  // ---------- 1 郵差先生：一張郵票（鋸齒邊），郵票圖案是有光環的人像，頭戴郵差帽 ----------
-  function stamp(R, g, p, f) {
-    const dy = p.dy || 0, x0 = 6, y0 = 10 + dy, w = 24, h = 28;
+  // ---------- 1 郵差先生：一張郵票（鋸齒邊），圖案可以選 6 款；臉在郵票下方白邊，頭戴郵差帽 ----------
+  // 圖案畫在 18×15 的範圍（ix, iy 為左上角）
+  const STAMP_ART = [
+    // 0 光環人像
+    (R, ix, iy, f) => { R(ix, iy, 18, 15, '#5a8aff'); R(ix, iy, 18, 4, '#7aa8ff'); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283 + (f % 2) * 0.2; for (let r = 6; r < 9; r++) R(ix + 9 + Math.cos(a) * r, iy + 7 + Math.sin(a) * r, 1, 1, '#ffe88a'); }
+      R(ix + 4, iy + 1, 11, 2, '#ffd23a'); R(ix + 5, iy + 3, 9, 10, '#6a4024'); R(ix + 7, iy + 4, 5, 6, '#f2c8a0'); R(ix + 11, iy + 4, 1, 6, '#d8a078'); R(ix + 7, iy + 8, 5, 3, '#7a4a2a'); R(ix + 8, iy + 6, 1, 1, '#2a1a10'); R(ix + 10, iy + 6, 1, 1, '#2a1a10'); R(ix + 3, iy + 12, 12, 3, '#f6f2e6'); R(ix + 8, iy + 12, 2, 3, '#d8d0bc'); },
+    // 1 腳踏車
+    (R, ix, iy, f) => { R(ix, iy, 18, 15, '#8ad8ff'); R(ix, iy + 11, 18, 4, '#6ac86a'); R(ix + 13, iy + 1, 3, 3, '#fff27a');
+      [[4, 10], [13, 10]].forEach(([cx, cy]) => { for (let a = 0; a < 6.28; a += 0.25) R(ix + cx + Math.round(Math.cos(a) * 3), iy + cy + Math.round(Math.sin(a) * 3), 1, 1, '#2a2a30'); R(ix + cx, iy + cy, 1, 1, '#8a8a90'); });
+      [[4, 10, 8, 6], [8, 6, 13, 10], [8, 6, 9, 10], [9, 10, 4, 10], [8, 6, 7, 4], [12, 5, 13, 10]].forEach(([a, b, c, d]) => { const n = Math.max(Math.abs(c - a), Math.abs(d - b)); for (let i = 0; i <= n; i++) R(ix + Math.round(a + (c - a) * i / n), iy + Math.round(b + (d - b) * i / n), 1, 1, '#e5383b'); });
+      R(ix + 6, iy + 3, 3, 1, '#2a2a30'); R(ix + 11, iy + 4, 3, 1, '#2a2a30'); },
+    // 2 圖騰柱
+    (R, ix, iy, f) => { R(ix, iy, 18, 15, '#ffb84a'); R(ix, iy + 9, 18, 6, '#ff8a3a'); R(ix + 1, iy + 2, 5, 2, '#5a2a1a'); R(ix + 12, iy + 2, 5, 2, '#5a2a1a');
+      R(ix + 5, iy + 1, 8, 14, '#a85a2a'); R(ix + 11, iy + 1, 2, 14, '#7a3a1a'); R(ix + 5, iy + 1, 8, 1, '#c87a3a');
+      [[2, '#2aa8c8'], [7, '#e5383b'], [12, '#2a8a4a']].forEach(([y, c]) => { R(ix + 6, iy + y, 2, 2, '#ffffff'); R(ix + 10, iy + y, 2, 2, '#ffffff'); R(ix + 7, iy + y + 1, 1, 1, '#1a1010'); R(ix + 10, iy + y + 1, 1, 1, '#1a1010'); R(ix + 7, iy + y + 3, 4, 1, c); R(ix + 5, iy + y + 4, 8, 1, '#7a3a1a'); }); },
+    // 3 火箭
+    (R, ix, iy, f) => { R(ix, iy, 18, 15, '#1a1a4a'); [[2, 2], [15, 4], [4, 10], [14, 12], [10, 1]].forEach(([x, y]) => R(ix + x, iy + y, 1, 1, '#ffffff'));
+      R(ix + 7, iy + 3, 5, 8, '#f4f4f0'); R(ix + 8, iy + 1, 3, 2, '#f4f4f0'); R(ix + 9, iy, 1, 1, '#e5383b'); R(ix + 11, iy + 3, 1, 8, '#c8c8d0'); R(ix + 8, iy + 4, 3, 3, '#3ab0ff'); R(ix + 8, iy + 4, 1, 1, '#ffffff');
+      R(ix + 5, iy + 8, 2, 4, '#e5383b'); R(ix + 12, iy + 8, 2, 4, '#e5383b'); R(ix + 8, iy + 11, 3, 1, '#8a8a90'); R(ix + 8, iy + 12, 3, 2, f % 2 ? '#ffd23a' : '#ff8a1a'); R(ix + 9, iy + 14, 1, 1, '#ff4a1a'); },
+    // 4 哥布林
+    (R, ix, iy, f) => { R(ix, iy, 18, 15, '#8a4ac8'); R(ix, iy + 11, 18, 4, '#6a2aa8');
+      R(ix + 1, iy + 4, 4, 2, '#5aa83a'); R(ix + 13, iy + 4, 4, 2, '#5aa83a'); R(ix, iy + 3, 2, 1, '#5aa83a'); R(ix + 16, iy + 3, 2, 1, '#5aa83a');
+      R(ix + 4, iy + 2, 10, 11, '#6ac84a'); R(ix + 11, iy + 2, 3, 11, '#4a9a34'); R(ix + 6, iy + 5, 2, 2, '#ffe02a'); R(ix + 10, iy + 5, 2, 2, '#ffe02a'); R(ix + 7, iy + 6, 1, 1, '#1a1010'); R(ix + 10, iy + 6, 1, 1, '#1a1010');
+      R(ix + 8, iy + 7, 2, 2, '#4a9a34'); R(ix + 6, iy + 10, 6, 1, '#3a1010'); R(ix + 6, iy + 9, 1, 1, '#ffffff'); R(ix + 11, iy + 9, 1, 1, '#ffffff'); R(ix + 8, iy + 10, 1, 1, '#ffffff'); },
+    // 5 外星人（原創）
+    (R, ix, iy, f) => { R(ix, iy, 18, 15, '#3ac86a'); for (let k = 0; k < 4; k++) R(ix, iy + k * 4, 18, 1, '#5ae88a');
+      R(ix + 5, iy + 2, 8, 9, '#c8c8d8'); R(ix + 4, iy + 3, 10, 5, '#c8c8d8'); R(ix + 7, iy + 11, 4, 2, '#c8c8d8'); R(ix + 11, iy + 2, 2, 10, '#a8a8b8');
+      R(ix + 5, iy + 5, 3, 3, '#141018'); R(ix + 10, iy + 5, 3, 3, '#141018'); R(ix + 5, iy + 5, 1, 1, '#5a5a6a'); R(ix + 10, iy + 5, 1, 1, '#5a5a6a'); R(ix + 8, iy + 10, 2, 1, '#6a6a7a'); }
+  ];
+  P.STAMP_NAMES = ['光環人像', '腳踏車', '圖騰', '火箭', '哥布林', '外星人'];
+  function stamp(R, g, p, f, opt) {
+    const dy = p.dy || 0, x0 = 6, y0 = 9 + dy, w = 24, h = 30, art = STAMP_ART[(opt && opt.stamp) || 0] || STAMP_ART[0];
     legs(R, 18, y0 + h, p.legs, '#2a2a44', '#2a3a7a', '#4a5aa8');
-    // 鋸齒白邊
     R(x0, y0, w, h, '#f6f2e6'); R(x0 + w - 1, y0, 1, h, '#d8d0bc'); R(x0, y0 + h - 1, w, 1, '#d8d0bc');
     // 郵票的齒孔：邊緣每 3 格挖一個缺口，描邊後就是一圈波浪
     for (let k = 1; k < w - 1; k += 3) { g.clearRect(x0 + k, y0, 1, 1); g.clearRect(x0 + k, y0 + h - 1, 1, 1); }
     for (let k = 1; k < h - 1; k += 3) { g.clearRect(x0, y0 + k, 1, 1); g.clearRect(x0 + w - 1, y0 + k, 1, 1); }
-    // 圖案：天空漸層＋光芒
-    const ix = x0 + 3, iy = y0 + 3, iw = w - 6, ih = h - 9;
-    R(ix, iy, iw, ih, '#5a8aff'); R(ix, iy, iw, 5, '#7aa8ff'); R(ix, iy + ih - 4, iw, 4, '#4a6ae0');
-    for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283 + (f % 2) * 0.2; for (let r = 7; r < 10; r++) R(ix + iw / 2 + Math.cos(a) * r, iy + 8 + Math.sin(a) * r, 1, 1, '#ffe88a'); }
-    // 人像：光環、長髮、鬍子、白袍
-    const hx = ix + iw / 2, hy = iy + 8; R(hx - 5, hy - 7, 11, 2, '#ffd23a'); R(hx - 6, hy - 6, 1, 1, '#ffd23a'); R(hx + 6, hy - 6, 1, 1, '#ffd23a');
-    R(hx - 5, hy - 5, 11, 12, '#6a4024'); R(hx - 3, hy - 3, 7, 8, '#f2c8a0'); R(hx + 2, hy - 3, 2, 8, '#d8a078');
-    R(hx - 3, hy + 3, 7, 4, '#7a4a2a'); R(hx - 1, hy + 2, 3, 1, '#7a4a2a');
-    R(ix + 2, iy + ih - 5, iw - 4, 5, '#f6f2e6'); R(hx - 1, iy + ih - 5, 3, 5, '#d8d0bc');
-    // 臉（表情跟著 pose 變）
-    const ey = p.eyes || 'open';
-    if (ey === 'blink') { R(hx - 2, hy, 2, 1, '#2a1a10'); R(hx + 1, hy, 2, 1, '#2a1a10'); }
-    else if (ey === 'x') { R(hx - 2, hy - 1, 1, 1, '#2a1a10'); R(hx - 1, hy, 1, 1, '#2a1a10'); R(hx + 2, hy - 1, 1, 1, '#2a1a10'); R(hx + 3, hy, 1, 1, '#2a1a10'); }
-    else if (ey === 'glow') { R(hx - 2, hy - 1, 2, 2, '#fff8c0'); R(hx + 1, hy - 1, 2, 2, '#fff8c0'); }
-    else { R(hx - 2, hy - 1, 2, 2, '#ffffff'); R(hx + 1, hy - 1, 2, 2, '#ffffff'); const s = ey === 'wide' ? 0 : 1; R(hx - 2 + s, hy - 1 + s, 1, 1, '#2a1a10'); R(hx + 1 + s, hy - 1 + s, 1, 1, '#2a1a10'); }
-    const mo = p.mouth || 'smile'; if (mo === 'o') R(hx, hy + 3, 1, 2, '#3a0a14'); else if (mo === 'grin') R(hx - 1, hy + 3, 3, 1, '#ffffff'); else R(hx - 1, hy + 3, 3, 1, '#a04040');
-    // 面額與郵戳
-    R(x0 + 3, y0 + h - 5, 4, 3, '#c8202a'); R(x0 + 4, y0 + h - 4, 2, 1, '#f6f2e6');
-    R(x0 + w - 9, y0 + h - 5, 6, 1, '#5a8aff'); R(x0 + w - 9, y0 + h - 3, 4, 1, '#5a8aff');
+    // 圖案（18×15）＋細框
+    const ix = x0 + 3, iy = y0 + 3; art(R, ix, iy, f); R(ix - 1, iy - 1, 20, 1, '#c8c0a8'); R(ix - 1, iy + 15, 20, 1, '#c8c0a8'); R(ix - 1, iy - 1, 1, 17, '#c8c0a8'); R(ix + 18, iy - 1, 1, 17, '#c8c0a8');
+    // 臉：在下方白邊（表情跟著 pose）
+    const ey = p.eyes || 'open', fy = y0 + 21, ex = [x0 + 7, x0 + 14];
+    if (ey === 'blink') ex.forEach(x => R(x, fy + 1, 3, 1, '#2a1a10'));
+    else if (ey === 'x') ex.forEach(x => { R(x, fy, 1, 1, '#2a1a10'); R(x + 2, fy, 1, 1, '#2a1a10'); R(x + 1, fy + 1, 1, 1, '#2a1a10'); R(x, fy + 2, 1, 1, '#2a1a10'); R(x + 2, fy + 2, 1, 1, '#2a1a10'); });
+    else ex.forEach(x => { R(x, fy, 3, 3, '#2a1a10'); if (ey === 'wide') R(x + 1, fy + 1, 1, 1, '#ffffff'); else R(x, fy, 1, 1, '#6a5a50'); });
+    const mo = p.mouth || 'smile', mx = x0 + 12, my = fy + 5;
+    if (mo === 'o') R(mx - 1, my - 1, 2, 2, '#7a2030'); else if (mo === 'grin') { R(mx - 3, my - 1, 6, 2, '#7a2030'); R(mx - 2, my - 1, 4, 1, '#ffffff'); } else if (mo === 'sad') { R(mx - 2, my, 4, 1, '#7a2030'); R(mx - 3, my + 1, 1, 1, '#7a2030'); R(mx + 2, my + 1, 1, 1, '#7a2030'); } else { R(mx - 2, my, 4, 1, '#7a2030'); R(mx - 3, my - 1, 1, 1, '#7a2030'); R(mx + 2, my - 1, 1, 1, '#7a2030'); }
+    R(x0 + 4, fy + 3, 2, 1, '#ffb0b0'); R(x0 + 18, fy + 3, 2, 1, '#ffb0b0');
     // 郵差帽
     R(x0 + 4, y0 - 7, 16, 6, '#2a3a7a'); R(x0 + 4, y0 - 7, 16, 2, '#3a4e9a'); R(x0 + 2, y0 - 2, 20, 2, '#1a2450'); R(x0 + 10, y0 - 6, 4, 3, '#ffd23a'); R(x0 + 11, y0 - 5, 2, 1, '#c89a1a');
-    const h1 = arm(R, x0 - 1, y0 + 15, -1, (p.arms || [])[0], '#2a2a44'), h2 = arm(R, x0 + w, y0 + 15, 1, (p.arms || [])[1], '#2a2a44');
-    // 右手拿一封信
+    const h1 = arm(R, x0 - 1, y0 + 17, -1, (p.arms || [])[0], '#2a2a44'), h2 = arm(R, x0 + w, y0 + 17, 1, (p.arms || [])[1], '#2a2a44');
     if (!p.noItem) { const [x, y] = h2; R(x - 1, y - 7, 8, 6, '#f6f2e6'); R(x - 1, y - 7, 8, 1, '#d8d0bc'); R(x, y - 6, 3, 2, '#c8202a'); R(x + 3, y - 5, 3, 1, '#d8d0bc'); }
     return [h1, h2];
   }
@@ -132,6 +150,13 @@
     else eyes(R, cx - 5, cx + 2, fy - 3, 3, 3, 2, ey, {});
     mouth(R, cx, fy + 2, p.mouth || 'smile', { c: '#1a4a14' });
     const h1 = arm(R, cx - 6, base - 4, -1, (p.arms || [])[0], '#2a4a1a'), h2 = arm(R, cx + 6, base - 4, 1, (p.arms || [])[1], '#2a4a1a');
+    // 玻璃水煙：平常右手拿在旁邊；吸的時候（f 4～5）舉到嘴邊、水在冒泡
+    if (!p.noItem && (p.arms || [])[1] !== 'up' && (p.arms || [])[1] !== 'out') { const inh = f % 8 === 4 || f % 8 === 5, fy = base - 12;
+      const [x, y] = inh ? [cx + 1, fy + 18] : h2;
+      R(x + 1, y - 16, 3, 13, '#d8f0ff'); R(x + 1, y - 16, 1, 13, '#ffffff'); R(x + 3, y - 16, 1, 13, '#a8c8d8'); R(x, y - 17, 5, 1, '#a8c8d8');
+      R(x - 1, y - 4, 7, 6, '#c8e8f4'); R(x - 1, y - 4, 1, 6, '#ffffff'); R(x, y - 1, 5, 3, '#5ac87a'); R(x, y - 2, 5, 1, '#7ae89a'); R(x - 1, y + 2, 7, 1, '#8ab8c8');
+      R(x - 3, y - 6, 3, 1, '#a8c8d8'); R(x - 4, y - 7, 2, 2, '#6a5a4a'); R(x - 4, y - 8, 2, 1, inh ? '#ff6a2a' : '#4a8a3a');
+      if (inh) { R(x + 1, y - 2, 1, 1, '#ffffff'); R(x + 3, y - 1, 1, 1, '#ffffff'); R(x + 2, y - 7 - (f % 2) * 3, 1, 1, '#ffffff'); R(x + 2, y - 11, 1, 1, '#e8f4ff'); R(x + 5, y - 2, 2, 2, '#2a4a1a'); } }
     return [h1, h2];
   }
   // 人類共用的身體（比怪奇小鎮再大一點點的頭身比）
@@ -336,31 +361,42 @@
   const DRAW = [pill, stamp, leaf, nose, spoon, folded, thug, boss, mushroom];
   P.GANG_N = DRAW.length;
   // 取得幫派角色某個動作的影格；opt.img＝媽的媽啊的自畫藥丸圖案
+  // 描邊之後才畫的東西（不要黑框）：大鼻子走路掉白粉、大麻寶寶吐煙
+  const POST = {
+    3: (R, p, f) => { if (p.legs !== 'a' && p.legs !== 'b') return; const dy = p.dy || 0, k = f % 4;
+      [[12, 44 + k], [21, 45 + ((k + 2) % 4)], [16, 47 + (k % 2)], [9, 46 - (k % 2)], [24, 43 + k]].forEach(([x, y], j) => { if ((j + k) % 3 !== 2) R(x, y + dy, 1, 1, j % 2 ? '#f0f0f8' : '#ffffff'); }); },
+    2: (R, p, f) => { const k = f % 8; if (k < 6 || p.eyes === 'x' || p.mouth === 'o') return; const dy = p.dy || 0, t = k - 6, mx = 18, my = 22 + dy;
+      // 吐出來的煙：柔和的白色雲團（兩格動畫：剛吐出、往上飄散開）
+      const puff = t === 0 ? [[1, 0, 2], [4, -2, 3], [7, -4, 2]] : [[3, -5, 3], [7, -8, 3], [5, -12, 2], [10, -12, 2], [1, -9, 2]];
+      puff.forEach(([x, y, r]) => { for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { const d = xx * xx + yy * yy; if (d > r * r + 0.6) continue; R(mx + 2 + x + xx, my + y + yy, 1, 1, d > (r - 1) * (r - 1) + 0.6 ? (t ? 'rgba(220,228,222,.7)' : 'rgba(228,234,230,.85)') : (t ? 'rgba(244,247,244,.8)' : '#f6f8f6')); } }); }
+  };
   P.gangSprite = function (i, pose, f, opt) {
-    const key = 'g' + i + '|' + JSON.stringify(pose || {}) + '|' + (f || 0) + '|' + (opt && opt.img ? (opt.img.__id || (opt.img.__id = Math.random())) : '');
+    const key = 'g' + i + '|' + JSON.stringify(pose || {}) + '|' + (f || 0) + '|' + (opt && opt.img ? (opt.img.__id || (opt.img.__id = Math.random())) : '') + '|' + (opt && opt.stamp ? opt.stamp : 0);
     if (cache[key]) return cache[key];
-    const [c, g, R] = mk(); DRAW[((i % DRAW.length) + DRAW.length) % DRAW.length](R, g, pose || {}, f || 0, opt);
-    P.outline(c); return (cache[key] = c);
+    const [c, g, R] = mk(), k = ((i % DRAW.length) + DRAW.length) % DRAW.length; DRAW[k](R, g, pose || {}, f || 0, opt);
+    P.outline(c); if (POST[k]) POST[k](R, pose || {}, f || 0, opt); return (cache[key] = c);
   };
   P.gangHands = function (i, pose, f) { const [c, g, R] = mk(); return DRAW[i](R, g, pose || {}, f || 0) || []; };
   // 畫藥丸的畫板用：只有眼睛＋嘴巴的 23×23 圖（畫板上鎖住這些格子）
   P.pillFace = function () { if (cache.pf) return cache.pf; const [c, g] = P.canvas(23, 23); const R = (x, y, w, h, col) => { if (w <= 0 || h <= 0) return; g.fillStyle = col; g.fillRect(Math.round(x) - 7, Math.round(y) - 11, Math.round(w), Math.round(h)); };
     bigEyes(R, 13, 23, 18, 'open'); mouth(R, 18, 25, 'grin', {}); return (cache.pf = c); };
   // 頭像（HUD、選角清單用）：每個角色裁出臉的範圍，回傳 dataURL
-  const FACE = [[4, 7, 28, 28], [4, 1, 28, 28], [4, 3, 28, 28], [2, 8, 32, 32], [7, 0, 22, 22], [0, 18, 18, 18], [8, 3, 20, 20], [8, 1, 20, 20], [2, 6, 32, 32]], faceC = {};
-  P.gangFace = function (i, img) {
-    const key = i + '|' + (img ? (img.__id || (img.__id = Math.random())) : ''); if (faceC[key]) return faceC[key];
-    const [x, y, w, h] = FACE[i % FACE.length], [c, g] = P.canvas(48, 48); g.imageSmoothingEnabled = false; g.drawImage(P.gangSprite(i, {}, 0, img ? { img } : null), x, y, w, h, 0, 0, 48, 48);
+  const FACE = [[4, 7, 28, 28], [4, 2, 28, 28], [4, 3, 28, 28], [2, 8, 32, 32], [7, 0, 22, 22], [0, 18, 18, 18], [8, 3, 20, 20], [8, 1, 20, 20], [2, 6, 32, 32]], faceC = {};
+  P.gangFace = function (i, opt) {
+    if (opt && opt.naturalWidth !== undefined) opt = { img: opt }; const img = opt && opt.img;
+    const key = i + '|' + (img ? (img.__id || (img.__id = Math.random())) : '') + '|' + ((opt && opt.stamp) || 0); if (faceC[key]) return faceC[key];
+    const [x, y, w, h] = FACE[i % FACE.length], [c, g] = P.canvas(48, 48); g.imageSmoothingEnabled = false; g.drawImage(P.gangSprite(i, {}, 0, opt || null), x, y, w, h, 0, 0, 48, 48);
     return (faceC[key] = c.toDataURL());
   };
   // 棋盤上的動作 → 影格（同怪奇小鎮的 tokenFrame）
   P.gangFrame = function (i, state, t, opt) {
     const blink = (t % 3.3) < 0.14, f = Math.floor(t * 4), S = (pose, ff) => P.gangSprite(i, pose, ff, opt);
-    if (state === 'walk') return S({ legs: Math.floor(t * 8) % 2 ? 'a' : 'b' }, f % 2);
+    const ff = i === 2 ? f % 8 : i === 3 ? f % 4 : f % 2;
+    if (state === 'walk') return S({ legs: Math.floor(t * 8) % 2 ? 'a' : 'b' }, ff);
     if (state === 'joy') return S({ arms: ['up', 'up'], legs: Math.floor(t * 6) % 2 ? 'jump' : 'stand', mouth: 'grin', dy: Math.floor(t * 6) % 2 ? -2 : 0 }, f % 2);
     if (state === 'scared') return S({ arms: ['out', 'out'], eyes: 'wide', mouth: 'o', dy: Math.floor(t * 20) % 2 }, f % 2);
     if (state === 'sad') return S({ eyes: 'blink', mouth: 'sad' }, 0);
     if (state === 'fall') return S({ eyes: 'x', mouth: 'o' }, 0);
-    return S({ eyes: blink ? 'blink' : 'open' }, f % 2);
+    return S({ eyes: blink ? 'blink' : 'open', mouth: i === 2 && (f % 8 === 4 || f % 8 === 5) ? 'o' : undefined }, i === 2 ? f % 8 : f % 2);
   };
 })(typeof window !== 'undefined' ? window : globalThis);

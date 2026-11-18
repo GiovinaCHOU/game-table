@@ -315,6 +315,7 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .pick-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 12px; color: var(--muted); } .pick-who .ok { color: #7dffa0; }
 .pad { width: 240px; height: 240px; border-radius: 14px; background: #fff; touch-action: none; border: 2px solid #e6dcc6; }
 .mono-modal.top { z-index: 12; }
+.stamp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; } .stamp-grid button { background: #2a2230; border: 2px solid transparent; border-radius: 12px; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #f4ecd8; font: inherit; font-size: 13px; } .stamp-grid button:hover { border-color: var(--gold); } .stamp-grid img { width: 54px; image-rendering: pixelated; }
 .pxpad { width: min(276px, 72vw); height: auto; aspect-ratio: 1; image-rendering: pixelated; border-radius: 12px; touch-action: none; display: block; margin: 0 auto; }
 .pill-wrap { position: relative; width: 240px; height: 240px; margin: 0 auto; overflow: hidden; border-radius: 14px; } .pill-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgba(20,16,24,.55); pointer-events: none; outline: 2px dashed rgba(255,255,255,.7); outline-offset: -2px; } .pill-wrap .pad { border-radius: 14px; }
 .pad-tools button.on { outline: 3px solid var(--gold); }
