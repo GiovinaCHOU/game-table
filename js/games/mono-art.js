@@ -366,11 +366,17 @@
       for (let k = 0; k < 4; k++) { const a = k / 4 * 6.28 + 0.8, d = rnd(10, 13); fire(Math.cos(a) * d, Math.sin(a) * d, 1); }
       // 遠方天際線
       for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2, d = 58; const m = add(new T.PlaneGeometry(28, 14), new T.MeshBasicMaterial({ map: ntex(PX.gSkyline(k)), transparent: true, alphaTest: 0.5, fog: false, color: '#a098b8' }), Math.cos(a) * d, 6.6, Math.sin(a) * d, false); m.lookAt(0, 6.6, 0); }
-      { const wp = new T.Vector3(); bbs.forEach(m => { m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); }; }); }
+      // 面向鏡頭的立牌（牆、車、樹、警車…）：擋在鏡頭和畫面中央（正在看的角色、建築）之間時自動隱藏，不會卡住角色
+      const cdir = new T.Vector3(), occl = (m, wp, cam) => { cam.getWorldDirection(cdir); if (cdir.y > -0.05) return false; const k = -(cam.position.y + 0.35) / cdir.y;
+        const vx = wp.x - cam.position.x, vy = wp.y - cam.position.y, vz = wp.z - cam.position.z, along = vx * cdir.x + vy * cdir.y + vz * cdir.z; if (along <= 0.3 || along >= k - 0.8) return false;
+        const hx = vx - cdir.x * along, hz = vz - cdir.z * along, lat = Math.hypot(hx, hz), w = (m.geometry.parameters && m.geometry.parameters.width) || 2, h = (m.geometry.parameters && m.geometry.parameters.height) || 2;
+        const rayY = cam.position.y + cdir.y * along; return lat < w / 2 + 0.5 && rayY < wp.y + h / 2 + 0.3; };
+      const hideIf = (m, wp, cam) => { const o = occl(m, wp, cam) ? 0.3 : 1; if (m.material.opacity !== o) m.material.opacity = o; }; // 透明度低於 alphaTest 0.5 就整片不畫
+      { const wp = new T.Vector3(); bbs.forEach(m => { m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); hideIf(m, wp, cam); }; }); }
       // ===== 風聲越緊：警車、紅藍光、直升機探照燈 =====
       const COPS = [[-2.6, 6.8], [7, -2.6], [2.6, -6.6], [-6.8, 2.6], [6.6, 2.6], [-2.6, -7]], cops = [];
       const copTx = [PX.gCop(0), PX.gCop(1)].map(ntex);
-      COPS.forEach(([x, z], k) => { const h = 1.9 * 22 / 52, m = add(new T.PlaneGeometry(1.9, h), new T.MeshBasicMaterial({ map: copTx[0], transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: '#d8d0e0' }), x, h / 2 - 0.4, z, false); const wp = new T.Vector3(); m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); }; m.visible = false;
+      COPS.forEach(([x, z], k) => { const h = 1.9 * 22 / 52, m = add(new T.PlaneGeometry(1.9, h), new T.MeshBasicMaterial({ map: copTx[0], transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: '#d8d0e0' }), x, h / 2 - 0.4, z, false); const wp = new T.Vector3(); m.onBeforeRender = (rr, sc, cam) => { m.getWorldPosition(wp); hideIf(m, wp, cam); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z); }; m.visible = false;
         const gl = add(new T.CircleGeometry(1.4, 24), new T.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }), x, -0.325, z, false); gl.rotation.x = -Math.PI / 2; cops.push({ m, gl, th: (k + 1) / (COPS.length + 1) * 0.85 }); });
       const chop = add(new T.PlaneGeometry(2.6, 2.6 * 18 / 44), new T.MeshBasicMaterial({ map: ntex(PX.gChopper(0)), transparent: true, alphaTest: 0.5, side: T.DoubleSide, color: '#c8c0d8', fog: false }), 0, 9, 0, false); chop.visible = false; const chT = [PX.gChopper(0), PX.gChopper(1)].map(ntex);
       const spot = add(new T.CircleGeometry(1.5, 32), new T.MeshBasicMaterial({ color: '#f4f0d8', transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }), 0, -0.31, 0, false); spot.rotation.x = -Math.PI / 2;
