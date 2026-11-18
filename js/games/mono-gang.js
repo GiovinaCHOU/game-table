@@ -73,33 +73,55 @@
 
   // ======================= 幸運彩蛋 1：馬桶潛水（致敬《猜火車》）=======================
   // 全城最髒的廁所 → 伸手進馬桶 → 整個人鑽進去 → 清澈的深藍海底，優雅游泳撈起兩顆發光藥丸 → 從馬桶衝出來，錢噴滿天
-  function restroom(g, W, Hh, t, o) { // 髒廁所隔間（磁磚、汙漬、塗鴉、壞掉的日光燈、地上積水）；回傳地板線
-    o = o || {}; const fy = Math.round(Hh * 0.7), lit = o.lit != null ? o.lit : (Math.sin(t * 23) > 0.85 || (t % 1.7) < 0.08 ? 0.35 : 1);
-    for (let y = 0; y < fy; y += 8) for (let x = 0; x < W; x += 8) { const dirt = y / fy, k = ((x * 7 + y * 13) % 5); R(g, x, y, 8, 8, dirt > 0.6 ? (k ? '#6e7452' : '#646a48') : dirt > 0.3 ? (k ? '#82896a' : '#7a8060') : (k ? '#9aa07e' : '#8e9474')); R(g, x, y, 8, 1, '#4a4e36'); R(g, x, y, 1, 8, '#4a4e36'); R(g, x + 1, y + 1, 3, 1, 'rgba(255,255,230,.12)'); if ((x * 3 + y * 5) % 23 === 0) { R(g, x + 2, y + 3, 4, 1, '#3e4230'); R(g, x + 5, y + 4, 1, 3, '#3e4230'); } }
-    [[0.15, 30, 34], [0.43, 60, 22], [0.8, 20, 50], [0.93, 80, 26], [0.07, 100, 30], [0.6, 120, 40]].forEach(([x, y, h], k) => { for (let i = 0; i < h; i++) R(g, x * W + Math.round(Math.sin(i * 0.3 + k) * 1.2), y + i, k % 2 ? 2 : 3, 1, i % 6 < 3 ? 'rgba(90,60,20,.45)' : 'rgba(70,50,20,.35)'); });
-    const sc = (pts, c) => { for (let i = 0; i < pts.length - 1; i++) line(g, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], c); };
-    sc([[10, 40], [14, 34], [18, 42], [22, 34], [26, 41], [30, 36]], '#2a2a3a'); sc([[W - 34, 44], [W - 28, 38], [W - 22, 46], [W - 18, 40], [W - 12, 44]], '#5a1a2a');
-    ring(g, W - 22, 66, 6, '#1a3a6a'); line(g, W - 26, 66, W - 18, 66, '#1a3a6a'); line(g, W - 22, 62, W - 22, 70, '#1a3a6a');
-    for (let k = 0; k < 4; k++) line(g, 14 + k * 4, 58, 14 + k * 4, 66, '#3a2a2a'); line(g, 12, 62, 30, 62, '#3a2a2a');
-    disc(g, 34, 84, 4, '#c84a7a'); R(g, 32, 83, 1, 1, '#1a1020'); R(g, 36, 83, 1, 1, '#1a1020'); R(g, 33, 86, 3, 1, '#1a1020');
-    R(g, 0, 0, 6, fy, '#3a3a44'); R(g, 5, 0, 1, fy, '#5a5a66'); R(g, W - 6, 0, 6, fy, '#3a3a44'); R(g, W - 6, 0, 1, fy, '#24242c');
-    for (let y = fy; y < Hh; y += 6) for (let x = 0; x < W; x += 6) R(g, x, y, 6, 6, ((x / 6 + y / 6) | 0) % 2 ? '#5a564e' : '#3a3630');
-    R(g, 0, fy, W, 2, '#24221e');
-    [[0.22, 30, 16, 4], [0.8, 50, 20, 5], [0.5, 66, 12, 3]].forEach(([x, y, rx, ry]) => { oval(g, x * W, fy + y, rx, ry, 'rgba(120,110,60,.35)'); R(g, x * W - rx + 4, fy + y - 1, 5, 1, 'rgba(255,255,220,.25)'); });
-    R(g, W * 0.2, 4, W * 0.6, 4, '#2a2a30'); R(g, W * 0.2 + 2, 8, W * 0.6 - 4, 3, lit > 0.5 ? '#e8f8d0' : '#5a6050'); if (lit > 0.5) { g.globalAlpha = 0.1; for (let y = 11; y < fy; y++) { const w = W * 0.28 + (y - 11) * 0.6; R(g, W / 2 - w, y, w * 2, 1, '#e8ffd0'); } g.globalAlpha = 1; }
-    R(g, W - 22, 100, 12, 3, '#9a9aa2'); R(g, W - 22, 103, 2, 6, '#7a7a82'); R(g, W - 12, 103, 2, 6, '#7a7a82'); R(g, W - 20, 107, 8, 2, '#c8b89a');
+  // 髒公廁（參考使用者給的像素公廁：白磁磚牆＋各色塗鴉、深色地磚、尿斗、洗手台、破鏡子、小心地滑牌、垃圾桶、積水）——全部原創重畫
+  const GRAF = [[[8, 30], [12, 24], [16, 32], [20, 24], [24, 31]], [[30, 18], [34, 14], [38, 20], [42, 15]], [[60, 40], [64, 34], [68, 42], [72, 35], [76, 41]], [[84, 22], [90, 28], [94, 20], [98, 27]]];
+  function tileWall(g, x0, y0, w, h, t, dirt) { R(g, x0, y0, w, h, '#ecebe4'); for (let y = y0; y < y0 + h; y += 6) R(g, x0, y, w, 1, '#c8c4bc'); for (let x = x0; x < x0 + w; x += 6) R(g, x, y0, 1, h, '#c8c4bc');
+    for (let k = 0; k < 40; k++) { const x = x0 + (k * 37) % w, y = y0 + (k * 23) % h; if ((k * 7) % 3 === 0) R(g, x, y, 1, 1, '#b8b4a8'); }
+    if (dirt) for (let y = y0 + h - 14; y < y0 + h; y++) { g.globalAlpha = (y - (y0 + h - 14)) / 14 * 0.35; R(g, x0, y, w, 1, '#8a7a4a'); } g.globalAlpha = 1; }
+  function urinal(stain, tape) { return mkspr('ur' + stain + tape, 18, 30, (g2, r) => { r(7, 0, 4, 3, '#8a8a92'); r(8, 3, 2, 4, '#9a9aa2'); r(3, 7, 12, 20, '#f4f2ec'); r(12, 7, 3, 20, '#d8d4cc'); r(5, 12, 8, 12, '#d8d2c4'); r(5, 18, 8, 6, stain ? '#b8a060' : '#c8c2b4'); if (stain) { r(6, 22, 3, 2, '#7a5a2a'); r(10, 20, 2, 2, '#a88a40'); } r(4, 27, 10, 2, '#c8c4bc');
+    if (tape) { for (let k = 0; k < 12; k++) { r(3 + k, 10 + Math.round(k * 0.7), 1, 2, k % 4 < 2 ? '#ffd23a' : '#1a1a1a'); r(3 + k, 18 - Math.round(k * 0.6), 1, 2, k % 4 < 2 ? '#ffd23a' : '#1a1a1a'); } } }); }
+  function sink() { return mkspr('sink', 26, 22, (g2, r) => { r(11, 0, 2, 5, '#8a8a92'); r(9, 2, 6, 2, '#a8a8b0'); r(14, 4, 2, 2, '#8a8a92'); r(1, 6, 24, 8, '#f4f2ec'); r(3, 7, 20, 4, '#c8c4bc'); r(5, 8, 7, 2, '#b8a878'); r(21, 6, 3, 8, '#d8d4cc'); r(9, 14, 8, 4, '#e0dcd4'); r(11, 18, 4, 3, '#4a4a52'); r(14, 19, 6, 2, '#3a3a42'); }); }
+  function wetSign() { return mkspr('wet', 14, 20, (g2, r) => { for (let y = 0; y < 18; y++) { const w = 4 + Math.floor(y * 0.45); r(7 - w, y, w * 2, 1, y < 2 ? '#ffe86a' : '#f4c820'); } r(5, 4, 4, 6, '#1a1a1a'); r(6, 5, 2, 3, '#f4c820'); r(6, 9, 2, 1, '#f4c820'); r(0, 17, 14, 2, '#c89a10'); }); }
+  function trashCan(over) { return mkspr('trash' + over, 22, 26, (g2, r) => { r(2, 6, 18, 20, '#6a6a72'); r(2, 6, 18, 2, '#8a8a92'); r(16, 8, 4, 18, '#4a4a52'); for (let k = 0; k < 3; k++) r(5 + k * 5, 10, 1, 14, '#5a5a62'); r(1, 4, 20, 3, '#7a7a82'); if (over) { [[4, 0], [10, 1], [15, 0], [7, 2]].forEach(([x, y], j) => { r(x, y + 1, 5, 4, j % 2 ? '#f4f2ec' : '#e0dcd0'); r(x + 1, y + 2, 2, 1, '#c8c4bc'); }); } }); }
+  function mirror(g, x, y, w, h) { R(g, x - 1, y - 1, w + 2, h + 2, '#4a4a52'); R(g, x, y, w, h, '#6a9ab8'); R(g, x, y, w, 3, '#8ab8d0'); line(g, x + 4, y + 2, x + w - 6, y + h - 3, '#3a5a72'); line(g, x + w * 0.5, y + 3, x + 3, y + h - 4, '#3a5a72'); line(g, x + 6, y + 6, x + 14, y + 4, '#1a1a22'); line(g, x + 14, y + 4, x + 10, y + 10, '#1a1a22'); line(g, x + w - 12, y + h - 8, x + w - 4, y + h - 10, '#c82a2a'); R(g, x + 3, y + 3, 4, 1, '#c8e0f0'); }
+  function restroom(g, W, Hh, t, o) {
+    o = o || {}; const fy = Math.round(Hh * 0.66), lit = o.lit != null ? o.lit : (Math.sin(t * 23) > 0.85 || (t % 1.7) < 0.08 ? 0.35 : 1), sx1 = Math.round(W * 0.66);
+    tileWall(g, 0, 0, W, fy, t, true);
+    // 塗鴉（看不出字的線條、記號、愛心、笑臉貼紙、海報）
+    const cols = ['#c82a2a', '#2a8a3a', '#2a4ac8', '#1a1a1a'];
+    GRAF.forEach((pts, k) => { const c = cols[k % 4], oy = fy - 120; for (let i = 0; i < pts.length - 1; i++) line(g, pts[i][0] * W / 120, oy + pts[i][1], pts[i + 1][0] * W / 120, oy + pts[i + 1][1], c); });
+    ring(g, W * 0.3, fy - 70, 5, '#c82a2a'); line(g, W * 0.3 - 3, fy - 66, W * 0.3, fy - 76, '#c82a2a'); line(g, W * 0.3, fy - 76, W * 0.3 + 3, fy - 66, '#c82a2a');
+    disc(g, W * 0.56, fy - 56, 4, '#2a2a8a'); disc(g, W * 0.56, fy - 56, 3, '#ecebe4'); R(g, W * 0.56 - 2, fy - 57, 1, 1, '#2a2a8a'); R(g, W * 0.56 + 1, fy - 57, 1, 1, '#2a2a8a'); R(g, W * 0.56 - 1, fy - 55, 3, 1, '#2a2a8a');
+    R(g, W * 0.78, fy - 108, 16, 20, '#f4f2ec'); R(g, W * 0.78 + 1, fy - 107, 14, 18, '#2a6ac8'); disc(g, W * 0.78 + 8, fy - 100, 4, '#ffffff'); R(g, W * 0.78 + 3, fy - 94, 10, 2, '#ffffff'); R(g, W * 0.78 + 3, fy - 91, 6, 1, '#ffffff'); // 藍色海報
+    // 隔間：左邊是放馬桶的隔間（木紋隔板），右邊是尿斗、洗手台、破鏡子
+    R(g, sx1, fy - 96, 4, 96, '#6a5e52'); R(g, sx1, fy - 96, 4, 2, '#8a7e72'); R(g, 0, fy - 98, sx1 + 4, 3, '#6a5e52'); R(g, 0, fy - 98, 3, 98, '#6a5e52'); for (let y = fy - 92; y < fy; y += 16) R(g, sx1 + 1, y, 2, 1, '#4a4038');
+    R(g, sx1 + 1, fy - 60, 2, 6, '#9a9aa2'); // 門門
+    put(g, urinal(1, 1), sx1 + 16, fy - 12); mirror(g, W - 30, fy - 84, 26, 30); put(g, sink(), W - 17, fy - 30);
+    // 地板：深色地磚、積水、垃圾
+    R(g, 0, fy, W, Hh - fy, '#3a3a40'); for (let y = fy; y < Hh; y += 9) R(g, 0, y, W, 1, '#2a2a30'); for (let x = 0; x < W; x += 9) R(g, x, fy, 1, Hh - fy, '#2a2a30'); R(g, 0, fy, W, 2, '#1a1a20');
+    [[0.2, 34, 12, 4, 'rgba(160,130,60,.55)'], [0.75, 22, 14, 3, 'rgba(160,130,60,.5)'], [0.62, 60, 16, 4, 'rgba(90,140,170,.5)']].forEach(([x, y, rx, ry, c]) => { oval(g, x * W, fy + y, rx, ry, c); R(g, x * W - rx + 4, fy + y - 1, 4, 1, 'rgba(255,255,230,.3)'); });
+    put(g, wetSign(), W * 0.82, fy + 44); put(g, trashCan(1), 14, fy + 70);
+    [[0.48, 64], [0.9, 72], [0.36, 80]].forEach(([x, y], k) => { disc(g, x * W, fy + y, 2, '#e8e4dc'); R(g, x * W - 1, fy + y - 1, 1, 1, '#ffffff'); });
+    R(g, W * 0.6, fy + 82, 7, 3, '#f4f2ec'); R(g, W * 0.6 + 7, fy + 83, 6, 1, '#e0dcd0'); // 掉在地上的衛生紙
+    // 天花板的日光燈（壞掉一直閃）
+    R(g, W * 0.18, 2, W * 0.5, 3, '#2a2a30'); R(g, W * 0.18 + 2, 5, W * 0.5 - 4, 2, lit > 0.5 ? '#e8f8d0' : '#5a6050');
     if (lit < 0.5) { g.globalAlpha = 0.4; R(g, 0, 0, W, Hh, '#0a0c08'); g.globalAlpha = 1; }
-    return { cx: Math.round(W / 2), fy };
+    return { cx: Math.round(W * 0.34), fy };
   }
-  function toilet(g, cx, by, o) { // 正面 3/4 的髒馬桶（大一號）：水箱、掀起的座圈、碗、髒水；回傳水面
-    o = o || {}; const S2 = o.s || 1.25, q = (v) => Math.round(v * S2), wy = by - q(26);
-    R(g, cx - q(18), by - q(64), q(36), q(26), '#d8d4c4'); R(g, cx - q(18), by - q(64), q(36), 3, '#eeeadc'); R(g, cx + q(12), by - q(61), q(6), q(23), '#b8b4a4'); R(g, cx - q(20), by - q(66), q(40), 3, '#c8c4b4'); R(g, cx + q(8), by - q(58), q(6), 2, '#9a9a92');
-    [[cx - q(10), by - q(60), q(14)], [cx + q(4), by - q(50), q(10)]].forEach(([x, y, h]) => { for (let i = 0; i < h; i++) R(g, x + Math.round(Math.sin(i * 0.5)), y + i, 2, 1, 'rgba(110,80,30,.5)'); });
-    oval(g, cx, by - q(40), q(20), q(8), '#bab6a6'); oval(g, cx, by - q(40), q(14), q(5), '#8a8676');
-    oval(g, cx, wy + q(8), q(22), q(12), '#cfcbbb'); R(g, cx - q(12), wy + q(8), q(24), q(16), '#c4c0b0'); R(g, cx + q(6), wy + q(10), q(6), q(14), '#a8a494'); R(g, cx - q(14), by - 3, q(28), 3, '#a8a494');
-    oval(g, cx, wy, q(22), q(9), '#e2decf'); oval(g, cx, wy + 1, q(18), q(7), o.water || '#6a5a2a'); oval(g, cx - q(4), wy, q(7), 2, o.water2 || '#7e6a34');
-    if (!o.clean) { for (let k = 0; k < 5; k++) R(g, cx - q(12) + k * q(6), wy - q(6) + (k % 2), 1, 4 + (k % 3), 'rgba(110,70,20,.7)'); R(g, cx + q(6), wy + 1, 3, 2, '#3a2a10'); R(g, cx - q(9), wy + 3, 2, 1, '#3a2a10'); }
-    return { x: cx, y: wy + 1, rx: q(18), ry: q(7) };
+  // 從前上方看的馬桶（照參考圖的角度）：牆上的水箱、往下的水管、厚厚的白色座圈、看得到碗裡的水、前面的底座；u＝放大倍數
+  function toiletImg(u, water, dirty) { return mkspr('toi' + u + water + (dirty ? 1 : 0), Math.round(44 * u), Math.round(86 * u), (g2) => { const q = (v) => Math.round(v * u), r = (x, y, w, h, c) => R(g2, q(x), q(y), Math.max(1, q(w)), Math.max(1, q(h)), c);
+    r(8, 2, 28, 9, '#f6f3ee'); r(8, 11, 28, 10, '#d8d2c8'); r(32, 2, 4, 19, '#c8c2b8'); r(29, 5, 5, 2, '#9a9aa2'); // 水箱（上半亮、下半暗）＋沖水把手
+    r(20, 21, 4, 15, '#a8a8b0'); r(20, 21, 1, 15, '#d8d8e0'); r(19, 34, 6, 3, '#8a8a92'); // 水管
+    r(13, 37, 18, 4, '#e0dad0'); // 座圈後面的接頭
+    oval(g2, q(22), q(52), q(16), q(13), '#f6f3ee'); oval(g2, q(22), q(53), q(16), q(12), '#ece6dc'); // 座圈
+    oval(g2, q(22), q(50), q(10), q(9), '#c8c2b8'); oval(g2, q(22), q(51), q(9), q(8), water); oval(g2, q(20), q(48), q(4), q(2), 'rgba(255,255,255,.35)'); // 碗＋水
+    if (dirty) { r(14, 43, 1, 5, '#8a6a2a'); r(28, 44, 1, 4, '#8a6a2a'); r(21, 41, 1, 3, '#8a6a2a'); r(24, 54, 3, 2, '#4a3412'); r(17, 55, 2, 1, '#4a3412'); }
+    for (let y = 0; y < 20; y++) { const w = 11 - Math.floor(y * 0.15), y0 = q(64 + y), hh = q(65 + y) - y0; R(g2, q(22 - w), y0, q(w * 2), hh, '#ece6dc'); R(g2, q(22 + w - 3), y0, q(3), hh, '#cfc8bc'); } r(10, 84, 24, 2, '#c8c2b8'); // 底座（每一列用放大後的實際高度，避免出現橫條縫）
+  }); }
+  const TOI = { cx: 22, cy: 51, rx: 9, ry: 8, w: 44, h: 86 }; // 碗裡水面的位置（未放大）
+  function toilet(g, cx, by, o) { // 畫馬桶，回傳碗裡水面的中心與半徑
+    o = o || {}; const u = o.s || 1.4, img = toiletImg(u, o.water || '#7a6a32', !o.clean); g.drawImage(img, Math.round(cx - TOI.w * u / 2), Math.round(by - TOI.h * u));
+    return { x: cx + (TOI.cx - TOI.w / 2) * u, y: by - (TOI.h - TOI.cy) * u, rx: TOI.rx * u, ry: TOI.ry * u };
   }
   const SEA = { fish: Array.from({ length: 7 }, (_, k) => ({ y: 0.12 + k * 0.09, v: rnd(0.04, 0.09) * (k % 2 ? 1 : -1), o: rnd(0, 1), s: k % 3 })), weed: Array.from({ length: 9 }, (_, k) => ({ x: 4 + k * 14 + rnd(-3, 3), h: 18 + rnd(0, 26), p: rnd(0, 6) })), bub: Array.from({ length: 30 }, () => ({ x: Math.random(), v: rnd(0.08, 0.2), o: Math.random(), s: Math.random() < 0.3 ? 2 : 1 })) };
   function sea(g, W, Hh, t) {
@@ -136,7 +158,7 @@
         const back = t >= 5.6, rr = restroom(g, W, Hh, t, { lit: back ? 1 : undefined }), by = rr.fy + 18;
         const wt = toilet(g, rr.cx + 8, by, { s: 1.35, water: back ? '#7ac8e8' : null, water2: back ? '#bff0ff' : null, clean: back });
         if (!back) {
-          const walk = clamp((t - 0.1) / 0.8), x0 = -10 + walk * 32, lean = clamp((t - 1.25) / 0.35), hop = clamp((t - 1.7) / 0.3), dive = clamp((t - 2.0) / 0.35);
+          const walk = clamp((t - 0.1) / 0.8), x0 = -10 + walk * 22, lean = clamp((t - 1.25) / 0.35), hop = clamp((t - 1.7) / 0.3), dive = clamp((t - 2.0) / 0.35);
           if (hop <= 0) {
             const pose = t < 0.9 ? { legs: Math.floor(t * 8) % 2 ? 'a' : 'b' } : t < 1.25 ? { eyes: 'wide', mouth: 'o' } : { arms: ['fwd', 'fwd'], eyes: 'wide', mouth: 'flat' };
             spr(g, CH(ci, pose, Math.floor(t * 4), op), x0 + lean * 3, by - 2, { scale: SC, rot: lean * 0.5 });
@@ -395,7 +417,8 @@
       const pose = t < 1.65 ? { eyes: 'blink', mouth: 'flat' } : !scream ? { eyes: 'open', mouth: t < 2.3 ? 'o' : 'flat', arms: ['down', 'down'] } : { eyes: 'wide', mouth: 'o', arms: ['up', 'up'], dy: Math.floor(t * 24) % 2 };
       const stand = ease(clamp((t - 2.95) / 0.25)); // 躺著（頭在枕頭上）→ 坐起來（下半身在被子裡）→ 尖叫時跳起來站在床上
       if (sit <= 0) spr(g, CH(ci, pose, 0, op), bx0 + 22 + 52 * SC - 6, by - 14, { scale: SC, rot: -Math.PI / 2 });
-      else spr(g, CH(ci, pose, 0, op), bx0 + 26 + sit * 2, by - 10 + (1 - sit) * 8 + (1 - stand) * 24 - stand * 2, { scale: SC, rot: -Math.PI / 2 * (1 - sit) - (scream ? 0.08 : 0), clipY: stand > 0.5 ? null : by - 18 });
+      else { const sx2 = bx0 + 26 + sit * 2; spr(g, CH(ci, pose, 0, op), sx2, by - 10 + (1 - sit) * 8 + (1 - stand) * 24 - stand * 2, { scale: SC, rot: -Math.PI / 2 * (1 - sit) - (scream ? 0.08 : 0), clipY: stand > 0.5 ? null : by - 18 });
+        if (stand < 0.5) { const lw = bx0 + 46 - (sx2 - 16); R(g, sx2 - 16, by - 21, lw, 15, '#e8e0f0'); R(g, sx2 - 16, by - 21, lw, 2, '#ffffff'); R(g, sx2 - 6, by - 19, 1, 12, '#c8c0d8'); R(g, sx2 + 6, by - 19, 1, 12, '#c8c0d8'); R(g, sx2 - 16, by - 8, lw, 2, '#b8b0c8'); } } // 坐起來時腿還在被子裡
       // 被子（掀開之前蓋著腳和馬頭）＋馬頭
       const pull = ease(clamp((t - 2.45) / 0.45)), hx = W - 16, hy = by - 16;
       if (pull > 0.2) { const st = clamp((t - 2.6) / 1.4); oval(g, hx - 16, by - 10, 12 + st * 24, 3 + st * 3, '#7a0a14'); oval(g, hx - 18, by - 10, 8 + st * 18, 2 + st * 2, '#a01020'); g.drawImage(mkspr('horse', 52, 34, (g2) => horseHead(g2, 46, 22)), hx - 46, hy - 22);
@@ -670,7 +693,7 @@
       const heave = [2.65, 3.55, 4.35].some(d => t > d && t < d + 0.55), pose = t < 1.9 ? { arms: ['fwd', 'fwd'], mouth: Math.floor(t * 6) % 2 ? 'grin' : 'o', dy: Math.floor(t * 6) % 2 } : heave ? { arms: ['out', 'out'], eyes: 'wide', mouth: 'o', dy: 2 } : t < 4.6 ? { eyes: 'blink', mouth: 'flat' } : { eyes: 'x', mouth: 'o' };
       spr(g, CH(2, pose, Math.floor(t * 4), op), px, py + drown * 6, { scale: 1.35, rot: t > 4.6 ? -drown * 0.5 : heave ? 0.25 : 0, tint: '#d8f060', tintA: sick * (0.35 + 0.15 * Math.sin(t * 8)) });
       // 吐出來的東西：從嘴巴噴出的弧線＋地上那一攤（越來越高）
-      const mx = px + 10, my = py - 44;
+      const mx = px + 9, my = py - 33; // 嘴巴的位置（往前彎 0.25 弧度時）
       // 地上那一攤：越來越高的黏稠液體（表面有波紋、亮面、塊狀物、泡泡），最後淹過沙發
       const lvl = clamp((t - 2.7) / 3.0), py2 = fl + 14, top = py2 - 4 - lvl * 30 - drown * 22, x0 = 2, x1 = W - 28;
       if (lvl > 0) { const cols = ['#b8c840', '#a8b832', '#98a82a', '#889a24'];
@@ -925,20 +948,21 @@
       const cx = W * 0.5, cy = gy + 30, wilt = clamp((t - 3.4) / 1.0);
       const arrive = (d) => ease(clamp((t - 0.3 - d) / 1.1)), leave = ein(clamp((t - 6.0) / 1.0));
       const wA = arrive(0), wB = arrive(0.2), wC = arrive(0.4);
-      const W1 = { x: -40 + wA * (cx - 30 + 40) - leave * 60, y: cy - 4, pose: t < 1.4 ? 'walk' : t < 2.0 ? 'sniff' : t < 3.6 ? 'pee' : t > 4.6 && t < 6.0 ? 'howl' : 'walk', flip: false };
-      const W2 = { x: W + 40 - wB * (W + 40 - (cx + 30)) + leave * 60, y: cy - 2, pose: t < 1.6 ? 'walk' : t < 2.5 ? 'sniff' : t < 3.5 ? 'squat' : t > 4.8 && t < 6.0 ? 'howl' : 'walk', flip: true };
+      // 嗅完之後轉身，屁股對著蘑菇：左邊那隻轉向左、抬起靠蘑菇那側的後腿尿尿；右邊那隻轉向右、蹲下拉屎
+      const W1 = { x: -40 + wA * (cx - 40 + 40) - leave * 70, y: cy - 4, pose: t < 1.4 ? 'walk' : t < 1.95 ? 'sniff' : t < 3.6 ? 'pee' : t > 4.6 && t < 6.0 ? 'howl' : 'walk', flip: t >= 1.95 };
+      const W2 = { x: W + 40 - wB * (W + 40 - (cx + 40)) + leave * 70, y: cy - 2, pose: t < 1.6 ? 'walk' : t < 2.35 ? 'sniff' : t < 3.5 ? 'squat' : t > 4.8 && t < 6.0 ? 'howl' : 'walk', flip: t < 2.35 };
       const W3 = { x: W + 40 - wC * (W + 40 - (cx + 8)) + leave * 60, y: cy - 30, pose: t < 1.8 ? 'walk' : t > 5.0 && t < 6.0 ? 'howl' : 'sniff', flip: true };
       [W3].forEach(w => put(g, wolf(w.pose, Math.floor(t * 8) % 2), w.x, w.y, { flip: w.flip, scale: 1.1 }));
+      [W1, W2].forEach(w => put(g, wolf(w.pose, Math.floor(t * 8) % 2), w.x, w.y, { flip: w.flip, scale: 1.25 })); // 狼在蘑菇兩側，蘑菇畫在前面
       // 便便堆在蘑菇旁邊
       if (t > 2.7 && poops.length < 1) poops.push(2.7); if (t > 3.0 && poops.length < 2) poops.push(3.0); if (t > 3.25 && poops.length < 3) poops.push(3.25);
+      const tailX = W2.x - 17 * 1.25, tailY = W2.y - 14 * 1.25; // 右邊那隻（朝右）的屁股：尾巴根部
       // 蘑菇本人（被尿到慢慢枯萎）
       spr(g, CH(8, t < 1.5 ? { eyes: 'open', mouth: 'smile' } : t < 3.4 ? { eyes: 'wide', mouth: 'o', arms: ['up', 'up'], dy: Math.floor(t * 16) % 2 } : { eyes: 'blink', mouth: 'sad' }, 0, op), cx, cy, { scale: 1.4, sy: 1 - wilt * 0.28, tint: wilt > 0 ? '#5a4a2a' : t > 2.1 ? '#e8d84a' : null, tintA: wilt > 0 ? wilt * 0.6 : 0.18 });
-      poops.forEach((p0, i) => { const k = ease(clamp((t - p0) / 0.15)), px = cx + 14 - i * 2, py = cy - i * 4; oval(g, px, py, 5 - i, 3 - (i > 1 ? 1 : 0), '#5a3a1a'); oval(g, px - 1, py - 1, 3 - i * 0.5, 1, '#7a5228'); if (k < 1) R(g, px, py - (1 - k) * 10, 2, 2, '#5a3a1a'); });
+      poops.forEach((p0, i) => { const k = ein(clamp((t - p0) / 0.2)), px = tailX + 2, py = cy - i * 3; if (k < 1) { R(g, tailX, tailY + (py - tailY) * k, 3, 3, '#5a3a1a'); return; } oval(g, px, py, 5 - i, 3 - (i > 1 ? 1 : 0), '#5a3a1a'); oval(g, px - 1, py - 1, 3 - i * 0.5, 1, '#7a5228'); }); // 從尾巴底下掉到地上，越堆越高
       if (t > 3.4) { flies.forEach((f, k) => { const a = f.a + t * f.v, x = cx + 12 + Math.cos(a) * f.r, y = cy - 10 - f.h + Math.sin(a * 1.7) * 3; R(g, x, y, 1, 1, '#101010'); }); for (let k = 0; k < 3; k++) { const a = (t * 0.8 + k / 3) % 1; for (let i = 0; i < 8; i++) R(g, cx - 10 + k * 10 + Math.round(Math.sin(i * 0.8 + t * 4) * 1.5), cy - 64 - a * 20 - i, 1, 1, `rgba(140,200,80,${(1 - a) * 0.8})`); } } // 臭味
-      // 前景的兩隻狼
-      [W1, W2].forEach(w => put(g, wolf(w.pose, Math.floor(t * 8) % 2), w.x, w.y, { flip: w.flip, scale: 1.25 }));
       // 尿：從抬起的後腿那邊畫一道黃色弧線到蘑菇上
-      if (W1.pose === 'pee' && t > 2.1) { const sx = W1.x - 18, sy = W1.y - 12; for (let i = 0; i < 18; i++) { const u = i / 18, x = sx + u * (cx - 6 - sx) * -1 * -1, y = sy - Math.sin(u * Math.PI) * 10 + u * (cy - 40 - sy); R(g, x, y, 1, 2, i % 3 ? '#f0d840' : '#fff090'); } if (Math.random() < 0.7) pt.add({ x: cx - 6, y: cy - 40, vx: rnd(-1, 1), vy: rnd(-1, 0), t, s: 1, c: '#f0d840', gr: 120, life: 0.4 }); g.globalAlpha = 0.5; oval(g, cx - 2, cy + 1, 10, 2, '#c8b830'); g.globalAlpha = 1; }
+      if (W1.pose === 'pee' && t > 2.1) { const sx = W1.x + 12 * 1.25, sy = W1.y - 16 * 1.25; for (let i = 0; i < 18; i++) { const u = i / 18, x = sx + u * (cx - 6 - sx), y = sy - Math.sin(u * Math.PI) * 8 + u * (cy - 40 - sy); R(g, x, y, 1, 2, i % 3 ? '#f0d840' : '#fff090'); } /* 從抬起後腿的胯下噴出來 */ if (Math.random() < 0.7) pt.add({ x: cx - 6, y: cy - 40, vx: rnd(-1, 1), vy: rnd(-1, 0), t, s: 1, c: '#f0d840', gr: 120, life: 0.4 }); g.globalAlpha = 0.5; oval(g, cx - 2, cy + 1, 10, 2, '#c8b830'); g.globalAlpha = 1; }
       pt.draw(g, t);
     }, snd);
   };
@@ -988,21 +1012,22 @@
       SFX.noise(3.2, { f: 700, vol: 0.18, delay: 2.0, attack: 0.3 }); SFX.noise(3.0, { f: 2400, type: 'bandpass', q: 1, vol: 0.06, delay: 2.1, attack: 0.5 }); for (let i = 0; i < 18; i++) SFX.tone(rnd(120, 400), 0.12, { glide: rnd(60, 120), vol: 0.04, delay: 2.4 + i * 0.13 }); // 漩渦、咕嚕咕嚕
       K.sweep(4.6, 1.4, 4000, 400, { type: 'highpass', vol: 0.05 }); for (let i = 0; i < 6; i++) S.drip(SFX, 5.2 + i * 0.14); };
     return pix(ui, T, (g, W, Hh, t) => {
-      // 從正上方往下看的馬桶：白色座圈、碗裡的水；按下沖水後水開始轉成漩渦
-      R(g, 0, 0, W, Hh, '#7a8a6a'); for (let y = 0; y < Hh; y += 8) for (let x = 0; x < W; x += 8) { R(g, x, y, 8, 8, ((x + y) / 8) % 2 ? '#8a9a78' : '#829270'); R(g, x, y, 8, 1, '#5a6a4a'); R(g, x, y, 1, 8, '#5a6a4a'); }
-      const cx = W / 2, cy = Hh * 0.52, rx = 50, ry = 66; R(g, cx - 34, cy - ry - 52, 68, 40, '#e8e4d8'); R(g, cx - 34, cy - ry - 52, 68, 3, '#ffffff'); R(g, cx + 14, cy - ry - 46, 12, 5, '#b8b8c4'); const press = t > 1.75 && t < 2.1; R(g, cx + 16, cy - ry - 45 + (press ? 1 : 0), 8, 3, press ? '#8a8a96' : '#d8d8e4'); // 水箱、沖水把手
-      oval(g, cx, cy, rx + 8, ry + 8, '#f4f0e6'); oval(g, cx, cy, rx + 4, ry + 4, '#dcd8cc'); oval(g, cx, cy, rx, ry, '#c8c4b8'); oval(g, cx, cy + 6, rx - 6, ry - 10, '#6ab8d8');
+      // 跟參考圖一樣的角度：從前上方看馬桶，後面是白磁磚牆、前面是深色地磚；按下沖水後碗裡的水轉成漩渦
+      const fy = Math.round(Hh * 0.6); tileWall(g, 0, 0, W, fy, t, true); R(g, 0, fy, W, Hh - fy, '#3a3a40'); for (let y = fy; y < Hh; y += 10) R(g, 0, y, W, 1, '#2a2a30'); for (let x = 0; x < W; x += 10) R(g, x, fy, 1, Hh - fy, '#2a2a30'); R(g, 0, fy, W, 2, '#1a1a20');
+      line(g, 10, fy - 60, 18, fy - 70, '#c82a2a'); line(g, 18, fy - 70, 24, fy - 58, '#c82a2a'); ring(g, W - 18, fy - 40, 5, '#2a4ac8'); oval(g, W * 0.2, fy + 40, 12, 3, 'rgba(160,130,60,.5)');
+      const u = 2.4, by = fy + 60, wt = toilet(g, W / 2, by, { s: u, water: '#6ab8d8', clean: true }), cx = wt.x, cy = wt.y;
+      const press = t > 1.75 && t < 2.1; R(g, W / 2 + 7 * u, by - 86 * u + 5 * u + (press ? 2 : 0), 5 * u, 2 * u, press ? '#7a7a82' : '#b8b8c0'); // 按下沖水把手
       const sw = clamp((t - 2.0) / 0.6), spin = t > 2.0 ? (t - 2.0) * (2 + (t - 2.0) * 3) : 0, calm = clamp((t - 4.8) / 1.0);
-      // 漩渦：彎曲的亮線一圈圈往中間轉
-      if (sw > 0 && calm < 1) { for (let k = 0; k < 6; k++) for (let i = 0; i < 40; i++) { const u = i / 40, r2 = (1 - u) * (rx - 8), a = k / 6 * 6.283 + u * 5 + spin; R(g, cx + Math.cos(a) * r2, cy + 6 + Math.sin(a) * r2 * ((ry - 10) / (rx - 6)), 2, 1, `rgba(220,250,255,${0.6 * sw * (1 - calm) * (1 - u * 0.5)})`); } }
-      disc(g, cx, cy + 10, 6 + sw * (1 - calm) * 4, '#2a5a7a'); disc(g, cx, cy + 10, 3 + sw * (1 - calm) * 3, '#0a1a2a'); // 排水口
-      // 角色：從上面掉進來 → 浮在水上 → 被漩渦捲著轉圈、越來越小 → 被吸進去
-      if (t < 0.9) { const k = clamp(t / 0.9), sc = 1.6 - k * 0.4, rr = k * 3, hh = 50 * sc * 0.5, my = cy - 40 + k * 48; spr(g, CH(vi, { eyes: 'wide', mouth: 'o', arms: ['up', 'up'] }, 0, op), cx - Math.sin(rr) * hh, my + Math.cos(rr) * hh, { scale: sc, rot: rr }); }
-      else if (t < 4.6) { const k = clamp((t - 2.0) / 2.6), r2 = (1 - ease(k)) * 22, a = spin * 1.1, sc = 1.2 * (1 - k * 0.9);
-        if (t > 0.9 && !pt.s) { pt.s = 1; pt.burst(30, cx, cy + 10, 1.8, t, ['#bff0ff', '#6ab8d8', '#ffffff'], { gr: 100 }); }
-        const rr = t < 2.0 ? Math.sin(t * 4) * 0.2 : a * 1.5, hh = 50 * sc * 0.5, mx = cx + Math.cos(a) * r2, my = cy + 8 + Math.sin(a) * r2 * 0.8; // 以身體中心繞著漩渦轉
-        spr(g, CH(vi, t < 2.0 ? { eyes: 'wide', mouth: 'o', arms: ['out', 'out'] } : { eyes: 'x', mouth: 'o', arms: ['up', 'up'] }, 0, op), mx - Math.sin(rr) * hh, my + Math.cos(rr) * hh, { scale: sc, rot: rr }); }
-      if (t > 4.6 && t < 5.2) { const a = (t - 4.6) / 0.6; ring(g, cx, cy + 10 - a * 6, 1 + a * 3, '#e8fbff'); }
+      g.save(); g.beginPath(); g.ellipse(cx, cy, wt.rx, wt.ry, 0, 0, 6.283); g.clip();
+      if (sw > 0 && calm < 1) for (let k = 0; k < 6; k++) for (let i = 0; i < 40; i++) { const uu = i / 40, r2 = (1 - uu), a = k / 6 * 6.283 + uu * 5 + spin; R(g, cx + Math.cos(a) * r2 * wt.rx, cy + Math.sin(a) * r2 * wt.ry, 2, 1, `rgba(225,250,255,${0.7 * sw * (1 - calm) * (1 - uu * 0.5)})`); }
+      disc(g, cx, cy + 2, 3 + sw * (1 - calm) * 3, '#2a5a7a'); disc(g, cx, cy + 2, 1 + sw * (1 - calm) * 2, '#0a1a2a');
+      // 角色：從上面掉進碗裡 → 浮在水上 → 被漩渦捲著轉、越轉越小 → 被吸進去（畫在碗口裡面，不會跑出馬桶）
+      if (t >= 0.9 && t < 4.6) { const k = clamp((t - 2.0) / 2.6), r2 = (1 - ease(k)) * 0.6, a = spin * 1.1, sc = 0.75 * (1 - k * 0.85), rr = t < 2.0 ? Math.sin(t * 4) * 0.2 : a * 1.5, hh = 50 * sc * 0.5, mx = cx + Math.cos(a) * r2 * wt.rx, my = cy + Math.sin(a) * r2 * wt.ry;
+        spr(g, CH(vi, t < 2.0 ? { eyes: 'wide', mouth: 'o', arms: ['up', 'up'] } : { eyes: 'x', mouth: 'o', arms: ['up', 'up'] }, 0, op), mx - Math.sin(rr) * hh, my + Math.cos(rr) * hh, { scale: sc, rot: rr }); }
+      if (t > 4.6 && t < 5.2) { const a = (t - 4.6) / 0.6; ring(g, cx, cy - a * 4, 1 + a * 3, '#e8fbff'); }
+      g.restore();
+      if (t < 0.9) { const k = ein(clamp(t / 0.9)), sc = 1.3 - k * 0.55, rr = k * 3, hh = 50 * sc * 0.5, my = -30 + k * (cy + 30); spr(g, CH(vi, { eyes: 'wide', mouth: 'o', arms: ['up', 'up'] }, 0, op), cx - Math.sin(rr) * hh, my + Math.cos(rr) * hh, { scale: sc, rot: rr }); }
+      if (t > 0.9 && !pt.s) { pt.s = 1; pt.burst(30, cx, cy, 1.8, t, ['#bff0ff', '#6ab8d8', '#ffffff'], { gr: 100 }); }
       pt.draw(g, t);
     }, snd);
   };
