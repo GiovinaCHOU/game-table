@@ -262,19 +262,19 @@
         if (strum) { for (let k = 0; k < 6; k++) { const p = ((t - 1.3) * 1.3 + k / 6) % 1, r = 8 + p * W * 0.7; g.globalAlpha = 1 - p; for (let a = -0.5; a <= 0.5; a += 0.04) R(g, gx - 35 - Math.cos(a) * r, gy - 15 + Math.sin(a) * r, 2, 2, k % 2 ? '#ff3ab0' : '#3af0ff'); } g.globalAlpha = 1;
           const h2 = clamp((t - 1.6) / 1.4); vx = vx0 - ease(h2) * W * 0.6; vy = gy - Math.sin(h2 * Math.PI) * 20; vr = -h2 * 2.2; va = 1 - clamp((h2 - 0.6) * 2.5); vp = { arms: ['out', 'out'], eyes: 'x', mouth: 'o' }; sk = t < 2.6 ? 2 : 0; } }
       if (kind === 7) { // 藤蔓鹿怪：從地底爬出來、蹲低、撲上去把人撲倒，壓在身上撕咬
-        const rise = ease(clamp((t - 0.2) / 0.8)), leap = clamp((t - 1.4) / 0.4), land = t >= 1.8, mx = vx0 + 46, fx = vx0 + 20, top = P.CHARS[vi] ? P.CHARS[vi].o.top : '#8a8a96';
-        let x = mx, y = gy + (1 - rise) * 40, rot = 0, pose = { arms: ['down', 'down'], eyes: 'glow', legs: 'stand' };
+        const rise = ease(clamp((t - 0.2) / 0.8)), leap = clamp((t - 1.4) / 0.4), land = t >= 1.8, V = vx0 + 30, mx = V + 34, fx = V - 32, top = P.CHARS[vi] ? P.CHARS[vi].o.top : '#8a8a96';
+        vx = V; let x = mx, y = gy + (1 - rise) * 40, rot = 0, pose = { arms: ['down', 'down'], eyes: 'glow', legs: 'stand' };
         if (t > 1.0 && leap <= 0) { pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'a', mouth: 'o', dy: 3 }; rot = -0.15; }
-        if (leap > 0 && !land) { const e2 = ease(leap); x = mx + (fx - mx) * e2; y = gy - Math.sin(leap * Math.PI) * 30; rot = -0.4 - e2 * 0.8; pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'jump', mouth: 'o' }; vp = { arms: ['out', 'out'], eyes: 'wide', mouth: 'o' }; }
+        if (leap > 0 && !land) { const e2 = ease(leap); x = mx + (fx - mx) * e2; y = gy - Math.sin(leap * Math.PI) * 30; rot = -0.25 - e2 * 0.3; pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'jump', mouth: 'o' }; vp = { arms: ['out', 'out'], eyes: 'wide', mouth: 'o' }; }
         if (land) { const fall = clamp((t - 1.8) / 0.25), maul = t < 4.0, k3 = clamp((t - 4.0) / 0.4); x = fx; y = gy;
-          vx = vx0 - fall * 6; vr = -fall * 1.57; vp = { arms: ['out', 'out'], eyes: t > 2.8 ? 'x' : 'wide', mouth: 'o', dy: maul && t < 2.8 ? Math.floor(t * 16) % 2 : 0 }; if (t > 2.6) vtint = '#3a0408';
-          if (maul) { const bite = Math.sin(t * 24); rot = -1.25 + bite * 0.12; pose = { arms: Math.floor(t * 7) % 2 ? ['up', 'out'] : ['out', 'up'], eyes: 'glow', legs: 'a', mouth: bite > 0 ? 'o' : 'shut' }; sk = 2;
-            hit('a', vx0 - 26, gy - 10, 40); const n = Math.floor((t - 2.0) / 0.26); if (n >= 0 && !sd['m' + n]) { sd['m' + n] = 1; spray(vx0 - 26 + rnd(-8, 8), gy - 12, 14, 2.4, t); spray(vx0 - 26, gy - 12, 4, 2.6, t, top); } }
-          else { rot = -1.25 * (1 - ease(k3)); pose = { arms: ['up', 'up'], eyes: 'glow', legs: 'stand', mouth: 'o' }; sk = k3 > 0.3 && t < 4.6 ? 2 : 0; } }
-        g.globalAlpha = rise; glow(g, x - Math.sin(-rot) * 55, y - Math.cos(rot) * 55, 16 + Math.sin(t * 6) * 3, '255,40,40', 0.5 * rise); g.globalAlpha = 1;
-        // 先畫破產者（被壓在下面），怪物畫在上面
-        if (land) { spr(g, ch(vi, vp, 0), vx, vy, { scale: S, rot: vr, tint: vtint, tintA: 0.45 }); va = 0; }
-        spr(g, ch(7, pose, Math.floor(t * 4)), x, y, { scale: S * 1.35, rot, alpha: rise }); }
+          vx = V - fall * 6; vr = -fall * 1.57; vp = { arms: ['out', 'out'], eyes: t > 2.8 ? 'x' : 'wide', mouth: 'o', dy: maul && t < 2.8 ? Math.floor(t * 16) % 2 : 0 }; if (t > 2.6) vtint = '#3a0408';
+          if (maul) { const bite = Math.sin(t * 22); rot = -0.06; y = gy + 2; pose = { arms: Math.floor(t * 6) % 2 ? ['up', 'down'] : ['down', 'up'], eyes: 'glow', crouch: true, mouth: bite > 0 ? 'o' : 'shut', dy: bite > 0 ? 3 : 0 }; sk = 2;
+            hit('a', V - 30, gy - 10, 40); const n = Math.floor((t - 2.0) / 0.26); if (n >= 0 && !sd['m' + n]) { sd['m' + n] = 1; spray(V - 30 + rnd(-8, 8), gy - 12, 14, 2.4, t); spray(V - 30, gy - 12, 4, 2.6, t, top); } }
+          else { rot = 0; y = gy + 2 * (1 - k3); pose = { arms: ['up', 'up'], eyes: 'glow', legs: 'stand', crouch: k3 < 0.4, mouth: 'o' }; sk = k3 > 0.3 && t < 4.6 ? 2 : 0; } }
+        g.globalAlpha = rise; glow(g, x - Math.sin(-rot) * 50, y - Math.cos(rot) * (pose.crouch ? 38 : 55), 16 + Math.sin(t * 6) * 3, '255,40,40', 0.5 * rise); g.globalAlpha = 1;
+        // 怪物蹲在後面往下咬，倒地的破產者畫在前面
+        spr(g, ch(7, pose, Math.floor(t * 4)), x, y, { scale: S * 1.35, rot, alpha: rise });
+        if (land) { spr(g, ch(vi, vp, 0), vx, vy + 4, { scale: S, rot: vr, tint: vtint, tintA: 0.45 }); va = 0; } }
       // 破產者
       if (va > 0) spr(g, ch(vi, vp, 0), vx, vy, { scale: S, rot: vr, alpha: va, tint: vtint, tintA: vtint === '#e8f8ff' ? 0.8 : 0.45 });
       if (kind === -1) { R(g, 0, gy + 2, W, Hh - gy, '#140406'); vineGrow(g, vines, t, clamp((t - 0.6) / 1.2), '#2a0408'); }
