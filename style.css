@@ -845,3 +845,9 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
   .dice-bar .dice-nums .btn { padding: 3px 0; font-size: 12px; }
   .dice-bar .gate-row, .dice-bar > .timer { order: 1; }
 }
+
+/* 淺色卡片（點玩家看總資產）：優勢／劣勢改深色字，角色名加深底，各主題都看得清楚 */
+.mm-card .perk-mini { background: #f3ead8; border: 1px solid #e2d4b8; color: #2b2116; font-size: 13.5px; }
+.mm-card .perk-mini .pro { color: #16733d; font-size: 13.5px; font-weight: 700; }
+.mm-card .perk-mini .con { color: #c0262d; font-size: 13.5px; font-weight: 700; }
+.mm-card .mcard-who .cname { filter: none; background: #2b2116; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }

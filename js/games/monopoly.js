@@ -557,6 +557,9 @@
         ${v.players[s].alive ? `<table class="atab"><tr><td>現金</td><td>${fmt(a.cash)} ${th.unit}</td></tr><tr><td>地價（${a.tiles.length} 塊）</td><td>${fmt(a.land)} ${th.unit}</td></tr><tr><td>建築</td><td>${fmt(a.bld)} ${th.unit}</td></tr><tr class="sum"><td>總資產</td><td>${fmt(a.total)} ${th.unit}</td></tr></table>
         ${rows ? `<ul class="alist">${rows}</ul>` : '<p class="hint">還沒有地</p>'}` : '<p>已破產</p>'}
         <div class="act-row"><button class="btn sm ghost" data-where>看他在哪</button>${s === v.seat && v.players[s].alive && v.phase !== 'over' ? '<button class="btn sm ghost" data-mydraw>✏️ 換成我畫的角色</button>' : ''}<button class="btn sm" data-x>關閉</button></div></div>`;
+      { const cn = m.querySelector('.mcard-who .cname'); if (cn) { // 淺色卡片上：角色名改成「角色色底＋黑或白字」，深淺色角色都看得清楚
+        const c = getComputedStyle(cn).color.match(/\d+/g) || [0, 0, 0], L = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+        cn.style.background = cn.style.color; cn.style.color = L > 0.55 ? '#1a1208' : '#fff'; } }
       m.onclick = (e) => {
         if (e.target.closest('[data-mydraw]')) { m.onclick = null; this.drawPad(() => this.ui.send({ type: 'custom' })); return; }
         if (e.target.closest('[data-where]')) { m.hidden = true; if (this.board) { this._camFree = true; this.board.focusSeat(s, true); } this.showPrompt(); }
