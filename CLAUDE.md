@@ -1,0 +1,70 @@
+# 牌桌｜線上開房（CLAUDE.md）
+
+GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github.io/game-table/
+純原生 JS（每個檔案一個 IIFE，掛在 window 上），沒有 build 流程、沒有 npm。
+
+## 架構
+- 連線：PeerJS（WebRTC），房主的裝置當裁判，所有遊戲狀態都由房主計算，其他人只收自己看得到的畫面
+- 腳本載入順序寫在 index.html 的 `<script>` 標籤裡；新增檔案要加進去，而且要放在依賴它的檔案之前
+- 遊戲模組註冊方式：`root.GAMES.<id> = M`（common.js 會建立 GAMES）
+
+## 檔案地圖
+核心（非必要不改）
+- js/config.js：房號前綴、TURN 設定
+- js/net.js：連線層（PeerJS＋本機測試模式）、語音
+- js/room.js：房間、PIN、觀戰、房主裁判
+- js/app.js：大廳與介面
+- js/games/common.js：共用工具（GUTIL、洗牌等）
+- js/games/fx.js：共用音效、背景音樂、勝利彩炮／輸家砸雞蛋
+- style.css：全站樣式
+
+小遊戲（一個遊戲一個檔案）
+- mahjong.js 台灣16張麻將（3/4/5人）｜bigtwo.js 大老二｜slap.js 心臟病｜rummi.js 拉密｜dice.js 吹牛｜draw.js 你畫我猜
+
+大富翁（都在 js/games/）
+- monopoly.js：遊戲模組主體、主題選單、事件與動畫的調度
+- mono-rules.js：規則（由房主判定）
+- mono-themes.js：各主題的資料（地名、角色、建築風格、幸運卡／厄運卡；檔頭有卡片效果代碼的說明）
+- mono-quiz.js：翻盤問答題庫（每個主題分簡單／中等／困難）
+- mono3d.js：3D 場景核心（鏡頭、格子、角色移動）；諸神黃昏、夜城、深空異種、動物星球的破產演出也在這裡
+- mono-art.js：3D 美術（各主題的環境、格子貼圖、建築）
+- mono-chars.js：3D 關節角色與動作
+- mono-eggs.js：神佛之境＋魔法學院的彩蛋全螢幕動畫（MONO_EGGS）
+- mono-horror.js：恐怖系動畫共用工具＋鬼門開
+- mono-magicfx.js：魔法學院的動畫
+- mono-score.js：彩蛋配樂合成（Web Audio）
+- mono-pixel.js：怪奇小鎮的像素角色、建築、場景零件（MONO_PIXEL）
+- mono-town.js：怪奇小鎮的動畫
+- mono-gangpix.js：幫派街區的像素角色（共用 MONO_PIXEL）
+- mono-gangmap.js：幫派街區的像素地圖與建築
+- mono-gang.js：幫派街區的動畫
+
+主題 id 對照：ragnarok 諸神黃昏、cyber 夜城、animal 動物星球、alien 深空異種、buddha 神佛之境、magic 魔法學院、town 怪奇小鎮、gang 幫派街區
+
+其他
+- img/themes/<主題id>-0~2.jpg：主題背景圖｜img/pet0~3.png：拉密鬼牌（三隻貓＋鳥）
+- vendor/：peerjs、three.js（不改）
+- tools/bump.py：替 index.html 的 js/css 加版本號（避免手機吃到舊快取）
+
+## 上線流程
+1. 改完程式後執行 `python3 tools/bump.py`
+2. commit 並 push 到 main（GitHub Pages 約 1 分鐘後更新）
+3. commit 訊息用中文，寫玩家看得懂的改動內容
+
+## 測試
+- 網址加 `?local=1`：同一個瀏覽器開多個分頁模擬多人（沒有語音）
+- 測試房 PIN 777777：有電腦玩家
+- 大富翁在測試房裡、網址加 `?egg=<動畫key>`：開局 3 秒後直接預覽該彩蛋動畫
+
+## 設計原則（使用者的固定要求）
+- 規則要鎖死、防呆，畫面直覺；手機（iPhone／Samsung）優先
+- 輪到玩家時，畫面要有明顯的變化
+- 彩蛋／破產動畫：一定要有音效（恐怖系要毛骨悚然、魔法系要有魔幻感）、動畫內不放文字（結束後跳通知卡）、結尾慢慢淡出到黑
+- 大富翁平衡：第 30–35 回合左右出現第一位破產，翻盤機率維持在 50% 以上；每個建築等級外觀都不同，正常玩能蓋到 L3～L4
+- 大富翁的背景跟著主題走，不另外做背景選擇器
+- 每個主題的風格各自獨立，不要混搭（例如怪奇物語的元素不要放進深空異種）
+
+## 工作方式（省 token）
+- 先看這份地圖，只打開跟任務有關的檔案；大檔案（monopoly.js、mono-art.js、mono-gang.js 都超過 13 萬字元）用 grep 找到位置再讀需要的段落
+- 直接改 repo 並 commit，不在對話裡貼整份程式碼；回報時用一兩行說明改了什麼、要怎麼測
+- 新增檔案、主題或遊戲時，順手更新這份檔案地圖
