@@ -692,6 +692,15 @@
       pic.position.y = 0.52; pic.castShadow = true; card.add(pic);
       const base = new T.Mesh(new T.CylinderGeometry(0.17, 0.2, 0.06, 20), M(T, color, { roughness: 0.4, metalness: 0.2 })); base.position.y = 0.03; base.castShadow = true; g.add(base);
       r = { g, body, head: null, skull: null, legs: [], arms: [], kind: 'standee', billboard: card };
+    } else if (theme === 'town' && root.MONO_PIXEL) { // 怪奇小鎮：16-bit 像素小人立牌（永遠面向鏡頭，動作換影格）
+      const P = root.MONO_PIXEL, g = new T.Group(), body = new T.Group(); g.add(body);
+      const card = new T.Group(); body.add(card);
+      const tx = new T.CanvasTexture(P.tokenFrame(idx, 'idle', 0)); tx.magFilter = T.NearestFilter; tx.minFilter = T.NearestFilter; tx.generateMipmaps = false; tx.colorSpace = T.SRGBColorSpace;
+      const sc = idx === 7 ? 1.25 : 1, pic = new T.Mesh(new T.PlaneGeometry(0.78 * sc, 0.78 * sc * P.SH / P.SW), new T.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.5, side: T.DoubleSide }));
+      pic.position.y = 0.39 * sc * P.SH / P.SW - 0.02; pic.castShadow = true; card.add(pic);
+      const shadow = new T.Mesh(new T.CircleGeometry(0.2, 16), new T.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.35, depthWrite: false })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.012; g.add(shadow);
+      r = { g, body, head: null, skull: null, legs: [], arms: [], kind: 'standee', billboard: card };
+      let cur = null; r.tick = (t, st) => { const fr = P.tokenFrame(idx, st === 'puppet' ? 'idle' : st, t); if (fr !== cur) { cur = fr; tx.image = fr; tx.needsUpdate = true; } };
     } else if (theme === 'ragnarok') r = ragnarok(T, idx, color);
     else if (theme === 'cyber') r = cyber(T, idx, color);
     else if (theme === 'animal') r = animal(T, idx, color);
@@ -703,7 +712,7 @@
     const ring = new T.Mesh(new T.RingGeometry(0.2, 0.26, 28), new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; r.g.add(ring); r.ring = ring;
     // 頭上的箭頭（輪到時顯示）
     const arrow = new T.Mesh(new T.ConeGeometry(0.07, 0.15, 4), new T.MeshBasicMaterial({ color })); arrow.rotation.x = Math.PI; arrow.position.y = 1.35; arrow.visible = false; arrow.userData.tag = true; r.g.add(arrow); r.arrow = arrow;
-    if (!avatarTex) try { polish(T, r, theme); } catch (e) {}
+    if (!avatarTex && r.kind !== 'standee') try { polish(T, r, theme); } catch (e) {}
     r.state = 'idle'; r.stateUntil = 0; r.phase = Math.random() * 6;
     return r;
   };

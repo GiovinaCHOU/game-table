@@ -1,5 +1,6 @@
 // 大富翁：遊戲模組（規則在 mono-rules.js，3D 在 mono3d.js）
 (function (root) {
+  try { if (/[?&]pix=1/.test(location.search)) root.__pix = true; } catch (e) {}
   const U = root.GUTIL;
   const R = () => root.MONO_RULES, TH = () => root.MONO_THEMES;
 
@@ -663,7 +664,8 @@
       return new Promise(res => {
         SFX.warp(); if (this.board) this.board.paused = true; // 動畫期間暫停 3D，手機比較順
         const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
-        const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
+        const pixd = root.__pix && this.v && this.v.theme === 'town'; if (pixd) cv.style.imageRendering = 'pixelated';
+        const dpr = pixd ? 0.32 : Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
         // 動畫裡不放字（結束後會有通知卡片），只有特別標記的字（g.keepText）才畫
         const ft = g.fillText.bind(g), st2 = g.strokeText.bind(g); g.keepText = ft; g.fillText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) ft(s, ...a); }; g.strokeText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) st2(s, ...a); }; // 只擋文字，emoji 圖案照畫
         const cx = W / 2, cy = H / 2, R0 = Math.min(W, H) * 0.32, D = Math.hypot(W, H) / 2;
@@ -745,7 +747,8 @@
       return new Promise(res => {
         sound && sound(); if (this.board) this.board.paused = true;
         const cv = document.createElement('canvas'); cv.className = 'stargate'; document.body.appendChild(cv);
-        const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
+        const pixd = root.__pix && this.v && this.v.theme === 'town'; if (pixd) cv.style.imageRendering = 'pixelated';
+        const dpr = pixd ? 0.32 : Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, g = cv.getContext('2d');
         // 動畫裡不放字（結束後會有通知卡片），只有特別標記的字（g.keepText）才畫
         const ft = g.fillText.bind(g), st2 = g.strokeText.bind(g); g.keepText = ft; g.fillText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) ft(s, ...a); }; g.strokeText = (s, ...a) => { if (!/[\p{L}\p{N}]/u.test(String(s))) st2(s, ...a); }; // 只擋文字，emoji 圖案照畫
         const t0 = performance.now();

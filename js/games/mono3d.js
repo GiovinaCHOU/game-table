@@ -28,8 +28,9 @@
       this.el = el; this.theme = theme; this.R = R; this.q = { high: quality() === 'high' };
       const w = el.clientWidth || 360, h = el.clientHeight || 400;
       // 兩種畫質都開反鋸齒；低畫質只是解析度低一點、沒有陰影
-      const r = this.renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      r.setPixelRatio(Math.min(this.q.high ? 2 : 1.35, window.devicePixelRatio || 1)); r.setSize(w, h);
+      const pix = root.__pix && theme === 'town'; this.pix = pix; // 像素風預覽：用很低的解析度畫，再用最近鄰放大
+      const r = this.renderer = new T.WebGLRenderer({ antialias: !pix, powerPreference: 'high-performance' });
+      r.setPixelRatio(pix ? 0.34 : Math.min(this.q.high ? 2 : 1.35, window.devicePixelRatio || 1)); r.setSize(w, h); if (pix) r.domElement.style.imageRendering = 'pixelated';
       r.shadowMap.enabled = this.q.high; r.shadowMap.type = T.PCFSoftShadowMap;
       r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = theme === 'cyber' ? 1.35 : theme === 'alien' ? 1.0 : 1.0;
       el.appendChild(r.domElement); r.domElement.style.touchAction = 'none';
