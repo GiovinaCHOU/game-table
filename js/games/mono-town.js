@@ -251,8 +251,8 @@
       if (kind === 7) { // 藤蔓鹿怪：從陰影裡站起來，鹿角的藤蔓甩出去纏住人，把人拖進胸口的裂縫
         const rise = ease(clamp((t - 0.2) / 1.0)), lash = clamp((t - 1.2) / 0.5), pull = ease(clamp((t - 1.9) / 1.0)), mx = vx0 + 44;
         g.globalAlpha = rise; glow(g, mx, gy - 40, 16 + Math.sin(t * 6) * 3, '255,40,40', 0.5 * rise); spr(g, ch(7, { arms: lash > 0 ? ['out', 'out'] : ['down', 'down'], eyes: 'glow', legs: 'stand' }, Math.floor(t * 4)), mx, gy + (1 - rise) * 40, { scale: S * 1.35 }); g.globalAlpha = 1;
-        if (lash > 0 && pull < 1) for (let k = 0; k < 5; k++) { const ex = mx + (vx - mx) * lash + Math.sin(t * 9 + k) * 3, ey = gy - 70 + k * 6 + (vy - 40 - (gy - 70)) * lash * 0.5; line(g, mx - 8 + k * 4, gy - 82, ex, ey + k * 4, '#2a0408', 2); R(g, ex, ey + k * 4, 2, 2, '#e0283a'); }
-        if (lash >= 1) { vx = vx0 + (mx - vx0) * pull; vy = gy - pull * 20; vp = { arms: ['up', 'up'], eyes: 'wide', mouth: 'o', dy: Math.floor(t * 20) % 2 }; vtint = '#3a0408'; va = 1 - clamp((pull - 0.7) * 3.3); sk = 1; if (pull > 0.8) hit('a', mx, gy - 40, 50); } }
+        if (lash >= 1) { vx = vx0 + (mx - vx0) * pull; vy = gy - pull * 20; vp = { arms: ['up', 'up'], eyes: 'wide', mouth: 'o', dy: Math.floor(t * 20) % 2 }; vtint = '#3a0408'; va = 1 - clamp((pull - 0.7) * 3.3); sk = 1; if (pull > 0.8) hit('a', mx, gy - 40, 50); }
+        if (lash > 0 && va > 0.2) for (let k = 0; k < 5; k++) { const tx = vx + (k - 2) * 4, ty = vy - 14 - k * 9, ex = mx + (tx - mx) * lash + Math.sin(t * 9 + k), ey = gy - 82 + (ty - (gy - 82)) * lash; line(g, mx - 8 + k * 4, gy - 82, ex, ey, '#2a0408', 2); R(g, ex - 1, ey - 1, 3, 3, '#e0283a'); } }
       // 破產者
       if (va > 0) spr(g, ch(vi, vp, 0), vx, vy, { scale: S, rot: vr, alpha: va, tint: vtint, tintA: vtint === '#e8f8ff' ? 0.8 : 0.45 });
       if (kind === -1) { R(g, 0, gy + 2, W, Hh - gy, '#140406'); vineGrow(g, vines, t, clamp((t - 0.6) / 1.2), '#2a0408'); }
