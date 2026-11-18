@@ -160,32 +160,67 @@
       else { r(sx, shY + 1, 3, 9, sl); r(sx, shY + 10, 3, 2, hs); hands.push([sx + 1, shY + 11]); } });
     return hands;
   }
-  // ---------- 3 古柯檢查官：只有一個大鼻子（沒有手腳），大鼻孔沾滿白粉，鼻樑上一對小眼睛 ----------
+  // ---------- 3 古柯檢查官：只有一個大鼻子（沒有手腳）。照寫實鼻子的正面造型逐格畫：長直鼻樑＋直向反光、
+  //            圓鼓的兩瓣鼻翼和摺痕、鼻底兩道彎月形鼻孔、鼻孔邊緣沾白粉；鼻樑上一對小眼睛 ----------
+  const NOSE_MAP = [
+      '................................',
+      '..........LLLMMMMMMMDD..........',
+      '..........LLLMMMMMMMDD..........',
+      '..........LLLMMMMMMMDD..........',
+      '..........LLLMMMMMMMDD..........',
+      '..........LLLHMMMMMMDD..........',
+      '..........LLLHMMMMMMDD..........',
+      '..........LLLHMMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '..........LLLHHMMMMMDD..........',
+      '.........LLLLHHMMMMMDDD.........',
+      '.........LLLLHHMMMMMDDD.........',
+      '.........LLLLHHMMMMMDDD.........',
+      '........LLLLLHHMMMMMDDDD........',
+      '........LLLLLHHMMMMMDDDD........',
+      '........LLLLLHHMMMMMDDDD........',
+      '.......LLLLLLHHMMMMMDDDDD.......',
+      '.......LLLLLLHHMMMMMDDDDD.......',
+      '.......LLLLLHHMMMMMMDDDDD.......',
+      '.......LLLLLHHMMMMMMDDDDD.......',
+      '......LLLLLLHMMMMMMMDDDDDD......',
+      '......LLLLLLHMLMMMMMDDDDDD......',
+      '......LLLLLLLLLLLLMMDDDDDD......',
+      '........LLLLLHLLLLMMDDDD........',
+      '...MMEEEELLLLHHLLLLMDDDFFFFDD...',
+      '..MLLLMMMELLLLLLLLMMDDFMMMDDDD..',
+      '.MLLLLLMMMELLLLLLLMMDFMMMMMDDDD.',
+      '.MLLLLLMMMMLLMLMMMMMDDMMMMMDDDD.',
+      '.MLLLLMMMMMLLMMMMMMMDDDMMMMDDDD.',
+      '.MMMMnnwMMMMwnDDDDnwEDDDwnnDDDD.',
+      '.MMMMNnnMwMnnNDDDDNnnDwDnnNDDDD.',
+      '.MMMMMNnnnnNNDDDDDDNNnnnnNDDDDD.',
+      '..DDDDWNNNNNNDDDDDDNNNNNNWEEEE..',
+      '...DDDDN......DDDD......NEEEE...',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
+      '................................',
+      '................................'
+    ], NOSE_PAL = { L: '#f6d2b4', M: '#ecbc98', D: '#d89c78', E: '#c07c5c', F: '#aa644a', H: '#fff2e4', N: '#601a14', n: '#a04032', W: '#ffffff', w: '#e8e8f0' };
   function nose(R, g, p, f) {
-    const dy = (p.dy || 0) + (p.legs === 'jump' ? -3 : 0), cx = 18, r = (x, y, w, h, c) => R(x, y + dy, w, h, c), SK = '#f4b8a0', SD = '#d8907a', SL = '#ffd8c8', SDD = '#b87060';
-    const lean = p.legs === 'a' ? -1 : p.legs === 'b' ? 1 : 0; // 走路時左右晃
-    // 鼻樑：上窄下寬
-    for (let y = 4; y <= 28; y++) { const w = 3 + Math.round((y - 4) * 0.3), x = cx + Math.round(lean * (28 - y) / 24); r(x - w, y, w * 2 + 1, 1, SK); r(x + w - 1, y, 2, 1, SD); r(x - w + 1, y, 1, 1, SL); }
-    // 兩側鼻翼＋大圓鼻頭
-    oval(R, cx - 11, 35 + dy, 6, 6, SK); oval(R, cx + 11, 35 + dy, 6, 6, SD); oval(R, cx + 10, 34 + dy, 5, 5, SK); r(cx - 15, 32, 2, 2, SL);
-    oval(R, cx, 31 + dy, 10, 9, SK); oval(R, cx + 4, 34 + dy, 6, 5, SD); oval(R, cx - 1, 30 + dy, 8, 7, SK); oval(R, cx - 4, 27 + dy, 3, 2, SL); r(cx - 5, 26, 2, 1, '#ffffff');
-    // 鼻底那一面（比較暗），往下延伸讓鼻孔四周都有皮膚
-    for (let x = -16; x <= 16; x++) { const h = Math.round(7 * Math.sqrt(Math.max(0, 1 - (x * x) / 289))); r(cx + x, 37, 1, h + 1, x < 0 ? SD : SDD); }
-    oval(R, cx, 42 + dy, 9, 2, SD);
-    // 橢圓鼻孔（上下都是圓的，嚇到時撐大），白粉是沿著鼻孔外圍零散的粉粒（不連成線，免得像牙齒）
-    const big = p.mouth === 'o' || p.eyes === 'wide', ry = big ? 3 : 2, rx = big ? 4 : 3;
-    [[cx - 6, -1], [cx + 6, 1]].forEach(([x, k]) => { const yc = 40;
-      for (let yy = -ry; yy <= ry; yy++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (yy * yy) / ((ry + 0.5) * (ry + 0.5))))); r(x - w, yc + yy, w * 2 + 1, 1, '#4a1212'); }
-      for (let yy = -ry + 1; yy <= ry - 1; yy++) { const w = Math.max(0, Math.round((rx - 1) * Math.sqrt(Math.max(0, 1 - (yy * yy) / (ry * ry))))); r(x - w + k, yc + yy, w * 2 + 1, 1, '#240606'); }
-      [[0.25, 1], [0.7, 0], [1.05, 1], [1.45, 1], [1.9, 0], [2.3, 1], [2.75, 1], [3.3, 0], [-0.3, 1], [3.6, 1]].forEach(([a, on]) => { if (on) r(x + Math.cos(a) * (rx + 1.2), yc + Math.sin(a) * (ry + 1.2), 1, 1, '#ffffff'); });
-      r(x - k * 4, yc - ry - 1, 1, 1, '#f4f4fa'); });
-    r(cx - 1, 38, 3, 4, SD); r(cx - 11, 42, 1, 1, '#ffffff'); r(cx + 11, 42, 1, 1, '#ffffff'); r(cx, 43, 1, 1, f % 2 ? '#ffffff' : '#f0f0f8');
+    const dy = (p.dy || 0) + (p.legs === 'jump' ? -3 : p.legs === 'a' || p.legs === 'b' ? -1 : 0), ox = 2, oy = 3 + dy, big = p.mouth === 'o' || p.eyes === 'wide';
+    NOSE_MAP.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const c = row[x]; if (c !== '.') R(ox + x, oy + y, 1, 1, NOSE_PAL[c]); } });
+    // 嚇到／吸的時候鼻孔撐大：彎月再往下多一排
+    if (big) NOSE_MAP.forEach((row, y) => { for (let x = 0; x < row.length; x++) if (row[x] === 'N' && NOSE_MAP[y + 1] && NOSE_MAP[y + 1][x] !== 'N' && NOSE_MAP[y + 1][x] !== '.') R(ox + x, oy + y + 1, 1, 1, NOSE_PAL.N); });
     // 鼻樑上的小眼睛
-    const ey = p.eyes || 'open', ex = [cx - 5 + lean, cx + 2 + lean], eyY = 12;
+    const r = (x, y, w, h, c) => R(x, y + dy, w, h, c), ey = p.eyes || 'open', ex = [13, 20], eyY = 13;
     if (ey === 'blink') ex.forEach(x => r(x, eyY + 1, 4, 1, '#3a1a1a'));
     else if (ey === 'x') ex.forEach(x => { r(x, eyY, 1, 1, '#1a1020'); r(x + 3, eyY, 1, 1, '#1a1020'); r(x + 1, eyY + 1, 2, 1, '#1a1020'); r(x, eyY + 2, 1, 1, '#1a1020'); r(x + 3, eyY + 2, 1, 1, '#1a1020'); });
-    else ex.forEach(x => { r(x, eyY - 1, 4, 4, '#ffffff'); r(x, eyY + 2, 4, 1, '#e0dce8'); const s2 = ey === 'wide' ? 1 : 0; r(x + 1, eyY + (s2 ? 0 : 1), 2, 2, ey === 'glow' ? '#ffe060' : '#1a1020'); r(x - 1, eyY - 3, 5, 1, '#6a3a2a'); if (ey === 'open' && !s2) r(x, eyY - 1, 4, 1, '#ff9a9a'); });
-    return [[cx - 16, 34 + dy], [cx + 16, 34 + dy]];
+    else ex.forEach(x => { r(x, eyY - 1, 4, 4, '#ffffff'); r(x, eyY + 2, 4, 1, '#e0dce8'); const s2 = ey === 'wide' ? 1 : 0; r(x + 1, eyY + (s2 ? 0 : 1), 2, 2, ey === 'glow' ? '#ffe060' : '#1a1020'); r(x - 1, eyY - 3, 5, 1, '#7a4030'); if (ey === 'open' && !s2) r(x, eyY - 1, 4, 1, '#f0a8a0'); });
+    return [[ox, oy + 35], [ox + 31, oy + 35]];
   }
   // ---------- 4 海洛因蒂：湯匙（頭）＋針筒（拿在手上），湯匙裡有白粉痕跡、底部燒黑 ----------
   function spoon(R, g, p, f) {
@@ -312,7 +347,7 @@
   P.pillFace = function () { if (cache.pf) return cache.pf; const [c, g] = P.canvas(23, 23); const R = (x, y, w, h, col) => { if (w <= 0 || h <= 0) return; g.fillStyle = col; g.fillRect(Math.round(x) - 7, Math.round(y) - 11, Math.round(w), Math.round(h)); };
     bigEyes(R, 13, 23, 18, 'open'); mouth(R, 18, 25, 'grin', {}); return (cache.pf = c); };
   // 頭像（HUD、選角清單用）：每個角色裁出臉的範圍，回傳 dataURL
-  const FACE = [[4, 7, 28, 28], [4, 1, 28, 28], [4, 3, 28, 28], [1, 5, 34, 34], [7, 0, 22, 22], [0, 18, 18, 18], [8, 3, 20, 20], [8, 1, 20, 20], [2, 6, 32, 32]], faceC = {};
+  const FACE = [[4, 7, 28, 28], [4, 1, 28, 28], [4, 3, 28, 28], [2, 8, 32, 32], [7, 0, 22, 22], [0, 18, 18, 18], [8, 3, 20, 20], [8, 1, 20, 20], [2, 6, 32, 32]], faceC = {};
   P.gangFace = function (i, img) {
     const key = i + '|' + (img ? (img.__id || (img.__id = Math.random())) : ''); if (faceC[key]) return faceC[key];
     const [x, y, w, h] = FACE[i % FACE.length], [c, g] = P.canvas(48, 48); g.imageSmoothingEnabled = false; g.drawImage(P.gangSprite(i, {}, 0, img ? { img } : null), x, y, w, h, 0, 0, 48, 48);
