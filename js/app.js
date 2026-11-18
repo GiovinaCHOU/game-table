@@ -110,12 +110,16 @@
     s.textContent = msg; s.hidden = false;
   };
   R.cb.left = () => { location.href = location.pathname + (window.Net.LOCAL ? '?local=1' : ''); };
-  $('#pilotBtn').onclick = () => { const me = R.room && R.room.members.find(m => m.cid === R.cid); const on = !(me && me.auto); R.send({ t: 'autopilot', on }); toast(on ? '已開啟託管：系統會幫你出牌，再按一次取消' : '已取消託管'); };
+  let pilotPrev = null, pilotMine = false;
+  $('#pilotBtn').onclick = () => { pilotMine = true; const me = R.room && R.room.members.find(m => m.cid === R.cid); const on = !(me && me.auto); R.send({ t: 'autopilot', on }); toast(on ? '已開啟託管：系統會幫你出牌，再按一次取消' : '已取消託管'); };
   R.cb.room = (room) => {
     // 桌面風格：平常都是星雲霓虹；大富翁開局後跟著選的主題（不用另外選）
     { const th = room.game && room.game.id === 'monopoly' && room.game.opts && room.game.opts.theme; document.body.dataset.skin = ['ragnarok', 'cyber', 'animal', 'buddha', 'magic', 'alien', 'town'].includes(th) ? th : 'nebula'; }
     { const me = room.members.find(m => m.cid === R.cid); const seated = room.game && me && room.game.seats.includes(me.cid);
-      $('#pilotBtn').hidden = !seated; $('#pilotBtn').classList.toggle('on', !!(me && me.auto)); }
+      $('#pilotBtn').hidden = !seated; const on = !!(me && me.auto); $('#pilotBtn').classList.toggle('on', on);
+      // 不是自己按的託管（離線太久被系統開、或重新連線時還在託管）：提醒一次怎麼取消
+      if (seated && on && pilotPrev !== true && !pilotMine) toast('目前是託管模式：電腦在幫你打。要自己打請按左下「託管」取消');
+      if (seated) { if (pilotPrev !== on) pilotMine = false; pilotPrev = on; } }
     renderMembers(room);
     const host = R.isHost;
     $('#endBtn').hidden = !(host && room.game) && !(room.game && lastPhaseOver);

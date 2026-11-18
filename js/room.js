@@ -346,7 +346,7 @@
     restore(R, pin, snap, msg) {
       this.init(R, pin);
       this.lobby = snap.lobby || this.lobby; this.game = snap.game || null;
-      this.members = (snap.members || []).map(m => Object.assign({}, m, { offAt: Date.now() + 20000, online: m.cid === R.cid || !!m.bot, auto: !!m.bot, voice: m.cid === R.cid ? (window.Net.Voice.mode === 'off' ? null : window.Net.Voice.mode) : null, seen: Date.now() }));
+      this.members = (snap.members || []).map(m => Object.assign({}, m, { offAt: Date.now() + 20000, online: m.cid === R.cid || !!m.bot, auto: !!(m.bot || m.auto), voice: m.cid === R.cid ? (window.Net.Voice.mode === 'off' ? null : window.Net.Voice.mode) : null, seen: Date.now() }));
       if (!this.m(R.cid)) this.members.push({ cid: R.cid, name: R.name, role: 'player', online: true, voice: null, peerId: R.peer.id, seen: Date.now() });
       else { const me = this.m(R.cid); me.peerId = R.peer.id; me.name = R.name || me.name; }
       // 時限重新給：避免一回來就被判逾時
@@ -389,7 +389,7 @@
       conn.on('close', () => {
         const cid = conn._mcid; if (!cid || this.conns[cid] !== conn) return;
         delete this.conns[cid];
-        const m = this.m(cid); if (m) { m.online = false; m.offAt = Date.now(); m.voice = null; this.pushRoom(); this.sysChat(`${m.name} 離線了（輪到他時 40 秒後由系統代打）`); }
+        const m = this.m(cid); if (m) { m.online = false; m.offAt = Date.now(); m.voice = null; this.pushRoom(); this.sysChat(`${m.name} 離線了（輪到他時 40 秒後由系統代打，超過兩回合沒回來會自動託管）`); }
       });
     },
     m(cid) { return this.members.find(x => x.cid === cid); },
@@ -439,8 +439,21 @@
         this.to(m.cid, { t: 'view', v, now });
       });
     },
+    // 離線的人錯過自己兩次回合 → 自動開託管（電腦代打）；回來後要自己按掉，不會自動關
+    trackOffline() {
+      const st = this.game.state; if (!st) return;
+      if (this._offGame !== this.game) { this._offGame = this.game; this._offTurn = null; }
+      this.members.forEach(m => { if (m.online && m.offMissed) m.offMissed = 0; });
+      const t = typeof st.turn === 'number' ? st.turn : typeof st.turnIdx === 'number' ? st.turnIdx : null;
+      if (t == null || t === this._offTurn) return;
+      const prev = this._offTurn; this._offTurn = t; if (prev == null) return;
+      const m = this.m(this.game.seats[prev]); if (!m || m.bot || m.auto || m.online) return;
+      m.offMissed = (m.offMissed || 0) + 1;
+      if (m.offMissed >= 2) { m.auto = true; m.offMissed = 0; this.sysChat(`${m.name} 離線超過兩回合，已自動託管（電腦代打）；回來後按「託管」就能自己打`); this.pushRoom(); }
+    },
     tick() {
       if (!this.game) return;
+      try { this.trackOffline(); } catch (e) { console.error(e); }
       const mod = G()[this.game.id];
       // 斷線超過 15 秒的人輪到時，系統代打，遊戲不會卡住
       let busy = false; try { busy = !!(mod.busy && mod.busy(this.game.state, Date.now())); } catch (e) {}

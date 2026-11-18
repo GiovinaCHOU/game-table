@@ -851,3 +851,6 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
 .mm-card .perk-mini .pro { color: #16733d; font-size: 13.5px; font-weight: 700; }
 .mm-card .perk-mini .con { color: #c0262d; font-size: 13.5px; font-weight: 700; }
 .mm-card .mcard-who .cname { filter: none; background: #2b2116; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
+/* 託管中：按鈕亮綠燈並慢慢呼吸，一眼看得出來 */
+.dock-btn.pilot.on { animation: pilotGlow 1.6s ease-in-out infinite; }
+@keyframes pilotGlow { 0%, 100% { box-shadow: 0 0 8px rgba(125,255,160,.45); } 50% { box-shadow: 0 0 18px rgba(125,255,160,.95), 0 0 0 3px rgba(125,255,160,.35); } }
