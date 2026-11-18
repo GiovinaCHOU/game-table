@@ -67,7 +67,14 @@
       let lastR = 0; const loop = (ts) => { if (this.dead) return; this.raf = requestAnimationFrame(loop); if (this.paused || document.hidden) return; if (ts - lastR < 31) return; lastR = ts; this.frame(); };
       loop();
     }
-    resize() { const w = this.el.clientWidth, h = this.el.clientHeight; if (!w || !h) return; this.renderer.setSize(w, h); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
+    resize() { const w = this.el.clientWidth, h = this.el.clientHeight; if (!w || !h) return; this.renderer.setSize(w, h); this.cam.aspect = w / h; this.applyView(); }
+    // 下方有選單蓋住時：把畫面中心往上挪到「沒被擋的那一塊」的正中間（點選格子的判定也跟著挪）
+    setInset(px) { this.inset = Math.max(0, px || 0); this.applyView(); }
+    applyView() {
+      const w = this.el.clientWidth, h = this.el.clientHeight, ins = Math.min(this.inset || 0, h * 0.6);
+      if (ins > 0 && w && h) this.cam.setViewOffset(w, h, 0, ins / 2, w, h); else this.cam.clearViewOffset();
+      this.cam.updateProjectionMatrix();
+    }
     dispose() { this.dead = true; cancelAnimationFrame(this.raf); try { this.ro.disconnect(); } catch (e) {} try { this.renderer.dispose(); this.renderer.domElement.remove(); } catch (e) {} }
 
     // ================= 鏡頭操作 =================
@@ -79,7 +86,10 @@
     }
     overview(snap) {
       const asp = this.cam.aspect || 1;
-      this.follow(null); this.goal.target.set(0, 0, 0); this.goal.dist = asp < 0.62 ? 27 : asp < 0.8 ? 22 : asp < 1.2 ? 17 : 14; this.goal.polar = 0.55; this.goal.azim = 0;
+      const h = this.el.clientHeight || 1, ins = Math.min(this.inset || 0, h * 0.6), vis = (this.el.clientWidth || 1) / Math.max(1, h - ins); // 扣掉被選單擋住的高度再算要拉多遠
+      this.follow(null); this.goal.target.set(0, 0, 0); this.goal.dist = asp < 0.62 ? 27 : asp < 0.8 ? 22 : asp < 1.2 ? 17 : 14;
+      if (ins > 0) { const need = vis < 0.62 ? 27 : vis < 0.8 ? 22 : vis < 1.2 ? 17 : 14; this.goal.dist = Math.min(36, Math.max(this.goal.dist, need) * h / (h - ins) * 0.92); }
+      this.goal.polar = 0.55; this.goal.azim = 0;
       if (snap) this.snap();
     }
     snap() { const c = this.cr, g = this.goal; c.target.copy(g.target); c.dist = g.dist; c.polar = g.polar; c.azim = g.azim; }

@@ -817,8 +817,15 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
 #turnBanner.show { animation: turnBanner 2.2s ease-out forwards; }
 @keyframes turnBanner { 0% { opacity: 0; transform: translate(-50%, -20px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: .95; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -10px); } }
 
-/* 神明附身選點數：選單貼底、數字一排，讓地圖上標的那格露出來 */
-.gate-bar.dice-bar { bottom: 8px; padding: 8px 10px; }
+/* 選格子／加蓋／選點數的選單：一律貼底、精簡，3D 畫面中心會自動移到選單上方 */
+.gate-bar { bottom: 8px; padding: 8px 10px; }
+.gate-bar > b { margin-bottom: 2px; padding: 0 34px; }
+.gate-bar > .timer { position: absolute; top: 8px; right: 12px; font-size: 14px; }
+.gate-bar .gb-tip { margin: 0 0 6px; }
+.gate-bar .gb-sel { flex: 1 1 100%; text-align: center; font-size: 14px; line-height: 1.35; }
+.gate-bar .gb-sel b { display: inline; font-size: inherit; margin: 0; color: #ffd36e; }
+.gate-bar .gate-row .btn { flex: 1; min-width: 0; white-space: nowrap; }
+.mono-stage.picking .mono-dice { visibility: hidden; }
 .dice-bar b { margin-bottom: 4px; }
 .dice-bar .dice-nums { flex-wrap: nowrap; gap: 3px; }
 .dice-bar .dice-nums .btn { min-width: 0; flex: 1; padding: 7px 0; font-size: 14px; }

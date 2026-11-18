@@ -661,18 +661,20 @@
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: 'buyout', yes: b.dataset.y === '1' }); m.hidden = true; });
       } else if (!m.querySelector('.tinfo') && !(m.classList.contains('top') && v.phase === 'pick')) { m.hidden = true; m.classList.remove('top'); }
     },
+    // 下方選單蓋住地圖時：告訴 3D 鏡頭下面被擋多高，畫面中心改到選單上方
+    barInset(bar) { const b = this.board; if (!b || !b.setInset) return; if (!bar || !bar.isConnected) { b.setInset(0); return; } const st = this.el.querySelector('.mono-stage'); const r1 = st.getBoundingClientRect(), r2 = bar.getBoundingClientRect(); b.setInset(Math.max(0, r1.bottom - r2.top + 6)); },
     // 星門：選目的地（點地圖上的格子，或用下拉選單）
     // 傳送／自選格子：直接點地圖。進入時自動切到全景，自己的地是金色光圈；第一下選、按確認才送出
     gateBar(on) {
       const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.gate-bar');
-      if (!on) { if (bar) bar.remove(); if (this.board) this.board.clearMarks(); this._gateSel = null; return; }
+      if (!on) { if (bar) { bar.remove(); st.classList.remove('picking'); this.barInset(null); } if (this.board) this.board.clearMarks(); this._gateSel = null; return; }
       if (bar) return; const v = this.v, b = this.board;
       const all = R().BOARD.map(t => t.i), mine = all.filter(i => v.owners[i] === v.seat);
-      if (b) { this._camFree = true; b.overview(); b.markTiles(all, mine, null); }
       bar = document.createElement('div'); bar.className = 'gate-bar';
       bar.innerHTML = `<b>🌀 選一格傳送過去</b><span class="gb-tip">直接點地圖上的格子（<i class="dot gold"></i>金圈是你的地）</span>
         <div class="gate-row"><span class="gb-sel">還沒選</span><button class="btn sm ghost" data-list>用清單選</button><button class="btn sm" data-go disabled>傳送到這裡</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
-      st.appendChild(bar);
+      st.appendChild(bar); st.classList.add('picking'); this.barInset(bar);
+      if (b) { this._camFree = true; b.overview(); b.markTiles(all, mine, null); }
       bar.querySelector('[data-go]').onclick = () => { if (this._gateSel != null) { this._camFree = false; this.ui.send({ type: 'gate', to: this._gateSel }); this.gateBar(false); } };
       bar.querySelector('[data-list]').onclick = () => {
         const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null;
@@ -684,36 +686,33 @@
     // 神明附身：自己選這次要走幾步，選了會在地圖上標出會停在哪
     diceBar(on) {
       const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.dice-bar');
-      if (!on) { if (bar) bar.remove(); st.classList.remove('picking'); if (this.board) this.board.clearMarks(); return; }
+      if (!on) { if (bar) { bar.remove(); this.barInset(null); } st.classList.remove('picking'); if (this.board) this.board.clearMarks(); return; }
       if (bar) return; const v = this.v, b = this.board, me = v.players[v.seat]; st.classList.add('picking');
-      if (b) { this._camFree = true; b.overview(); }
       bar = document.createElement('div'); bar.className = 'gate-bar dice-bar';
       bar.innerHTML = `<b>🔥 神明附身：這次要走幾步？</b><span class="gb-tip">點數字，地圖上會標出會停在哪一格</span>
         <div class="dice-nums">${[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => `<button class="btn ghost sm" data-n="${n}">${n}</button>`).join('')}</div>
         <div class="gate-row"><span class="gb-sel">還沒選</span><button class="btn sm" data-go disabled>走！</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
-      st.appendChild(bar); let pick = 0;
+      st.appendChild(bar); let pick = 0; this.barInset(bar); if (b) { this._camFree = true; b.overview(); }
       bar.querySelectorAll('[data-n]').forEach(x => x.onclick = () => {
         pick = +x.dataset.n; bar.querySelectorAll('[data-n]').forEach(y => y.classList.toggle('on', y === x));
         const to = (me.pos + pick) % R().N, t = R().BOARD[to];
         const own = v.owners[to] === v.seat ? '（你的地）' : v.owners[to] >= 0 ? `（${U.esc(v.names[v.owners[to]])} 的地，要付過路費）` : t.type === 'prop' ? '（空地，可以買）' : '';
         bar.querySelector('.gb-sel').innerHTML = `停在 <b>${U.esc(R().tileName(v.theme, to))}</b>${own}`; bar.querySelector('[data-go]').disabled = false;
-        if (b) { b.markTiles([to], v.owners[to] === v.seat ? [to] : [], to); b.focusTile(to);
-          // 把那一格推到畫面上半部，避免被下面的選單擋住：鏡頭焦點往鏡頭方向挪一點
-          const cp = b.cam.position, tg = b.goal.target, dx = cp.x - tg.x, dz = cp.z - tg.z, L = Math.hypot(dx, dz) || 1; tg.x += dx / L * 2.2; tg.z += dz / L * 2.2; b.goal.dist = Math.min(b.goal.dist || 14, 14); b.clampGoal && b.clampGoal(); }
-        bar.querySelector('.gb-tip').hidden = true;
+        bar.querySelector('.gb-tip').hidden = true; this.barInset(bar);
+        if (b) { b.markTiles([to], v.owners[to] === v.seat ? [to] : [], to); b.focusTile(to); b.goal.dist = Math.min(b.goal.dist || 14, 14); b.clampGoal && b.clampGoal(); }
       });
       bar.querySelector('[data-go]').onclick = () => { if (!pick) return; this._camFree = false; this.ui.send({ type: 'roll', pick }); this.diceBar(false); const g = this.el.querySelector('.go-btn'); if (g) g.disabled = true; SFX.dice(); };
     },
     // 經過起點的加蓋：直接點地圖上金色光圈的地（自己的、還能蓋的），或用清單選
     buildBar(on) {
       const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.build-bar');
-      if (!on) { if (bar) { bar.remove(); if (this.board) this.board.clearMarks(); this._camFree = false; } this._bldSel = null; return; }
+      if (!on) { if (bar) { bar.remove(); st.classList.remove('picking'); this.barInset(null); if (this.board) this.board.clearMarks(); this._camFree = false; } this._bldSel = null; return; }
       if (bar) return; const v = this.v, b = this.board, opts = (v.pending && v.pending.opts) || [];
-      if (b) { this._camFree = true; b.overview(); b.markTiles(opts, opts, null); }
       bar = document.createElement('div'); bar.className = 'gate-bar build-bar';
       bar.innerHTML = `<b>🏗️ 經過起點：可以加蓋一層</b><span class="gb-tip">點地圖上<i class="dot gold"></i>金圈的地（你的地、錢夠蓋的）</span>
         <div class="gate-row"><span class="gb-sel">還沒選</span><button class="btn sm ghost" data-list>用清單選</button><button class="btn sm ghost" data-skip>這次不蓋</button><button class="btn sm" data-go disabled>蓋這裡</button></div><span class="timer" data-deadline="${v.deadline}"></span>`;
-      st.appendChild(bar);
+      st.appendChild(bar); st.classList.add('picking'); this.barInset(bar);
+      if (b) { this._camFree = true; b.overview(); b.markTiles(opts, opts, null); }
       bar.querySelector('[data-go]').onclick = () => { if (this._bldSel != null) { this.ui.send({ type: 'passbuild', to: this._bldSel }); this.buildBar(false); } };
       bar.querySelector('[data-skip]').onclick = () => { this.ui.send({ type: 'passbuild', to: -1 }); this.buildBar(false); };
       bar.querySelector('[data-list]').onclick = () => {
@@ -729,6 +728,7 @@
       this._bldSel = i; const t = R().BOARD[i], lv = v.levels[i];
       const rentNow = R().rentOf ? null : null; void rentNow;
       bar.querySelector('.gb-sel').innerHTML = `<b>${U.esc(R().tileName(v.theme, i))}</b>：${lv} 級 → ${lv + 1} 級${lv + 1 === 4 ? '（地標！）' : ''}・建築費 ${R().upOf(v, v.seat, i).toLocaleString()}`; bar.querySelector('[data-go]').disabled = false;
+      bar.querySelector('.gb-tip').hidden = true; this.barInset(bar);
       if (this.board) { this.board.markTiles(opts, opts, i); this.board.focusTile && this.board.focusTile(i); }
     },
     pickGate(i) {
@@ -736,7 +736,8 @@
       this._gateSel = i; const t = R().BOARD[i];
       const own = v.owners[i] === v.seat ? '（你的地）' : v.owners[i] >= 0 ? `（${U.esc(v.names[v.owners[i]])} 的地，要付過路費）` : t.type === 'prop' ? '（空地，可以買）' : '';
       bar.querySelector('.gb-sel').innerHTML = `<b>${U.esc(R().tileName(v.theme, i))}</b>${own}`; bar.querySelector('[data-go]').disabled = false;
-      if (b) { const all = R().BOARD.map(x => x.i); b.markTiles(all, all.filter(k => v.owners[k] === v.seat), i); }
+      bar.querySelector('.gb-tip').hidden = true; this.barInset(bar);
+      if (b) { b.focusTile(i); const all = R().BOARD.map(x => x.i); b.markTiles(all, all.filter(k => v.owners[k] === v.seat), i); }
       SFX.click && SFX.click();
     },
     // 全螢幕 3 秒星門穿越動畫（光帶隧道＋行星被拉長）
