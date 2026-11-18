@@ -182,23 +182,30 @@
     pulseTile(i) { const m = this.tileMeshes[i]; if (!m) return; this.tween(500, k => { m.position.y = 0.005 + Math.sin(k * Math.PI) * 0.08; }); }
 
     // ================= 建築 =================
+    dropBuilding(i) {
+      const r = this.bld[i]; if (!r) return; this.scene.remove(r.obj);
+      if (r.fn) { const k = this.upd.indexOf(r.fn); if (k >= 0) this.upd.splice(k, 1); }
+      r.obj.traverse(m => { if (m.geometry) m.geometry.dispose(); }); this.bld[i] = null;
+    }
     setBuildings(owners, levels, info) {
       const T = THREE;
       for (let i = 0; i < N; i++) {
         const o = owners[i]; const inf = o >= 0 ? info[o] || {} : {};
         const key = o + ':' + levels[i] + ':' + (inf.charIdx != null ? inf.charIdx : '');
         if (this.bld[i] && this.bld[i].key === key) continue;
-        if (this.bld[i]) { this.scene.remove(this.bld[i].obj); this.bld[i] = null; }
+        if (this.bld[i]) { this.dropBuilding(i); }
         if (o < 0) continue;
-        const [x, z] = tileXZ(i); const grp = new T.Group(); grp.position.set(x, 0.005, z);
+        const bu = []; const [x, z] = tileXZ(i); const grp = new T.Group(); grp.position.set(x, 0.005, z);
         const fr = new T.Mesh(new T.RingGeometry(0.58, 0.66, 4, 1), new T.MeshBasicMaterial({ color: inf.color || '#fff' })); fr.rotation.set(-Math.PI / 2, 0, Math.PI / 4); fr.position.y = 0.006; grp.add(fr);
         if (levels[i] > 0) {
-          const b = root.MONO_ART.building(T, { theme: this.theme, level: levels[i], color: inf.color || '#fff', name: this.R.tileName(this.theme, i), ownerChar: inf.charIdx || 0 }, this.upd);
+          // 建築自己的動畫放在自己的清單，拆掉／改建時一起移除（以前會一直累積，越玩越卡）
+          const b = root.MONO_ART.building(T, { theme: this.theme, level: levels[i], color: inf.color || '#fff', name: this.R.tileName(this.theme, i), ownerChar: inf.charIdx || 0 }, bu);
           b.position.set(0.15, 0, -0.15); grp.add(b);
           b.traverse(m => { if (m.isMesh) m.castShadow = this.q.high; });
           const s0 = 1.25 * (b.userData.s || 1); b.scale.setScalar(0.01); this.tween(650, k => b.scale.setScalar(s0 * Math.max(0.01, 1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.15)));
         }
-        this.scene.add(grp); this.bld[i] = { key, obj: grp };
+        const fn = bu.length ? (t, dt) => { for (let k = 0; k < bu.length; k++) bu[k](t, dt); } : null; if (fn) this.upd.push(fn);
+        this.scene.add(grp); this.bld[i] = { key, obj: grp, fn };
       }
     }
 

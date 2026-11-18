@@ -111,6 +111,7 @@
     desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢、房子越多繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
     options: [
       { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
+      { key: 'layout', label: '地圖排列', choices: [['random', '每局隨機（角落不動、同色地相連）'], ['fixed', '固定']], def: 'random' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
@@ -137,7 +138,7 @@
       const w = R().autoAct(st); return w && w.seat >= 0 ? w : null; },
     view(st, seat) {
       return {
-        theme: st.theme, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
+        theme: st.theme, layout: st.layout, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
         players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
@@ -164,9 +165,11 @@
       return `<span class="mface" style="width:${sz}px;height:${sz}px;border-color:${ch.color}">${img ? `<img src="${img}">` : `<i style="font-size:${sz * 0.6}px">${ch.emoji}</i>`}</span>`;
     },
     render(el, v, ui) {
+      R().useLayout(v.layout);
       if (v.seat >= 0 && v.turn === v.seat && ['buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase)) { const k = v.evId + ':' + v.phase; if (this._decKey !== k) { this._decKey = k; this._decAt = Date.now(); } }
       this.ui = ui; this.v = v;
-      if (el.dataset.g !== 'monopoly' || this._theme !== v.theme) this.build(el, v);
+      const lk = (v.layout || []).join(','); // 這局的地圖排列（每個玩家畫面都要先切過來）
+      if (el.dataset.g !== 'monopoly' || this._theme !== v.theme || this._layoutKey !== lk) { this._layoutKey = lk; this.build(el, v); }
       el.classList.toggle('dim-bg', false);
       this.renderHud(); this.renderPick();
       if (v.phase === 'pick') { this.showPrompt(); return; }

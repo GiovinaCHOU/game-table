@@ -20,11 +20,35 @@
     return { wealth, house, total: Math.max(1000, wealth + house) };
   }
   const taxOf = (st, s) => taxDetail(st, s).total;
-  const BOARD = []; { let pi = 0; LAYOUT.forEach((c, i) => {
-    if (c[0] === 'P') { const g = +c[1]; BOARD.push({ i, type: 'prop', g, pi: pi++, price: GROUP_PRICE[g], up: Math.round(GROUP_PRICE[g] * 0.6), color: GROUP_COLOR[g] }); }
-    else BOARD.push({ i, type: { S: 'start', L: 'luck', B: 'bad', X: 'tax', J: 'jail', F: 'free', G: 'gotojail', T: 'teleport', I: 'item' }[c] });
-  }); }
-  const N = BOARD.length;
+  // 棋盤：BOARD 是同一個陣列，換地圖時「原地」重建，所以所有用到 BOARD 的地方都不用改
+  // 每局的排列存在 st.layout（28 格代碼）；舊存檔沒有 layout 就用預設排列
+  const BOARD = []; let curLayout = '';
+  function useLayout(L) {
+    const lay = Array.isArray(L) && L.length === LAYOUT.length ? L : LAYOUT, key = lay.join(',');
+    if (key === curLayout) return; curLayout = key; BOARD.length = 0; const cnt = Array(8).fill(0);
+    lay.forEach((c, i) => {
+      if (c[0] === 'P') { const g = +c[1]; BOARD.push({ i, type: 'prop', g, pi: g * 2 + cnt[g]++, price: GROUP_PRICE[g], up: Math.round(GROUP_PRICE[g] * 0.6), color: GROUP_COLOR[g] }); } // 地名跟著色組走
+      else BOARD.push({ i, type: { S: 'start', L: 'luck', B: 'bad', X: 'tax', J: 'jail', F: 'free', G: 'gotojail', T: 'teleport', I: 'item' }[c] });
+    });
+  }
+  useLayout(LAYOUT);
+  const N = LAYOUT.length;
+  // 隨機地圖：四個角落（起點 0、監獄 7、免費停車 14、進監獄 21）不動；每邊 6 格＝2 組同色地（各 2 格相連）＋2 張不同的功能格
+  function randomLayout() {
+    const groups = U.shuffle(U.range(8)); let singles;
+    for (let k = 0; k < 200; k++) { singles = U.shuffle(['L', 'L', 'B', 'B', 'X', 'X', 'I', 'I']); let ok = true; for (let sd = 0; sd < 4; sd++) if (singles[sd * 2] === singles[sd * 2 + 1]) ok = false; if (ok) break; }
+    const out = ['S']; ['J', 'F', 'G', null].forEach((corner, sd) => {
+      const units = U.shuffle([['P' + groups[sd * 2], 'P' + groups[sd * 2]], ['P' + groups[sd * 2 + 1], 'P' + groups[sd * 2 + 1]], [singles[sd * 2]], [singles[sd * 2 + 1]]]);
+      units.forEach(u => out.push(...u)); if (corner) out.push(corner);
+    });
+    return out;
+  }
+  function checkLayout(L) { // 給測試用：確認排列合法
+    if (!Array.isArray(L) || L.length !== 28 || L[0] !== 'S' || L[7] !== 'J' || L[14] !== 'F' || L[21] !== 'G') return false;
+    const c = {}; L.forEach(x => c[x] = (c[x] || 0) + 1); if (['L', 'B', 'X', 'I'].some(k => c[k] !== 2)) return false;
+    for (let g = 0; g < 8; g++) { const at = L.map((x, i) => x === 'P' + g ? i : -1).filter(i => i >= 0); if (at.length !== 2 || at[1] - at[0] !== 1) return false; }
+    return true;
+  }
 
   function tileName(theme, i) {
     const t = BOARD[i], th = TH()[theme];
@@ -335,7 +359,7 @@
   }
 
   const R = {
-    _applyCard: applyCard, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
@@ -344,6 +368,7 @@
         players: U.range(n).map(() => ({ cash, pos: 0, alive: true, skip: 0, immune: 0, jailfree: 0, char: null })),
         startCash: cash, owners: Array(N).fill(-1), levels: Array(N).fill(0), boLock: Array(N).fill(0), decks: {}, ev: [], evId: 0, anim: 0, pending: null, dice: null
       };
+      st.layout = o.layout === 'fixed' ? LAYOUT.slice() : randomLayout(); useLayout(st.layout);
       st.deadline = now + 90000;
       return st;
     },
@@ -494,5 +519,7 @@
       return null;
     }
   };
+  // 所有吃 st 的對外函式：先切到這局的地圖排列
+  Object.keys(R).forEach(k => { const f = R[k]; if (typeof f !== 'function' || k === 'init' || k === 'useLayout') return; R[k] = function (...a) { if (a[0] && typeof a[0] === 'object' && a[0].owners) useLayout(a[0].layout); return f.apply(this, a); }; });
   root.MONO_RULES = R;
 })(typeof window !== 'undefined' ? window : globalThis);

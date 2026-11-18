@@ -792,9 +792,9 @@ body.my-turn::after { content: ''; position: fixed; inset: 0; pointer-events: no
 body.my-turn .hand, body.my-turn .mj-me, body.my-turn .rm-rack, body.my-turn .my-dice { box-shadow: 0 0 0 2px #ffcf4a, 0 0 22px rgba(255, 196, 40, .45); border-radius: 12px; }
 body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurnBtn 1.1s ease-in-out infinite; }
 @keyframes myTurnBtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 196, 40, .0); } 50% { box-shadow: 0 0 0 6px rgba(255, 196, 40, .45); } }
-#turnBanner { position: fixed; left: 50%; top: 38%; z-index: 950; pointer-events: none; transform: translate(-50%, -50%) scale(.6); opacity: 0; padding: 14px 30px; border-radius: 999px; font-size: 30px; font-weight: 900; letter-spacing: 4px; color: #3a2500; white-space: nowrap; background: linear-gradient(180deg, #fff2b0, #ffc43a 55%, #f0a020); box-shadow: 0 10px 40px rgba(0, 0, 0, .45), 0 0 0 3px rgba(255, 255, 255, .7), 0 0 40px rgba(255, 196, 40, .8); }
-#turnBanner.show { animation: turnBanner 1.7s cubic-bezier(.2, 1.4, .4, 1) forwards; }
-@keyframes turnBanner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.5); } 14% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 24% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -62%) scale(.96); } }
+#turnBanner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 950; pointer-events: none; transform: translate(-50%, -20px); opacity: 0; padding: 6px 16px; border-radius: 999px; font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #3a2500; white-space: nowrap; background: linear-gradient(180deg, rgba(255,242,176,.92), rgba(255,196,58,.92)); box-shadow: 0 4px 16px rgba(0, 0, 0, .35), 0 0 18px rgba(255, 196, 40, .55); }
+#turnBanner.show { animation: turnBanner 2.2s ease-out forwards; }
+@keyframes turnBanner { 0% { opacity: 0; transform: translate(-50%, -20px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: .95; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -10px); } }
 
 /* 神明附身選點數：選單貼底、數字一排，讓地圖上標的那格露出來 */
 .gate-bar.dice-bar { bottom: 8px; padding: 8px 10px; }

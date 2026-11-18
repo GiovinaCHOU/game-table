@@ -637,7 +637,7 @@
         for (let k = 0; k < 3; k++) add(new T.TorusGeometry(0.22 - k * 0.04, 0.01, 6, 30), M('#c8302a', { roughness: 0.4 }), 0, 0.42 + k * 0.1, 0).rotation.x = Math.PI / 2;
         [-1, 1].forEach(sd => { const pts = []; for (let q = 0; q <= 8; q++) { const u = q / 8; pts.push(new T.Vector3(sd * 0.1, 0.12 + u * 0.03, 0.42 - u * 0.2 + Math.sin(u * 7) * 0.01)); } add(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 10, 0.02, 6), M('#3a9a6a', { metalness: 0.5, roughness: 0.3 }), 0, 0, 0); const hd = add(new T.SphereGeometry(0.035, 10, 8), gold, sd * 0.1, 0.17, 0.44); hd.scale.set(1, 1.2, 0.7); });
         const lotus = []; for (let k = 0; k < 6; k++) { const lg = new T.Group(); g.add(lg); for (let q = 0; q < 6; q++) { const pt = new T.Mesh(new T.SphereGeometry(0.025, 8, 6), M('#ffb0c8', { emissive: '#ff6a9a', emissiveIntensity: 0.8 })); pt.scale.set(0.5, 1, 0.3); pt.position.set(Math.cos(q) * 0.015, 0.015, Math.sin(q) * 0.015); pt.rotation.z = Math.cos(q) * 0.6; pt.rotation.x = Math.sin(q) * 0.6; lg.add(pt); } const c = new T.Mesh(new T.SphereGeometry(0.012, 6, 4), lampM); c.position.y = 0.02; lg.add(c); lg.userData = { a: k / 6 * 6.28, r: 0.5 }; lotus.push(lg); }
-        const L = new T.PointLight('#ffd27a', 2.2, 2.4, 2); L.position.set(0, 0.9, 0.4); g.add(L);
+        const L = Object.assign(new T.Object3D(), { intensity: 0 }) /* 建築不放真的光源：每多一盞燈所有材質都要重編譯，手機會卡又燙 */; L.position.set(0, 0.9, 0.4); g.add(L);
         upd.push(t => { L.intensity = 1.8 + Math.sin(t * 3) * 0.5; lotus.forEach((lg, k) => { const a = lg.userData.a + t * 0.25; lg.position.set(Math.cos(a) * 0.48, 0.5 + Math.sin(t * 1.3 + k) * 0.12 + k * 0.05, Math.sin(a) * 0.48); }); });
         banner(-0.36, 0.36);
       }
@@ -685,7 +685,7 @@
         const cry = add(new T.OctahedronGeometry(0.09, 0), M('#9ad8ff', { emissive: '#5ab0ff', emissiveIntensity: 2.2, transparent: true, opacity: 0.9 }), 0, 2.3, 0);
         const halo = add(new T.TorusGeometry(0.5, 0.01, 6, 48), new T.MeshBasicMaterial({ color: '#b8a0ff', transparent: true, opacity: 0.7, blending: T.AdditiveBlending, depthWrite: false }), 0, 0.5, 0); halo.rotation.x = Math.PI / 2;
         const motes = []; for (let k = 0; k < 10; k++) { const m = add(new T.SphereGeometry(0.015, 6, 4), new T.MeshBasicMaterial({ color: '#e0d0ff' }), 0, 0, 0); m.userData = { a: k / 10 * 6.28, r: 0.45 + (k % 3) * 0.06 }; motes.push(m); }
-        const L = new T.PointLight('#ffc070', 1.6, 2, 2); L.position.set(0, 0.6, 0.5); g.add(L);
+        const L = Object.assign(new T.Object3D(), { intensity: 0 }) /* 建築不放真的光源：每多一盞燈所有材質都要重編譯，手機會卡又燙 */; L.position.set(0, 0.6, 0.5); g.add(L);
         upd.push(t => { fl.rotation.y = Math.sin(t * 3) * 0.4; cry.rotation.y = t; cry.position.y = 2.3 + Math.sin(t * 1.5) * 0.06; halo.position.y = 0.5 + Math.sin(t) * 0.15; halo.scale.setScalar(1 + Math.sin(t * 2) * 0.05); motes.forEach(m => { const a = m.userData.a + t * 0.8; m.position.set(Math.cos(a) * m.userData.r, 0.4 + Math.sin(t * 2 + m.userData.a) * 0.3, Math.sin(a) * m.userData.r); }); });
       }
     } else if (theme === 'ragnarok') { // 諸神黃昏：殘柱雕像 → 圓形小神殿 → 大神殿 → 浮空的阿斯嘉宮殿＋彩虹橋
@@ -725,7 +725,7 @@
         const dome = ia(new T.SphereGeometry(0.17, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), gold, 0, 0.3, -0.02); void dome;
         [-0.2, 0.2].forEach(x => { ia(new T.CylinderGeometry(0.05, 0.06, 0.42, 10), marble, x, 0.24, -0.08); ia(new T.ConeGeometry(0.07, 0.14, 10), gold, x, 0.52, -0.08); });
         for (let k = 0; k < 6; k++) { const sh = ia(new T.CircleGeometry(0.035, 14), k % 2 ? gold : bronze, -0.15 + k * 0.06, 0.3, 0.111); void sh; }
-        const L = new T.PointLight('#ffe6a0', 1.6, 2.2, 2); L.position.set(0, 0.4, 0.4); isle.add(L);
+        const L = Object.assign(new T.Object3D(), { intensity: 0 }) /* 建築不放真的光源：每多一盞燈所有材質都要重編譯，手機會卡又燙 */; L.position.set(0, 0.4, 0.4); isle.add(L);
         // 彩虹橋：從島邊往下彎到地面
         const cols = ['#ff4a4a', '#ff9a3a', '#ffe04a', '#5ae07a', '#4ab0ff', '#9a6aff'];
         cols.forEach((c, k) => { const pts = []; for (let q = 0; q <= 16; q++) { const u = q / 16; pts.push(new T.Vector3(0.25 + u * 0.2, 0.48 - u * 0.47 + Math.sin(u * Math.PI) * 0.14, 0.15 + u * 0.2 + k * 0.03)); } const m = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 24, 0.016, 5), M(c, { emissive: c, emissiveIntensity: 1.1 })); g.add(m); });
