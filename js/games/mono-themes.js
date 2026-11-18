@@ -650,5 +650,31 @@
     ]
   };
 
+  // ===== 幫派街區（製作中：角色屬性系統先上，卡片／美術之後補）=====
+  // perks：每個角色一個優點＋一個缺點，選角時顯示；m 是規則用的數值（mono-rules.js 的 perk() 讀）
+  T.gang = {
+    id: 'gang', name: '幫派街區', icon: '🕶️', unit: '黑錢', coin: '💵', noCustom: true, wip: true,
+    desc: '午夜的街區，塗鴉牆、滑板場、閃爍的霓虹招牌，每條巷子都有人在做生意，也有條子在盯。',
+    corners: { start: '老街口', jail: '看守所', free: '滑板場', gotojail: '被條子臨檢抓到' },
+    tax: '保護費', teleport: '跑路', luckName: '大單上門', badName: '條子臨檢',
+    props: ['塗鴉暗巷', '廢棄地下道', '刺青店', '滑板店', '投幣洗衣店', '二手當鋪', '酒吧', '水煙館', 'Coffee Shop', '地下撞球間', '槍枝舖', '改裝車廠', '夜店', '地下賭場', '碼頭倉庫', '老大的豪宅'],
+    chars: [['💊', '媽的媽啊', '#ff5ab4'], ['📮', '郵差先生', '#5a8aff'], ['🌿', '美麗妄娜', '#4ac85a'], ['👃', '古柯檢查官', '#e8e0d0'], ['🥄', '海洛因蒂', '#b8b8c8'], ['🫠', '折疊人', '#8a6a5a'], ['🧢', '小混混', '#f2c83a'], ['🎩', '黑幫老大', '#2a2a30'], ['🍄', '蘑菇', '#c85aff']],
+    perks: [
+      { pro: '收過路費 +15%（大家都愛你）', con: '付過路費也 +15%（太愛分享）', m: { rentIn: 1.15, rentOut: 1.15 } },
+      { pro: '幸運卡拿的錢 ×1.5', con: '厄運卡扣的錢也 ×1.5（好壞都放大）', m: { luckMul: 1.5, badMul: 1.5 } },
+      { pro: '付過路費 −25%（很 chill，大家都算你便宜）', con: '每次擲骰少走 1 格（動作很慢）', m: { rentOut: 0.75, dice: -1 } },
+      { pro: '整局 3 次免進看守所（被抓時自己選要不要用）', con: '買地、加蓋貴 5%', m: { jailChoice: 3, buyMul: 1.05 } },
+      { pro: '「停 N 回合」和進看守所都對他無效（麻掉沒感覺，照樣走）', con: '經過起點拿的錢 −10%', m: { noSkip: true, noJail: true, startMul: 0.9 } },
+      { pro: '偷錢、陷阱、炸彈對他無效（縮成一團摸不到）', con: '被停一回合時會多停 1 回合', m: { itemImmune: true, skipExtra: 1 } },
+      { pro: '買地、加蓋便宜 5%（搶地盤）', con: '進看守所多關 2 回合（前科累累）', m: { buyMul: 0.95, jailExtra: 2 } },
+      { pro: '整局免繳保護費（逃漏稅）', con: '經過起點只拿固定 4,000，沒有落後補助', m: { noTax: true, startFixed: 4000, noBoost: true } },
+      { pro: '每次經過起點，下一次擲骰可以自己選點數', con: '經過起點拿的錢 −60%', m: { startTrance: true, startMul: 0.4 } }
+    ],
+    // 卡片：第 4 階段才寫正式內容，先沿用怪奇小鎮一般卡的效果分布（文字是暫時的）
+    lucky: [], bad: []
+  };
+  T.gang.lucky = T.town.lucky.filter(c => ['m', 'up', 'mv', 'go', 'jailfree', 'each', 'immune', 'teleport', 'again'].includes(c[1].split(':')[0])).map((c, i) => ['（暫時的幸運卡 ' + (i + 1) + '）', c[1]]);
+  T.gang.bad = T.town.bad.filter(c => ['m', 'jail', 'skip', 'house', 'down', 'give', 'pct', 'gonb', 'mv'].includes(c[1].split(':')[0])).map((c, i) => ['（暫時的厄運卡 ' + (i + 1) + '）', c[1]]);
+
   root.MONO_THEMES = T;
 })(typeof window !== 'undefined' ? window : globalThis);

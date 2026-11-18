@@ -2,6 +2,7 @@
 (function (root) {
   try { if (/[?&]pix=1/.test(location.search)) root.__pix = true; } catch (e) {}
   try { if (/[?&]pixenv=1/.test(location.search)) localStorage.removeItem('mono-pixenv'); if (/[?&]pixenv=0/.test(location.search)) localStorage.setItem('mono-pixenv', '0'); } catch (e) {} // 怪奇小鎮環境：預設像素，?pixenv=0 切回 3D
+  let DEV_GANG = false; try { if (/[?&]gang=1/.test(location.search)) localStorage.setItem('mono-gang', '1'); if (/[?&]gang=0/.test(location.search)) localStorage.removeItem('mono-gang'); DEV_GANG = localStorage.getItem('mono-gang') === '1'; } catch (e) {} // 幫派街區製作中：只有開了 ?gang=1 的裝置看得到
   const U = root.GUTIL;
   const R = () => root.MONO_RULES, TH = () => root.MONO_THEMES;
 
@@ -112,7 +113,7 @@
     id: 'monopoly', name: '大富翁', icon: '🎩', min: 2, max: 6,
     desc: '擲骰子走格子，買地、蓋房子，別人踩到要付過路費。付完過路費可以花 1.4 倍價錢強制收購那塊地（地標不行）。落後的人經過起點多領補助，稅金越有錢、房子越多繳越多。錢不夠會自動賣房賣地，賣光就破產。結束時比「總資產」＝現金＋地價＋建築。',
     options: [
-      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['town', '🚲 怪奇小鎮'], ['alien', '🌌 深空異種']], def: 'ragnarok' },
+      { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['town', '🚲 怪奇小鎮'], ['alien', '🌌 深空異種']].concat(DEV_GANG ? [['gang', '🕶️ 幫派街區（製作中）']] : []), def: 'ragnarok' },
       { key: 'layout', label: '地圖排列', choices: [['random', '每局隨機（角落不動、同色地相連）'], ['fixed', '固定']], def: 'random' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
@@ -141,7 +142,7 @@
     view(st, seat) {
       return {
         theme: st.theme, layout: st.layout, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
         pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
@@ -249,11 +250,13 @@
     },
     renderPick() {
       const v = this.v, box = this.el.querySelector('.mono-pick');
+      this.el.classList.toggle('choosing', v.phase === 'pick');
       if (v.phase !== 'pick') { box.hidden = true; return; }
       const th = TH()[v.theme]; box.hidden = false;
       const mine = v.seat >= 0 ? v.players[v.seat].char : null;
       const taken = v.players.map(p => p.char && p.char.kind === 'preset' ? p.char.i : -1);
       const myAv = v.seat >= 0 ? this.avatarOf(v.seat) : null;
+      if (th.perks) { this.renderPickPerks(box, th, mine, taken); return; }
       box.innerHTML = `<div class="pick-card"><h3>${th.icon} ${th.name}：選角色</h3><p class="hint">${U.esc(th.desc)}</p>
         <div class="pick-grid">${th.chars.map((c, i) => `<button class="pc ${mine && mine.kind === 'preset' && mine.i === i ? 'on' : ''}" data-i="${i}" ${taken.includes(i) && !(mine && mine.i === i && mine.kind === 'preset') || v.seat < 0 ? 'disabled' : ''} style="--c:${c[2]}"><i>${c[0]}</i><span>${c[1]}</span></button>`).join('')}
           <button class="pc draw ${mine && mine.kind === 'custom' ? 'on' : ''}" data-draw ${v.seat < 0 ? 'disabled' : ''}>${myAv ? `<img src="${myAv}">` : '<i>✏️</i>'}<span>${myAv ? '用我畫的' : '自己畫'}</span></button></div>
@@ -263,6 +266,16 @@
       box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => this.ui.send({ type: 'pick', i: +b.dataset.i }));
       const d = box.querySelector('[data-draw]'); if (d) d.onclick = () => { this.ui.send({ type: 'pick', custom: true }); if (!myAv) this.drawPad(); }; // 先佔好「自己畫」，畫圖時間到了也不會被系統換成預設角色；畫好的圖送出後角色會自動換成立牌
       const rd = box.querySelector('[data-redraw]'); if (rd) rd.onclick = () => this.drawPad();
+    },
+    // 有角色屬性的主題（幫派街區）：每個角色一列，清楚寫出優點／缺點；不能自畫
+    renderPickPerks(box, th, mine, taken) {
+      const v = this.v, myI = mine && mine.kind === 'preset' ? mine.i : -1;
+      box.innerHTML = `<div class="pick-card perks"><h3>${th.icon} ${th.name}：選角色</h3><p class="hint">每個角色都有一個優點和一個缺點，想清楚再選</p>
+        <div class="perk-list">${th.chars.map((c, i) => { const k = th.perks[i], off = (taken.includes(i) && myI !== i) || v.seat < 0, who = v.players.findIndex(p => p.char && p.char.kind === 'preset' && p.char.i === i);
+          return `<button class="pk ${myI === i ? 'on' : ''}" data-i="${i}" ${off ? 'disabled' : ''} style="--c:${c[2]}"><i>${c[0]}</i><div class="pk-t"><b>${U.esc(c[1])}${who >= 0 && myI !== i ? `<em>${U.esc(v.names[who])} 選了</em>` : ''}</b><span class="pro">＋ ${U.esc(k.pro)}</span><span class="con">－ ${U.esc(k.con)}</span></div></button>`; }).join('')}</div>
+        <div class="pick-who">${v.players.map((p, s) => `<span class="${p.char ? 'ok' : ''}">${p.char ? '✔' : '…'} ${U.esc(v.names[s])}</span>`).join('')}</div>
+        <p class="hint">所有人選好就開始，<span class="timer" data-deadline="${v.deadline}"></span> 後自動分配</p></div>`;
+      box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => this.ui.send({ type: 'pick', i: +b.dataset.i }));
     },
     drawPad(after) {
       const m = this.el.querySelector('.mono-modal'); m.hidden = false;
@@ -481,7 +494,8 @@
       const m = this.el.querySelector('.mono-modal'); if (!m.hidden && !m.querySelector('.tinfo')) return;
       const rows = a.tiles.map(i => { const t = R().BOARD[i]; return `<li><i style="background:${t.color}"></i>${U.esc(R().tileName(v.theme, i))}<span>${v.levels[i] ? '🏠 Lv' + v.levels[i] : '空地'}</span></li>`; }).join('');
       m.hidden = false;
-      m.innerHTML = `<div class="mm-card tinfo assets"><div class="mcard-who">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b></div>
+      const pk = th.perks && v.players[s].char && v.players[s].char.kind === 'preset' ? th.perks[v.players[s].char.i] : null;
+      m.innerHTML = `<div class="mm-card tinfo assets"><div class="mcard-who">${this.faceHTML(v, s, 44)}<b>${U.esc(v.names[s])}</b></div>${pk ? `<div class="perk-mini"><span class="pro">＋ ${U.esc(pk.pro)}</span><span class="con">－ ${U.esc(pk.con)}</span>${v.players[s].jailChoice ? `<span>👃 免進監獄還剩 ${v.players[s].jailChoice} 次</span>` : ''}</div>` : ''}
         ${v.players[s].alive ? `<table class="atab"><tr><td>現金</td><td>${fmt(a.cash)} ${th.unit}</td></tr><tr><td>地價（${a.tiles.length} 塊）</td><td>${fmt(a.land)} ${th.unit}</td></tr><tr><td>建築</td><td>${fmt(a.bld)} ${th.unit}</td></tr><tr class="sum"><td>總資產</td><td>${fmt(a.total)} ${th.unit}</td></tr></table>
         ${rows ? `<ul class="alist">${rows}</ul>` : '<p class="hint">還沒有地</p>'}` : '<p>已破產</p>'}
         <div class="act-row"><button class="btn sm ghost" data-where>看他在哪</button>${s === v.seat && v.players[s].alive && v.phase !== 'over' ? '<button class="btn sm ghost" data-mydraw>✏️ 換成我畫的角色</button>' : ''}<button class="btn sm" data-x>關閉</button></div></div>`;
@@ -549,7 +563,7 @@
       }
       if ((v.phase === 'buy' || v.phase === 'upgrade') && v.turn === v.seat) {
         const t = R().BOARD[v.pending.tile]; const name = R().tileName(v.theme, t.i);
-        const cost = v.phase === 'buy' ? t.price : t.up; const lv = v.levels[t.i];
+        const cost = v.phase === 'buy' ? R().priceOf(v, v.seat, t.i) : R().upOf(v, v.seat, t.i); const lv = v.levels[t.i];
         const rentNow = Math.round(t.price * R().RENT_MUL[v.phase === 'buy' ? 0 : lv + 1] * (v.infl || 1));
         m.hidden = false; m.onclick = null;
         m.innerHTML = `<div class="mm-card"><div class="tile-chip" style="background:${t.color}"></div><h3>${U.esc(name)}</h3>
@@ -558,6 +572,11 @@
           <div class="act-row"><button class="btn ghost" data-y="0">不要</button><button class="btn" data-y="1">${v.phase === 'buy' ? '買！' : '蓋！'}</button></div>
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-y]').forEach(b => b.onclick = () => { this.ui.send({ type: v.phase, yes: b.dataset.y === '1' }); m.hidden = true; });
+      } else if (v.phase === 'jailask' && v.turn === v.seat) {
+        const left = v.players[v.seat].jailChoice || 0; m.hidden = false; m.onclick = null;
+        m.innerHTML = `<div class="mm-card"><h3>🚨 被抓了！</h3><p>要用掉一次「免進${U.esc(th.corners.jail)}」嗎？</p><p class="big">還剩 ${left} 次</p><p class="hint">不用的話會被關進${U.esc(th.corners.jail)}，停一回合</p>
+          <div class="act-row"><button class="btn ghost" data-u="0">留著，進去關</button><button class="btn" data-u="1">用掉！</button></div><span class="timer" data-deadline="${v.deadline}"></span></div>`;
+        m.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { this.ui.send({ type: 'jailask', use: b.dataset.u === '1' }); m.hidden = true; });
       } else if (v.phase === 'shop' && v.turn === v.seat) {
         const pd = v.pending, MI = root.MONO_ITEMS, I = MI.NAMES[v.theme], me = v.players[v.seat];
         m.hidden = false; m.onclick = null;
@@ -640,7 +659,7 @@
       bar.querySelector('[data-skip]').onclick = () => { this.ui.send({ type: 'passbuild', to: -1 }); this.buildBar(false); };
       bar.querySelector('[data-list]').onclick = () => {
         const m = this.el.querySelector('.mono-modal'); m.hidden = false; m.onclick = null;
-        m.innerHTML = `<div class="mm-card"><h3>要加蓋哪一塊？</h3><div class="mi-targets">${opts.map(i => { const t = R().BOARD[i]; return `<button class="btn ghost" data-tl="${i}"><span class="tile-dot" style="background:${t.color}"></span>${U.esc(R().tileName(v.theme, i))}<small>${v.levels[i]} 級 → ${v.levels[i] + 1} 級・${t.up.toLocaleString()}</small></button>`; }).join('')}</div><div class="act-row"><button class="btn ghost" data-x>關閉</button></div></div>`;
+        m.innerHTML = `<div class="mm-card"><h3>要加蓋哪一塊？</h3><div class="mi-targets">${opts.map(i => { const t = R().BOARD[i]; return `<button class="btn ghost" data-tl="${i}"><span class="tile-dot" style="background:${t.color}"></span>${U.esc(R().tileName(v.theme, i))}<small>${v.levels[i]} 級 → ${v.levels[i] + 1} 級・${R().upOf(v, v.seat, i).toLocaleString()}</small></button>`; }).join('')}</div><div class="act-row"><button class="btn ghost" data-x>關閉</button></div></div>`;
         m.querySelectorAll('[data-tl]').forEach(x => x.onclick = () => { m.hidden = true; this.pickBuild(+x.dataset.tl); });
         m.querySelector('[data-x]').onclick = () => { m.hidden = true; };
       };
@@ -650,7 +669,7 @@
       if (!opts.includes(i)) { this.fx('這塊不能加蓋', '', v.seat); return; }
       this._bldSel = i; const t = R().BOARD[i], lv = v.levels[i];
       const rentNow = R().rentOf ? null : null; void rentNow;
-      bar.querySelector('.gb-sel').innerHTML = `<b>${U.esc(R().tileName(v.theme, i))}</b>：${lv} 級 → ${lv + 1} 級${lv + 1 === 4 ? '（地標！）' : ''}・建築費 ${t.up.toLocaleString()}`; bar.querySelector('[data-go]').disabled = false;
+      bar.querySelector('.gb-sel').innerHTML = `<b>${U.esc(R().tileName(v.theme, i))}</b>：${lv} 級 → ${lv + 1} 級${lv + 1 === 4 ? '（地標！）' : ''}・建築費 ${R().upOf(v, v.seat, i).toLocaleString()}`; bar.querySelector('[data-go]').disabled = false;
       if (this.board) { this.board.markTiles(opts, opts, i); this.board.focusTile && this.board.focusTile(i); }
     },
     pickGate(i) {

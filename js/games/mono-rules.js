@@ -93,7 +93,16 @@
   const buyoutOf = (st, i) => Math.round((BOARD[i].price + st.levels[i] * BOARD[i].up) * BUYOUT_MUL / 100) * 100;
   const alive = (st) => U.range(st.n).filter(s => st.players[s].alive);
 
-  function ev(st, e) { st.ev.push(e); st.anim += ({ move: 0.3 * ((e.path && e.path.length) || 1), card: 2.6, dice: 1.0, tp: 1.0, jail: 1.2 }[e.t] || 0.4) * 1000; }
+  // ===== 角色屬性（幫派街區）：主題的 perks[角色].m；自畫角色、沒有 perks 的主題一律空物件 =====
+  function perk(st, s) { const p = st.players[s], th = TH()[st.theme]; if (!p || !p.char || p.char.kind !== 'preset' || !th || !th.perks) return {}; const k = th.perks[p.char.i]; return (k && k.m) || {}; }
+  const r100 = (x) => Math.round(x / 100) * 100;
+  function priceOf(st, s, i) { const m = perk(st, s); return m.buyMul ? r100(BOARD[i].price * m.buyMul) : BOARD[i].price; }
+  function upOf(st, s, i) { const m = perk(st, s); return m.buyMul ? r100(BOARD[i].up * m.buyMul) : BOARD[i].up; }
+  function ev(st, e) {
+    if (e.t === 'skipset' && st.players[e.seat]) { const m = perk(st, e.seat), p = st.players[e.seat];
+      if (m.noSkip && e.n > 0) { p.skip = Math.max(0, p.skip - e.n); e.n = 0; st.ev.push(e); st.ev.push({ t: 'note', seat: e.seat, feed: true, text: '🥄 麻掉沒感覺：停回合對我無效' }); st.anim += 800; return; }
+      if (m.skipExtra && e.n > 0) { p.skip += m.skipExtra; e.n += m.skipExtra; } }
+    st.ev.push(e); st.anim += ({ move: 0.3 * ((e.path && e.path.length) || 1), card: 2.6, dice: 1.0, tp: 1.0, jail: 1.2 }[e.t] || 0.4) * 1000; }
 
   function moveTo(st, s, steps) {
     const p = st.players[s]; const path = []; let pos = p.pos;
@@ -101,8 +110,10 @@
     for (let k = 0; k < Math.abs(steps); k++) {
       pos = (pos + dir + N) % N; path.push(pos);
       if (dir > 0 && pos === 0) {
-        p.cash += START_BONUS; ev(st, { t: 'cash', seat: s, amt: START_BONUS, why: '經過起點' }); p.buildTicket = 1;
-        if (isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
+        const m = perk(st, s), sb = m.startFixed || (m.startMul ? r100(START_BONUS * m.startMul) : START_BONUS);
+        p.cash += sb; ev(st, { t: 'cash', seat: s, amt: sb, why: '經過起點' }); p.buildTicket = 1;
+        if (!m.noBoost && isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
+        if (m.startTrance && !p.trance) { p.trance = true; ev(st, { t: 'note', seat: s, feed: true, text: '🍄 看見未來：下一次擲骰自己選點數' }); }
       }
     }
     p.pos = pos; ev(st, { t: 'move', seat: s, path });
@@ -120,6 +131,7 @@
   }
   function pay(st, from, to, amt, why, tile) {
     if (amt <= 0) return 0;
+    if (st.__cardLoss && st.__cardLoss.s === from) st.__cardLoss.amt += amt;
     const p = st.players[from];
     p.cash -= amt; liquidate(st, from);
     let paid = amt;
@@ -173,15 +185,25 @@
     endTurn(st, now);
   }
   function bankrupt(st, s, by) {
-    const p = st.players[s]; p.alive = false;
+    const p = st.players[s], m = perk(st, s);
+    // 海洛因蒂：第一次要破產時被 Narcan 救回來（地產已經賣光，債務一筆勾銷，現金補到 revive）
+    if (m.revive && !p.revived) { p.revived = true; p.cash = m.revive; ev(st, { t: 'revive', seat: s, amt: m.revive }); ev(st, { t: 'note', seat: s, feed: true, text: `💉 被 Narcan 救回來了！債務一筆勾銷，現金回到 ${m.revive.toLocaleString()}` }); st.anim += 2500; return; }
+    p.alive = false;
     BOARD.forEach(t => { if (st.owners[t.i] === s) { st.owners[t.i] = -1; st.levels[t.i] = 0; } });
     ev(st, { t: 'bankrupt', seat: s, by: by >= 0 && st.players[by].alive ? by : -1 });
     st.anim += 12000; // 破產動畫
   }
   function sendJail(st, s) {
     const p = st.players[s];
+    if (perk(st, s).noJail) { ev(st, { t: 'note', seat: s, feed: true, text: '🥄 麻掉沒感覺：被抓也照樣走' }); return; }
     if (p.jailfree > 0) { p.jailfree--; ev(st, { t: 'jailfree', seat: s }); return; }
-    p.pos = JAIL; p.skip = Math.max(p.skip, 1); ev(st, { t: 'jail', seat: s });
+    if (p.jailChoice > 0 && !p.jailAsk) { p.jailAsk = true; return; } // 古柯檢查官：先問要不要用免進監獄（回合結束前會停下來問）
+    goJail(st, s);
+  }
+  function goJail(st, s) {
+    const p = st.players[s], m = perk(st, s);
+    p.pos = JAIL; p.skip = Math.max(p.skip, 1 + (m.jailExtra || 0)); ev(st, { t: 'jail', seat: s });
+    if (m.jailExtra) ev(st, { t: 'note', seat: s, feed: true, text: `🧢 前科累累：多關 ${m.jailExtra} 回合` });
   }
   function mine(st, s) { return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s); }
 
@@ -199,6 +221,16 @@
     let idx = st.decks[deck].pop(); while (eggs.includes(idx) && st.decks[deck].length) idx = st.decks[deck].pop(); // 一般牌堆裡的彩蛋略過，彩蛋只從上面的機率出
     if (eggs.includes(idx)) { st.decks[deck] = U.shuffle(U.range(list.length).filter(i => !eggs.includes(i))); idx = st.decks[deck].pop(); }
     return { idx, text: list[idx][0], eff: list[idx][1] };
+  }
+  // 郵差先生（幸運 ×1.5、厄運 ×1.5）、美麗妄娜（厄運 ×0.6）：用這張卡實際拿到／付出的錢來加減
+  function cardWithPerk(st, s, deck, card, depth) {
+    const m = perk(st, s), mul = deck === 'luck' ? m.luckMul : m.badMul;
+    if (!mul || mul === 1) return applyCard(st, s, deck, card, depth);
+    const p = st.players[s], c0 = p.cash, prev = st.__cardLoss, acc = { s, amt: 0 }; st.__cardLoss = acc;
+    try { applyCard(st, s, deck, card, depth); } finally { st.__cardLoss = prev || null; } const loss = acc.amt;
+    if (!p.alive) return;
+    if (deck === 'luck') { const gain = p.cash - c0, add = gain > 0 ? r100(gain * (mul - 1)) : 0; if (add > 0) { p.cash += add; ev(st, { t: 'cash', seat: s, amt: add, why: '📮 好事放大' }); } }
+    else if (loss > 0) { const d = r100(loss * Math.abs(mul - 1)); if (d <= 0) return; if (mul < 1) { p.cash += d; ev(st, { t: 'cash', seat: s, amt: d, why: '🌿 很 chill，少損失' }); } else pay(st, s, -1, d, '📮 壞事放大'); }
   }
   function applyCard(st, s, deck, card, depth) {
     const p = st.players[s];
@@ -319,10 +351,10 @@
     const t = BOARD[p.pos];
     if (t.type === 'prop') {
       const o = st.owners[t.i];
-      if (o === -1) { if (p.cash >= t.price) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } ev(st, { t: 'note', seat: s, text: '錢不夠買這塊地' }); return false; }
-      if (o === s) { if (st.levels[t.i] < 4 && p.cash >= t.up) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } return false; }
+      if (o === -1) { if (p.cash >= priceOf(st, s, t.i)) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } ev(st, { t: 'note', seat: s, text: '錢不夠買這塊地' }); return false; }
+      if (o === s) { if (st.levels[t.i] < 4 && p.cash >= upOf(st, s, t.i)) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } return false; }
       if (!st.players[o].alive) return false;
-      let rent = rentOf(st, t.i);
+      let rent = rentOf(st, t.i); { const mi = perk(st, o).rentIn || 1, mo = perk(st, s).rentOut || 1; if (mi !== 1 || mo !== 1) rent = r100(rent * mi * mo); }
       if (p.freeRent > 0) { p.freeRent--; ev(st, { t: 'note', seat: s, feed: true, text: '🪷 神明保佑：這次過路費免付' }); return false; }
       if (p.curse > 0) { p.curse--; rent *= 2; ev(st, { t: 'note', seat: s, feed: true, text: `👁️ 多眼鳥的詛咒：過路費加倍（還剩 ${p.curse} 次）` }); }
       // 翻盤問答：付不起（賣光也不夠）就跟收錢者搶答，答贏免付、不出局
@@ -335,17 +367,20 @@
       }
       return false;
     }
-    if (t.type === 'luck' || t.type === 'bad') { applyCard(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
+    if (t.type === 'luck' || t.type === 'bad') { cardWithPerk(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
     if (t.type === 'item' || t.type === 'free') return openShop(st, s, t.type === 'free');
+    if (t.type === 'tax' && perk(st, s).noTax) { ev(st, { t: 'note', seat: s, feed: true, text: `🎩 老大逃漏稅：${TH()[st.theme].tax}免繳` }); return false; }
     if (t.type === 'tax') { const d = taxDetail(st, s); ev(st, { t: 'note', seat: s, text: `財產稅 ${d.wealth.toLocaleString()}＋房屋稅 ${d.house.toLocaleString()}${d.total > d.wealth + d.house ? '（最少 1,000）' : ''}` }); pay(st, s, -1, d.total, '稅金'); return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
     return false;
   }
   // 經過起點的加蓋機會：自己的地（未滿 4 級、付得起建築費）任選一塊加蓋一層
-  function buildOpts(st, s) { const p = st.players[s]; return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s && st.levels[t.i] < 4 && p.cash >= t.up).map(t => t.i); }
+  function buildOpts(st, s) { const p = st.players[s]; return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s && st.levels[t.i] < 4 && p.cash >= upOf(st, s, t.i)).map(t => t.i); }
   function endTurn(st, now) {
     const cp = st.players[st.turn];
+    if (cp && cp.alive && cp.jailAsk && st.phase !== 'over') { st.phase = 'jailask'; st.pending = { left: cp.jailChoice, extra: !!st.extra }; st.extra = false; setDeadline(st, now, 20000); return; }
+    if (cp && cp.jailAsk && !cp.alive) cp.jailAsk = false;
     if (cp && cp.alive && cp.buildTicket > 0 && st.phase !== 'over') { cp.buildTicket = 0; const opts = buildOpts(st, st.turn); if (opts.length) { st.phase = 'passbuild'; st.pending = { opts }; setDeadline(st, now, 25000); return; } }
     st.phase = 'roll'; st.pending = null;
     if (st.extra) { st.extra = false; if (st.players[st.turn].alive && alive(st).length > 1) { setDeadline(st, now, 15000); return; } }
@@ -385,7 +420,7 @@
   }
 
   const R = {
-    _applyCard: applyCard, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
@@ -402,13 +437,14 @@
       st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
       const th = TH()[st.theme]; const used = st.players.map(p => p.char && p.char.kind === 'preset' ? p.char.i : -1);
       st.players.forEach(p => { if (!p.char) { const i = U.range(th.chars.length).find(i => !used.includes(i)); p.char = { kind: 'preset', i }; used.push(i); } });
+      st.players.forEach((p, s) => { const m = perk(st, s); if (m.jailChoice) p.jailChoice = m.jailChoice; });
       st.phase = 'roll'; st.turn = 0; st.first = 0; setDeadline(st, now, 15000);
     },
     act(st, s, a, now) {
       if (a.type === 'pick') {
         if (st.phase !== 'pick') return 'silent';
         const th = TH()[st.theme];
-        if (a.custom) st.players[s].char = { kind: 'custom', i: s % th.chars.length };
+        if (a.custom) { if (th.noCustom) return '這個主題不能自畫角色'; st.players[s].char = { kind: 'custom', i: s % th.chars.length }; }
         else {
           const i = a.i | 0; if (i < 0 || i >= th.chars.length) return '沒有這個角色';
           if (st.players.some((p, k) => k !== s && p.char && p.char.kind === 'preset' && p.char.i === i)) return '這個角色已經被選走了';
@@ -430,7 +466,7 @@
       if (a.type === 'quizend') { if (st.phase === 'quiz' && now >= st.deadline) endQuiz(st, now); return; }
       if (st.phase === 'over' || st.phase === 'pick') return 'silent';
       // 換成自己畫的角色：遊戲中任何時候都可以（選角色時來不及畫的人可以補）
-      if (a.type === 'custom') { const p0 = st.players[s]; if (!p0 || !p0.alive) return 'silent'; p0.char = { kind: 'custom', i: p0.char ? p0.char.i : s }; return; }
+      if (a.type === 'custom') { const p0 = st.players[s]; if (!p0 || !p0.alive || TH()[st.theme].noCustom) return 'silent'; p0.char = { kind: 'custom', i: p0.char ? p0.char.i : s }; return; }
       // 提示框真的出現在玩家畫面上了：從這一刻起再給完整的 15 秒（網路慢、動畫還沒播完時不會被系統先決定）
       if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick', 'passbuild'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + (['gate', 'dicepick', 'passbuild'].includes(st.phase) || (st.phase === 'roll' && st.players[s].trance) ? 30000 : 15000)); return; } return 'silent'; }
       if (s !== st.turn) return '還沒輪到你';
@@ -442,16 +478,24 @@
         // 神明附身：這一次可以自己決定點數（2～12）
         if (p.trance) { const n = a.pick | 0; if (n >= 2 && n <= 12) d = [Math.ceil(n / 2), Math.floor(n / 2)]; p.trance = false; }
         st.dice = d; ev(st, { t: 'dice', seat: s, d });
-        moveTo(st, s, d[0] + d[1]);
+        const dm = perk(st, s).dice || 0; if (dm) ev(st, { t: 'note', seat: s, text: dm < 0 ? `🌿 慢慢來：少走 ${-dm} 格` : `多走 ${dm} 格` });
+        moveTo(st, s, Math.max(1, d[0] + d[1] + dm));
         if (!land(st, s, 0)) endTurn(st, now); else setDeadline(st, now, 15000);
         return;
+      }
+      if (a.type === 'jailask') { // 古柯檢查官：要不要用掉一次免進監獄
+        if (st.phase !== 'jailask' || !p.jailAsk) return 'silent';
+        const keepExtra = st.pending && st.pending.extra; p.jailAsk = false; st.pending = null;
+        if (a.use && p.jailChoice > 0) { p.jailChoice--; if (keepExtra) st.extra = true; ev(st, { t: 'jailfree', seat: s }); ev(st, { t: 'note', seat: s, feed: true, text: `👃 用掉一次免進監獄（還剩 ${p.jailChoice} 次）` }); }
+        else goJail(st, s);
+        st.phase = 'roll'; endTurn(st, now); return;
       }
       if (a.type === 'buy' || a.type === 'upgrade') {
         if (st.phase !== a.type) return 'silent';
         const t = BOARD[st.pending.tile];
         if (a.yes) {
-          if (a.type === 'buy') { if (p.cash < t.price || st.owners[t.i] !== -1) return '錢不夠'; p.cash -= t.price; st.owners[t.i] = s; ev(st, { t: 'buy', seat: s, tile: t.i, amt: t.price }); }
-          else { if (p.cash < t.up || st.levels[t.i] >= 4) return '不能升級'; p.cash -= t.up; st.levels[t.i]++; ev(st, { t: 'up', seat: s, tile: t.i, level: st.levels[t.i], amt: t.up }); }
+          if (a.type === 'buy') { const c = priceOf(st, s, t.i); if (p.cash < c || st.owners[t.i] !== -1) return '錢不夠'; p.cash -= c; st.owners[t.i] = s; ev(st, { t: 'buy', seat: s, tile: t.i, amt: c }); }
+          else { const c = upOf(st, s, t.i); if (p.cash < c || st.levels[t.i] >= 4) return '不能升級'; p.cash -= c; st.levels[t.i]++; ev(st, { t: 'up', seat: s, tile: t.i, level: st.levels[t.i], amt: c }); }
         }
         endTurn(st, now); return;
       }
@@ -477,8 +521,9 @@
         items.splice(i, 1); p.usedItem = true;
         const tp = tgt >= 0 ? st.players[tgt] : null, si = tp && tp.items ? tp.items.indexOf('shield') : -1;
         if (si >= 0) { tp.items.splice(si, 1); st.anim += 2600; ev(st, { t: 'item', seat: s, k, target: tgt, tile: a.tile, blocked: true }); setDeadline(st, now, 15000); return; }
+        if (tp && perk(st, tgt).itemImmune) { st.anim += 2600; ev(st, { t: 'item', seat: s, k, target: tgt, tile: a.tile, blocked: true, perk: true }); ev(st, { t: 'note', seat: tgt, feed: true, text: '🫠 縮成一團摸不到：道具對他無效' }); setDeadline(st, now, 15000); return; }
         st.anim += 2600;
-        if (k === 'trap') { tp.skip += 1; ev(st, { t: 'item', seat: s, k, target: tgt }); }
+        if (k === 'trap') { const tm = perk(st, tgt); ev(st, { t: 'item', seat: s, k, target: tgt }); if (tm.noSkip) ev(st, { t: 'note', seat: tgt, feed: true, text: '🥄 麻掉沒感覺：停回合對我無效' }); else tp.skip += 1 + (tm.skipExtra || 0); }
         else if (k === 'steal') { const amt = stealAmt(st, s, tgt); tp.cash -= amt; p.cash += amt; ev(st, { t: 'item', seat: s, k, target: tgt, amt }); }
         else if (k === 'invest') { const amt = investAmt(st); (p.invest = p.invest || []).push({ due: st.round + 3, amt }); ev(st, { t: 'item', seat: s, k, amt, due: st.round + 3 }); }
         else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
@@ -487,7 +532,7 @@
       if (a.type === 'passbuild') {
         if (st.phase !== 'passbuild') return 'silent';
         const to = a.to == null ? -1 : a.to | 0;
-        if (to >= 0) { if (!st.pending.opts.includes(to)) return '這塊地不能加蓋'; const t = BOARD[to]; if (p.cash < t.up || st.levels[to] >= 4) return '錢不夠'; p.cash -= t.up; st.levels[to]++; ev(st, { t: 'up', seat: s, tile: to, level: st.levels[to], amt: t.up, pass: true }); st.anim += 1600; }
+        if (to >= 0) { if (!st.pending.opts.includes(to)) return '這塊地不能加蓋'; const c = upOf(st, s, to); if (p.cash < c || st.levels[to] >= 4) return '錢不夠'; p.cash -= c; st.levels[to]++; ev(st, { t: 'up', seat: s, tile: to, level: st.levels[to], amt: c, pass: true }); st.anim += 1600; }
         st.pending = null; endTurn(st, now); return;
       }
       if (a.type === 'gate') {
@@ -521,16 +566,17 @@
         return { seat: st.turn, a: { type: 'roll' } };
       }
       if (st.phase === 'passbuild') { // 電腦：蓋最高的那塊（最快變地標），但要留 6000 保命錢
-        const p = st.players[st.turn], best = st.pending.opts.filter(i => p.cash - BOARD[i].up >= 6000).sort((x, y) => st.levels[y] - st.levels[x])[0];
+        const p = st.players[st.turn], best = st.pending.opts.filter(i => p.cash - upOf(st, st.turn, i) >= 6000).sort((x, y) => st.levels[y] - st.levels[x])[0];
         return { seat: st.turn, a: { type: 'passbuild', to: best == null ? -1 : best } };
       }
       if (st.phase === 'gate') { // 代打：去能升級的自己的地 → 買得起的空地 → 休息站
         const p = st.players[st.turn];
-        const up = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === st.turn && st.levels[t.i] < 4 && p.cash >= t.up).sort((a, b) => b.price - a.price)[0];
-        const buy = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === -1 && p.cash >= t.price).sort((a, b) => b.price - a.price)[0];
+        const up = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === st.turn && st.levels[t.i] < 4 && p.cash >= upOf(st, st.turn, t.i)).sort((a, b) => b.price - a.price)[0];
+        const buy = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === -1 && p.cash >= priceOf(st, st.turn, t.i)).sort((a, b) => b.price - a.price)[0];
         return { seat: st.turn, a: { type: 'gate', to: (up || buy || BOARD[14]).i } };
       }
       if (st.phase === 'quiz') return { seat: -1, a: { type: 'quizend' } };
+      if (st.phase === 'jailask') return { seat: st.turn, a: { type: 'jailask', use: true } }; // 逾時／電腦：用掉免進監獄
       if (st.phase === 'shop') { // 代打：免費就拿第一張；要錢的話，買完還剩 2 萬以上才買最便宜的
         const pd = st.pending, cash = st.players[st.turn].cash;
         if (pd.free) return { seat: st.turn, a: { type: 'shop', k: pd.offers[0] } };
@@ -539,7 +585,7 @@
       }
       if (st.phase === 'buyout') return { seat: st.turn, a: { type: 'buyout', yes: st.players[st.turn].cash - st.pending.cost >= 25000 } };
       if (st.phase === 'buy' || st.phase === 'upgrade') {
-        const t = BOARD[st.pending.tile]; const cost = st.phase === 'buy' ? t.price : t.up;
+        const t = BOARD[st.pending.tile]; const cost = st.phase === 'buy' ? priceOf(st, st.turn, t.i) : upOf(st, st.turn, t.i);
         return { seat: st.turn, a: { type: st.phase, yes: st.players[st.turn].cash - cost >= 8000 } };
       }
       return null;

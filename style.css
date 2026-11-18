@@ -289,6 +289,8 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .mcard p { font-size: 16px; line-height: 1.6; margin: 8px 0; } .mcard-eff { font-size: 20px; font-weight: 900; margin: 6px 0; } .mcard small { opacity: .6; }
 @keyframes cardflip { from { transform: rotateY(90deg) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
 .mono-pick { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(8,12,10,.82); padding: 12px; overflow-y: auto; }
+.mono-pick:has(.pick-card.perks) { background: rgba(10,8,14,.97); place-items: start center; z-index: 8; }
+.choosing .mono-dice, .choosing .mono-items, .choosing .mono-cam, .choosing .mono-tools, .choosing .mono-hud, .choosing .mono-info, .choosing .mono-hint, .choosing .mono-feed { visibility: hidden; }
 .pick-card { width: min(520px, 100%); text-align: center; }
 .pick-card h3 { margin: 4px 0; color: var(--gold); font-size: 20px; }
 .pick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
@@ -298,6 +300,17 @@ main { padding: 0 10px; max-width: 980px; margin: 0 auto; }
 .pc img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; }
 .pc.on { border-color: var(--c, var(--gold)); background: rgba(255,255,255,.2); box-shadow: 0 0 14px var(--c, var(--gold)); }
 .pc:disabled { opacity: .3; }
+.pick-card.perks { width: min(560px, 100%); }
+.perk-list { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 10px 0; text-align: left; }
+@media (min-width: 720px) { .pick-card.perks { width: min(900px, 100%); } .perk-list { grid-template-columns: 1fr 1fr; } }
+.pk { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.07); border: 2px solid transparent; border-left: 5px solid var(--c); border-radius: 12px; padding: 8px 10px; color: var(--cream); text-align: left; font: inherit; }
+.pk i { font-style: normal; font-size: 30px; line-height: 1; flex: none; width: 36px; text-align: center; }
+.pk-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pk-t b { font-size: 15px; display: flex; gap: 6px; align-items: baseline; } .pk-t b em { font-style: normal; font-size: 11px; font-weight: 400; color: var(--muted); }
+.pk-t .pro, .perk-mini .pro { font-size: 12.5px; color: #8dffb0; line-height: 1.35; } .pk-t .con, .perk-mini .con { font-size: 12.5px; color: #ff9a9a; line-height: 1.35; }
+.pk.on { border-color: var(--c); background: rgba(255,255,255,.18); box-shadow: 0 0 14px var(--c); }
+.pk:disabled { opacity: .3; }
+.perk-mini { display: flex; flex-direction: column; gap: 2px; text-align: left; background: rgba(0,0,0,.25); border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px; font-size: 12.5px; }
 .pick-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 12px; color: var(--muted); } .pick-who .ok { color: #7dffa0; }
 .pad { width: 240px; height: 240px; border-radius: 14px; background: #fff; touch-action: none; border: 2px solid #e6dcc6; }
 .pad-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; } .pad-tools button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #ccc; }
