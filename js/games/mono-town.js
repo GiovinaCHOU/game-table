@@ -71,8 +71,8 @@
   const mkV = (n, x0, y0, spread, dir, len) => Array.from({ length: n }, (_, k) => ({ x: x0 + rnd(-spread, spread), y: y0, a: dir + rnd(-0.9, 0.9), w: k % 3 ? 1 : 2, n: len || 30, p: rnd(0, 6), d: k / n * 0.4 }));
   // 血點
   const blood = [];
-  function spray(x, y, n, sp, t0) { for (let i = 0; i < n; i++) blood.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.3, sp * 0.2), t: t0 + rnd(0, 0.15), s: Math.random() < 0.3 ? 2 : 1 }); }
-  function drawBlood(g, t) { for (let i = blood.length - 1; i >= 0; i--) { const d = blood[i], a = t - d.t; if (a > 2) { blood.splice(i, 1); continue; } if (a < 0) continue; R(g, d.x + d.vx * a * 30, d.y + d.vy * a * 30 + a * a * 120, d.s, d.s, '#a00010'); } }
+  function spray(x, y, n, sp, t0, c) { for (let i = 0; i < n; i++) blood.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.3, sp * 0.2), t: t0 + rnd(0, 0.15), s: c ? 2 : Math.random() < 0.3 ? 2 : 1, c }); }
+  function drawBlood(g, t) { for (let i = blood.length - 1; i >= 0; i--) { const d = blood[i], a = t - d.t; if (a > 2) { blood.splice(i, 1); continue; } if (a < 0) continue; R(g, d.x + d.vx * a * 30, d.y + d.vy * a * 30 + a * a * 120, d.s, d.s, d.c || '#a00010'); } }
   const dust = [];
   function puff(x, y, n, t0) { for (let i = 0; i < n; i++) dust.push({ x, y, vx: rnd(-1.5, 1.5), vy: rnd(-1, -0.2), t: t0 }); }
   function drawDust(g, t) { for (let i = dust.length - 1; i >= 0; i--) { const d = dust[i], a = t - d.t; if (a > 1) { dust.splice(i, 1); continue; } g.globalAlpha = 1 - a; R(g, d.x + d.vx * a * 20, d.y + d.vy * a * 20, 2, 2, '#8a7a6a'); } g.globalAlpha = 1; }
@@ -138,10 +138,13 @@
     }, snd);
   };
   TW.clock = function (ui, SFX, e) {
-    const me = seatSprite(ui.v, e && e.seat >= 0 ? e.seat : 0), cracks = Array.from({ length: 9 }, () => ({ x: rnd(0.05, 0.95), y: rnd(0.05, 0.95), a: rnd(0, 6.28), d: rnd(0, 0.6), s: [] }));
+    const me = seatSprite(ui.v, e && e.seat >= 0 ? e.seat : 0), TS = 4.6;
+    // 鐘面玻璃：先從中心裂開（只在鐘面上），TS 時整片碎掉、碎片朝鏡頭飛出
+    const fcr = Array.from({ length: 7 }, (_, k) => { const pts = [[0, 0]]; let a = k / 7 * 6.283 + rnd(-0.3, 0.3), x = 0, y = 0; for (let j = 0; j < 5; j++) { a += rnd(-0.5, 0.5); x += Math.cos(a) * 0.2; y += Math.sin(a) * 0.2; pts.push([x, y]); } return { pts, d: k * 0.18 }; });
+    const shards = Array.from({ length: 34 }, () => { const a = rnd(0, 6.283); return { a, r0: rnd(0, 0.9), v: rnd(0.5, 1.4), sp: rnd(-8, 8), s: rnd(2, 5), sh: [rnd(0, 6.283), rnd(0, 6.283), rnd(0, 6.283)], c: Math.random() < 0.7 ? '#e8e0cc' : '#b8d0d8' }; });
     const snd = () => { const K = kit(SFX); if (!K) return; K.tick(0, 22, 0.24, 0.12); [0.4, 1.9, 3.1, 3.9, 4.5, 4.9].forEach((d, i) => K.bell(d, 98 - i * 3, 3.5, 0.08 + i * 0.03, true));
       K.drone(0, 6.4, [36.7, 38.9, 55], { lp: 260, vol: 0.12, sweep: 700 }); K.heart(0.5, 14, 64, 0.38, 0.93); K.whisper(1.5, 4.5, 0.06, 20); K.riser(2.2, 2.8, 120, 900, 0.05);
-      K.choir(2.0, 4.2, [87.3, 92.5, 130.8], { v: 'oo', vol: 0.09, bend: 0.92 }); for (let i = 0; i < 6; i++) K.crack(3.0 + i * 0.45, 0.3, 0.15); K.scream(4.6, 1.2, 420, 0.1); K.stinger(5.2, 0.24); };
+      K.choir(2.0, 4.2, [87.3, 92.5, 130.8], { v: 'oo', vol: 0.09, bend: 0.92 }); for (let i = 0; i < 6; i++) K.crack(3.0 + i * 0.45, 0.3, 0.15); K.scream(4.7, 1.2, 420, 0.1); K.crack(TS, 0.9, 0.4); K.boom(TS, 80, 30, 1.2, 0.5); K.shimmer(TS, 1.2, 2400, 0.05); K.stinger(5.2, 0.24); };
     return pix(ui, 6500, (g, W, Hh, t) => {
       const lift = ease(clamp((t - 1.8) / 2.0)), cx = Math.round(W / 2);
       g.save(); shk(g, t > 3 ? Math.round((t - 3) * 0.8) : 0);
@@ -151,13 +154,17 @@
       R(g, cx - cw / 2, top + cw / 2, cw, chh - cw / 2, '#2a1810'); R(g, cx - cw / 2, top + cw / 2, 3, chh - cw / 2, '#4a2a18'); R(g, cx + cw / 2 - 4, top + cw / 2, 4, chh - cw / 2, '#1a0e08'); disc(g, cx, top + cw / 2, cw / 2, '#2a1810'); R(g, cx - cw * 0.6, top + chh - 4, cw * 1.2, 6, '#1a0e08');
       R(g, cx - cw / 2 + 5, top + cw + 4, cw - 10, chh - cw - 14, '#120806');
       const fy = top + Math.round(cw * 0.55), fr = Math.round(cw * 0.36); disc(g, cx, fy, fr, '#d8ccb0'); circle(g, cx, fy, fr, '#6a4a20', 1); for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; R(g, cx + Math.cos(a) * fr * 0.8, fy + Math.sin(a) * fr * 0.8, 1, 1, '#2a1a10'); }
-      const spin = t < 1.8 ? t * 0.3 : t * 0.3 + Math.pow(t - 1.8, 2) * 3; line(g, cx, fy, cx + Math.sin(spin) * fr * 0.5, fy - Math.cos(spin) * fr * 0.5, '#1a0a06', 2); line(g, cx, fy, cx + Math.sin(spin * 12) * fr * 0.8, fy - Math.cos(spin * 12) * fr * 0.8, '#1a0a06', 1);
+      if (t >= TS) { disc(g, cx, fy, fr, '#0a0204'); glow(g, cx, fy, fr * 0.9, '255,40,30', 0.9); circle(g, cx, fy, fr, '#6a4a20', 1); }
+      else { const spin = t < 1.8 ? t * 0.3 : t * 0.3 + Math.pow(t - 1.8, 2) * 3; line(g, cx, fy, cx + Math.sin(spin) * fr * 0.5, fy - Math.cos(spin) * fr * 0.5, '#1a0a06', 2); line(g, cx, fy, cx + Math.sin(spin * 12) * fr * 0.8, fy - Math.cos(spin * 12) * fr * 0.8, '#1a0a06', 1);
+        if (t > 3.0) fcr.forEach(c => { const p = clamp((t - 3.0 - c.d) / 0.5); const n = Math.ceil(p * 5); for (let j = 0; j < n; j++) { const [a1, b1] = c.pts[j], [a2, b2] = c.pts[j + 1]; line(g, cx + a1 * fr, fy + b1 * fr + 1, cx + a2 * fr, fy + b2 * fr + 1, '#ffffff', 1); line(g, cx + a1 * fr, fy + b1 * fr, cx + a2 * fr, fy + b2 * fr, '#2a0a06', 1); } }); }
       const sw = Math.sin(t * (3.2 + t * 0.6)) * (0.25 + clamp(t / 4) * 0.35), py = fy + fr + 6, pl = (chh - cw) * 0.45; line(g, cx, py, cx + Math.sin(sw) * pl, py + Math.cos(sw) * pl, '#c8a040', 1); disc(g, cx + Math.sin(sw) * pl, py + Math.cos(sw) * pl, 5, '#e8c04a');
       // 被拖到半空中的人：手臂張開、眼睛翻白
       const ky = Hh * 0.97 - lift * Hh * 0.42; glow(g, cx, ky - 30, 18 + lift * 14, '255,40,30', 0.4 * lift);
       spr(g, ch(me, { arms: lift > 0.2 ? ['out', 'out'] : ['down', 'down'], eyes: lift > 0.3 ? 'glow' : 'wide', mouth: 'o', legs: 'jump' }, 0), cx + Math.sin(t * 9) * lift, ky, { scale: 1.3, rot: lift * Math.sin(t * 7) * 0.06 });
       g.restore();
-      if (t > 3.0) cracks.forEach(c => { const p = clamp((t - 3.0 - c.d) / 1.4); if (p <= 0) return; if (!c.s.length) { let x = c.x * W, y = c.y * Hh, a = c.a; for (let k = 0; k < 14; k++) { a += rnd(-0.6, 0.6); const nx = x + Math.cos(a) * 7, ny = y + Math.sin(a) * 7; c.s.push([x, y, nx, ny]); x = nx; y = ny; } } c.s.slice(0, Math.ceil(p * 14)).forEach(([a, b, x2, y2]) => line(g, a, b, x2, y2, '#ff3a2a', 1)); });
+      if (t >= TS) { const fy = Math.round(Hh * 0.08) + Math.round(Math.min(70, W * 0.36) * 0.55), a0 = t - TS, fl = clamp(1 - a0 * 4); if (fl > 0) { g.globalAlpha = fl * 0.7; R(g, 0, 0, W, Hh, '#fff4e8'); g.globalAlpha = 1; }
+        shards.forEach(d => { const d2 = d.r0 * 8 + a0 * d.v * 110, sc = 1 + a0 * d.v * 2.2, x = cx + Math.cos(d.a) * d2, y = fy + Math.sin(d.a) * d2 + a0 * a0 * 20, rt = d.sp * a0, z = d.s * sc;
+          g.fillStyle = d.c; g.beginPath(); d.sh.forEach((q, k) => { const px = x + Math.cos(q + rt) * z, py = y + Math.sin(q + rt) * z; k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.closePath(); g.fill(); g.strokeStyle = '#4a3a2a'; g.lineWidth = 1; g.stroke(); g.fillStyle = '#ffffff'; g.fillRect(Math.round(x), Math.round(y), 1, 1); }); }
       if (t > 5.2) { g.globalAlpha = clamp((t - 5.2) * 1.5); R(g, 0, 0, W, Hh, '#000'); g.globalAlpha = 1; }
     }, snd);
   };
@@ -176,6 +183,7 @@
       [[0, 0.73], [1, 0.79], [2, 0.75], [3, 0.8]].forEach(([i, yy], k) => spr(g, ch([0, 2, 3, 6][i], { eyes: t > 2.8 && crit ? 'open' : 'open', mouth: t > 2.8 ? (crit ? 'grin' : fail ? 'o' : 'smile') : 'flat', arms: t > 2.8 && crit ? ['up', 'up'] : ['down', 'down'] }, 0), W * (0.12 + k * 0.25), Hh * yy + 40, { scale: 0.9, alpha: 0.95 }));
       const p = ease(clamp((t - 0.5) / 2.2)), dx = cx - W * 0.6 * (1 - p), dy = cy - Hh * 0.28 * (1 - p) - Math.abs(Math.sin(p * 9)) * 30 * (1 - p), rot = (1 - p) * 14, rr = 26 * (1 + (t > 2.7 ? Math.sin(clamp((t - 2.7) * 4) * Math.PI) * 0.15 : 0));
       const shown = t < 2.7 ? 1 + Math.floor((t * 23) % 20) : roll, col = t < 2.7 ? '#4a3a8a' : crit ? '#e8b020' : fail ? '#8a1018' : '#4a3a8a', colD = t < 2.7 ? '#2a1e5a' : crit ? '#a87010' : fail ? '#4a0008' : '#2a1e5a';
+      if (fail && t > 2.8) { glow(g, dx, dy, 44 + Math.sin(t * 6) * 4, '200,20,30', clamp((t - 2.8) * 2) * 0.8); if (t < 3.3) g.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2))); }
       if (crit && t > 2.8) { glow(g, dx, dy, 60, '255,210,90', clamp((t - 2.8) * 2)); sparks.forEach(s => { const a = (t - 2.8) * s.v; R(g, dx + Math.cos(s.a) * a * 90, dy + Math.sin(s.a) * a * 90 + a * a * 30, 2, 2, a < 0.8 ? '#fff0a0' : '#e8b020'); }); }
       g.save(); g.translate(Math.round(dx), Math.round(dy)); g.rotate(Math.round(rot * 4) / 4);
       const hex = []; for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283 - Math.PI / 2; hex.push([Math.cos(a) * rr, Math.sin(a) * rr]); }
@@ -184,7 +192,6 @@
       for (let k = 0; k < 6; k++) line(g, hex[k][0], hex[k][1], hex[(k + 1) % 6][0], hex[(k + 1) % 6][1], '#120a1a', 1);
       const tri = [[0, -rr * 0.6], [rr * 0.52, rr * 0.32], [-rr * 0.52, rr * 0.32]]; for (let k = 0; k < 3; k++) line(g, tri[k][0], tri[k][1], tri[(k + 1) % 3][0], tri[(k + 1) % 3][1], 'rgba(255,255,255,.55)', 1);
       const s = 2, tw = textW(shown, s); text(g, shown, -tw / 2, -4, s, crit && t > 2.7 ? '#2a1a00' : '#ffffff');
-      if (fail && t > 2.8) { line(g, -rr * 0.3, -rr * 0.9, -2, -rr * 0.2, '#100000', 2); line(g, -2, -rr * 0.2, -rr * 0.2, rr * 0.2, '#100000', 2); line(g, -rr * 0.2, rr * 0.2, rr * 0.15, rr * 0.9, '#100000', 2); }
       g.restore();
       if (fail && t > 2.8) { g.globalAlpha = clamp((t - 2.8) * 0.8) * 0.4; R(g, 0, 0, W, Hh, '#500000'); g.globalAlpha = 1; }
     }, snd);
@@ -204,7 +211,7 @@
       if (kind === 4) { K.drum(0.4, 70, 0.3, 0.2); K.drum(0.8, 70, 0.3, 0.2); K.sweep(1.1, 0.3, 2000, 6000, { vol: 0.08 }); K.whoosh(1.6, 0.25, false, 0.2); K.boom(1.8, 70, 28, 1, 0.7); K.crack(1.8, 0.3, 0.2); }
       if (kind === 5) { K.whoosh(1.3, 0.3, false, 0.25); K.boom(1.55, 90, 30, 0.8, 0.6); K.crack(1.55, 0.2, 0.2); K.whoosh(2.2, 0.3, true, 0.2); K.boom(2.45, 80, 30, 0.8, 0.5); K.scream(1.6, 0.5, 560, 0.07); }
       if (kind === 6) { K.synth(0.5, [164.8, 196, 246.9, 329.6], 0.12, 0.06, 'sawtooth', 2400); K.guitar(1.3, [82.4, 123.5, 164.8], 1.8, 0.14); K.synth(1.3, [329.6, 329.6, 329.6, 329.6, 329.6, 329.6], 0.1, 0.07, 'square', 3000); K.sweep(1.4, 1.2, 100, 3000, { vol: 0.15 }); K.boom(1.6, 60, 25, 1.4, 0.6); }
-      if (kind === 7) { K.growl(0.3, 1.4, 45, 0.26); for (let i = 0; i < 8; i++) K.creak(1.0 + i * 0.18, 0.25, 0.12); K.stinger(1.6, 0.18); K.scream(1.7, 1.0, 600, 0.09); K.growl(2.4, 1.6, 38, 0.3); K.boom(2.9, 60, 22, 1.4, 0.55); } };
+      if (kind === 7) { K.growl(0.3, 1.0, 45, 0.24); K.growl(1.0, 0.5, 70, 0.3); K.whoosh(1.4, 0.4, false, 0.25); K.boom(1.8, 60, 22, 1.2, 0.65); K.stinger(1.8, 0.2); K.scream(1.85, 1.1, 600, 0.09); for (let i = 0; i < 8; i++) { K.tear(2.0 + i * 0.26, 0.2, 0.22); K.drum(2.0 + i * 0.26, 90, 0.12, 0.12); } K.growl(2.0, 2.0, 50, 0.22); K.growl(4.0, 1.3, 36, 0.34); K.boom(4.0, 50, 20, 1.2, 0.4); } };
     return pix(ui, T0 * 1000, (g, W, Hh, t) => {
       g.save(); shk(g, lastShk); let sk = 0;
       const hy = street(g, W, Hh, t, { lampX: 0.62, spores: kind === -1 || kind === 7, up: kind === -1 && t > 0.6 }), gy = hy + 34, vx0 = Math.round(W * 0.36), S = 1.25;
@@ -238,21 +245,36 @@
         if (t > 0.9 && t < 1.7) { g.globalAlpha = 0.35; for (let y = -10; y <= 10; y++) line(g, px - 18, gy - 40, vx0, gy - 50 + y * 2, '#fff8c0', 1); g.globalAlpha = 1; vp = { eyes: 'blink', mouth: 'o', arms: ['up', 'down'] }; }
         spr(g, ch(4, { arms: [t > 0.6 && t < 1.7 ? 'out' : 'down', punch > 0 ? 'out' : 'down'], legs: p < 1 ? (Math.floor(t * 8) % 2 ? 'a' : 'b') : 'stand', mouth: 'flat' }, 0), px, gy, { scale: S * 1.1, flip: true });
         if (punch >= 1) { const h2 = clamp((t - 1.8) / 0.9); vx = vx0 - h2 * W * 0.3; vy = gy - Math.sin(h2 * Math.PI) * 22; vr = -h2 * 1.6; vp = { eyes: 'x', mouth: 'o', arms: ['out', 'out'] }; sk = h2 < 0.3 ? 3 : 0; hit('a', vx0, gy - 56, 25); } }
-      if (kind === 5) { // 校隊隊長：撬棍揮兩下
-        const sw1 = clamp((t - 1.3) / 0.22), sw2 = clamp((t - 2.2) / 0.22), cx2 = vx0 + 34; const up = (t > 0.8 && sw1 < 1) || (t > 1.8 && sw2 < 1);
-        spr(g, ch(5, { arms: ['down', up ? 'up' : 'fwd'], mouth: 'flat' }, 0), cx2, gy, { scale: S, flip: true });
-        g.save(); g.translate(cx2 - 12, gy - 50); g.rotate(up ? -0.3 : -1.6 - (sw2 > 0 ? 0.4 : 0)); R(g, -1, -28, 3, 28, '#7a7a84'); R(g, -4, -28, 4, 3, '#9a9aa4'); g.restore();
+      if (kind === 5) { // 校隊隊長：撬棍揮兩下（撬棍一直握在手上）
+        const cx2 = vx0 + 34, sw1 = clamp((t - 1.3) / 0.22), sw2 = clamp((t - 2.2) / 0.22);
+        // 每段：舉起（手在頭上、棍往後）→ 揮下（手往前、棍打向頭）→ 收勢（手放下、棍垂著）；ang＝從正上方順時針（正＝往後）
+        let arm = 'down', ang = Math.PI + 0.3, smear = 0;
+        const phase = (t0, sw) => { if (t < t0 - 0.5) return false; if (sw <= 0) { arm = 'up'; ang = 0.5 + clamp((t - (t0 - 0.5)) / 0.4) * 0.7; return true; } if (sw < 1) { arm = sw < 0.5 ? 'up' : 'out'; ang = 1.2 - sw * 1.85; smear = sw; return true; } return false; };
+        if (!phase(2.2, sw2) && !phase(1.3, sw1)) { if (t > 1.52 && t < 1.8) { arm = 'out'; ang = -0.65 - clamp((t - 1.52) / 0.28) * 1.4; } else if (t > 2.42) { const k2 = clamp((t - 2.42) / 0.4); arm = k2 < 0.5 ? 'out' : 'down'; ang = k2 < 0.5 ? -0.65 - k2 * 2.8 : Math.PI + 0.3; } }
+        spr(g, ch(5, { arms: ['down', arm], mouth: t > 1.3 ? 'grin' : 'flat', noItem: true }, 0), cx2, gy, { scale: S, flip: true });
+        const HP = { up: [26, 12], out: [35, 26], down: [26, 35] }[arm], hx = cx2 - (HP[0] - 18) * S, hy2 = gy + (HP[1] - 48) * S;
+        if (smear > 0.2 && smear < 1) { g.globalAlpha = 0.5; for (let a = 1.2; a > 1.2 - smear * 1.85; a -= 0.12) R(g, hx + Math.sin(a) * 30, hy2 - Math.cos(a) * 30, 2, 2, '#e8e8f0'); g.globalAlpha = 1; }
+        g.save(); g.translate(Math.round(hx), Math.round(hy2)); g.rotate(ang); R(g, -1, -32, 3, 36, '#7a7a84'); R(g, 1, -32, 1, 36, '#a8a8b2'); R(g, -1, -34, 6, 3, '#9a9aa4'); R(g, 4, -34, 2, 4, '#7a7a84'); R(g, -2, -2, 5, 6, '#3a2a20'); g.restore();
         if (sw1 >= 1) { vr = -0.4 - clamp((t - 2.4) / 0.5) * 1.1; vp = { eyes: sw2 >= 1 ? 'x' : 'wide', mouth: 'o' }; sk = (t < 1.7 || (t > 2.4 && t < 2.7)) ? 3 : 0; hit('a', vx0 + 4, gy - 56, 30); if (sw2 >= 1) hit('b', vx0, gy - 46, 40); } }
       if (kind === 6) { // 鍵盤手：一個和弦按下去，音箱的聲波把人震飛
         const strum = t > 1.3, gx = W * 0.84; R(g, gx - 44, gy - 26, 18, 26, '#1a1a1a'); disc(g, gx - 35, gy - 15, 6, '#3a3a3a'); disc(g, gx - 35, gy - 15, 2, '#111');
         spr(g, ch(6, { arms: ['fwd', 'fwd'], mouth: strum ? 'grin' : 'flat', eyes: 'open', dy: strum ? Math.floor(t * 12) % 2 : 0 }, Math.floor(t * 8)), gx, gy, { scale: S, flip: true });
         if (strum) { for (let k = 0; k < 6; k++) { const p = ((t - 1.3) * 1.3 + k / 6) % 1, r = 8 + p * W * 0.7; g.globalAlpha = 1 - p; for (let a = -0.5; a <= 0.5; a += 0.04) R(g, gx - 35 - Math.cos(a) * r, gy - 15 + Math.sin(a) * r, 2, 2, k % 2 ? '#ff3ab0' : '#3af0ff'); } g.globalAlpha = 1;
           const h2 = clamp((t - 1.6) / 1.4); vx = vx0 - ease(h2) * W * 0.6; vy = gy - Math.sin(h2 * Math.PI) * 20; vr = -h2 * 2.2; va = 1 - clamp((h2 - 0.6) * 2.5); vp = { arms: ['out', 'out'], eyes: 'x', mouth: 'o' }; sk = t < 2.6 ? 2 : 0; } }
-      if (kind === 7) { // 藤蔓鹿怪：從陰影裡站起來，鹿角的藤蔓甩出去纏住人，把人拖進胸口的裂縫
-        const rise = ease(clamp((t - 0.2) / 1.0)), lash = clamp((t - 1.2) / 0.5), pull = ease(clamp((t - 1.9) / 1.0)), mx = vx0 + 44;
-        g.globalAlpha = rise; glow(g, mx, gy - 40, 16 + Math.sin(t * 6) * 3, '255,40,40', 0.5 * rise); spr(g, ch(7, { arms: lash > 0 ? ['out', 'out'] : ['down', 'down'], eyes: 'glow', legs: 'stand' }, Math.floor(t * 4)), mx, gy + (1 - rise) * 40, { scale: S * 1.35 }); g.globalAlpha = 1;
-        if (lash >= 1) { vx = vx0 + (mx - vx0) * pull; vy = gy - pull * 20; vp = { arms: ['up', 'up'], eyes: 'wide', mouth: 'o', dy: Math.floor(t * 20) % 2 }; vtint = '#3a0408'; va = 1 - clamp((pull - 0.7) * 3.3); sk = 1; if (pull > 0.8) hit('a', mx, gy - 40, 50); }
-        if (lash > 0 && va > 0.2) for (let k = 0; k < 5; k++) { const tx = vx + (k - 2) * 4, ty = vy - 14 - k * 9, ex = mx + (tx - mx) * lash + Math.sin(t * 9 + k), ey = gy - 82 + (ty - (gy - 82)) * lash; line(g, mx - 8 + k * 4, gy - 82, ex, ey, '#2a0408', 2); R(g, ex - 1, ey - 1, 3, 3, '#e0283a'); } }
+      if (kind === 7) { // 藤蔓鹿怪：從地底爬出來、蹲低、撲上去把人撲倒，壓在身上撕咬
+        const rise = ease(clamp((t - 0.2) / 0.8)), leap = clamp((t - 1.4) / 0.4), land = t >= 1.8, mx = vx0 + 46, fx = vx0 + 20, top = P.CHARS[vi] ? P.CHARS[vi].o.top : '#8a8a96';
+        let x = mx, y = gy + (1 - rise) * 40, rot = 0, pose = { arms: ['down', 'down'], eyes: 'glow', legs: 'stand' };
+        if (t > 1.0 && leap <= 0) { pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'a', mouth: 'o', dy: 3 }; rot = -0.15; }
+        if (leap > 0 && !land) { const e2 = ease(leap); x = mx + (fx - mx) * e2; y = gy - Math.sin(leap * Math.PI) * 30; rot = -0.4 - e2 * 0.8; pose = { arms: ['out', 'out'], eyes: 'glow', legs: 'jump', mouth: 'o' }; vp = { arms: ['out', 'out'], eyes: 'wide', mouth: 'o' }; }
+        if (land) { const fall = clamp((t - 1.8) / 0.25), maul = t < 4.0, k3 = clamp((t - 4.0) / 0.4); x = fx; y = gy;
+          vx = vx0 - fall * 6; vr = -fall * 1.57; vp = { arms: ['out', 'out'], eyes: t > 2.8 ? 'x' : 'wide', mouth: 'o', dy: maul && t < 2.8 ? Math.floor(t * 16) % 2 : 0 }; if (t > 2.6) vtint = '#3a0408';
+          if (maul) { const bite = Math.sin(t * 24); rot = -1.25 + bite * 0.12; pose = { arms: Math.floor(t * 7) % 2 ? ['up', 'out'] : ['out', 'up'], eyes: 'glow', legs: 'a', mouth: bite > 0 ? 'o' : 'shut' }; sk = 2;
+            hit('a', vx0 - 26, gy - 10, 40); const n = Math.floor((t - 2.0) / 0.26); if (n >= 0 && !sd['m' + n]) { sd['m' + n] = 1; spray(vx0 - 26 + rnd(-8, 8), gy - 12, 14, 2.4, t); spray(vx0 - 26, gy - 12, 4, 2.6, t, top); } }
+          else { rot = -1.25 * (1 - ease(k3)); pose = { arms: ['up', 'up'], eyes: 'glow', legs: 'stand', mouth: 'o' }; sk = k3 > 0.3 && t < 4.6 ? 2 : 0; } }
+        g.globalAlpha = rise; glow(g, x - Math.sin(-rot) * 55, y - Math.cos(rot) * 55, 16 + Math.sin(t * 6) * 3, '255,40,40', 0.5 * rise); g.globalAlpha = 1;
+        // 先畫破產者（被壓在下面），怪物畫在上面
+        if (land) { spr(g, ch(vi, vp, 0), vx, vy, { scale: S, rot: vr, tint: vtint, tintA: 0.45 }); va = 0; }
+        spr(g, ch(7, pose, Math.floor(t * 4)), x, y, { scale: S * 1.35, rot, alpha: rise }); }
       // 破產者
       if (va > 0) spr(g, ch(vi, vp, 0), vx, vy, { scale: S, rot: vr, alpha: va, tint: vtint, tintA: vtint === '#e8f8ff' ? 0.8 : 0.45 });
       if (kind === -1) { R(g, 0, gy + 2, W, Hh - gy, '#140406'); vineGrow(g, vines, t, clamp((t - 0.6) / 1.2), '#2a0408'); }

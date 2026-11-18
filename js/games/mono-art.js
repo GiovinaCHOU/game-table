@@ -349,20 +349,48 @@
         const tank = new T.Mesh(new T.CylinderGeometry(1.6, 1.6, 2, 16), M('#c8c8cc', { metalness: 0.4, roughness: 0.5 })); tank.position.y = 7; wt.add(tank); const cap = new T.Mesh(new T.ConeGeometry(1.7, 0.8, 16), M('#9a9aa0')); cap.position.y = 8.4; wt.add(cap); }
       const pine = M('#1a2418', { flatShading: true, roughness: 1 });
       for (let k = 0; k < (q.high ? 70 : 34); k++) { const a = rnd(0, 6.28), d = rnd(32, 55), h = rnd(4, 9); add(new T.ConeGeometry(h * 0.25, h, 6), pine, Math.cos(a) * d, h / 2 - 0.36, Math.sin(a) * d, false); }
-      // ===== 中央：大楓樹＋樹根下的紅光裂縫 =====
-      const big = new T.Group(); big.position.set(0, -0.36, 0); big.scale.setScalar(0.78); scene.add(big);
-      const tb = new T.Mesh(new T.CylinderGeometry(0.35, 0.6, 3.2, 9), trunkM); tb.position.y = 1.6; tb.castShadow = q.high; big.add(tb);
-      for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28 + 0.3; const br = new T.Mesh(new T.CylinderGeometry(0.08, 0.16, 1.8, 6), trunkM); br.position.set(Math.cos(a) * 0.5, 3.2, Math.sin(a) * 0.5); br.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6); big.add(br); }
-      for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; const rt = new T.Mesh(new T.CylinderGeometry(0.05, 0.16, 1.4, 6), trunkM); rt.position.set(Math.cos(a) * 0.65, 0.12, Math.sin(a) * 0.65); rt.rotation.set(Math.sin(a) * 1.25, 0, -Math.cos(a) * 1.25); big.add(rt); }
-      const crown = []; for (let k = 0; k < (q.high ? 22 : 14); k++) { const a = rnd(0, 6.28), d = rnd(0, 1.6); const lf = new T.Mesh(new T.IcosahedronGeometry(rnd(0.6, 1.0), 1), leafMs[k % 4]); lf.position.set(Math.cos(a) * d, rnd(3.6, 5.2), Math.sin(a) * d); lf.castShadow = q.high; big.add(lf); crown.push(lf); }
-      // 裂縫：不規則的發光紅線＋地面紅光
-      const [cc, cg] = cvs(256); cg.clearRect(0, 0, 256, 256); const crackPath = () => { cg.beginPath(); let x = 128, y = 128; cg.moveTo(x, y); for (let k = 0; k < 9; k++) { x += rnd(-22, 22); y += rnd(-22, 22); cg.lineTo(x, y); } cg.stroke(); };
-      cg.strokeStyle = 'rgba(255,70,50,1)'; cg.shadowColor = '#ff2a1a'; cg.shadowBlur = 18; for (let k = 0; k < 9; k++) { cg.lineWidth = rnd(3, 8); crackPath(); }
-      const glowM = new T.MeshBasicMaterial({ map: tex(T, cc), transparent: true, blending: T.AdditiveBlending, depthWrite: false, color: '#ff4a3a' });
-      const crack = add(new T.PlaneGeometry(4.2, 4.2), glowM, 0, -0.33, 0, false); crack.rotation.x = -Math.PI / 2;
-      const [hc, hg] = cvs(128); const rg = hg.createRadialGradient(64, 64, 0, 64, 64, 64); rg.addColorStop(0, 'rgba(255,60,40,.55)'); rg.addColorStop(1, 'rgba(255,60,40,0)'); hg.fillStyle = rg; hg.fillRect(0, 0, 128, 128);
-      const halo = add(new T.PlaneGeometry(5, 5), new T.MeshBasicMaterial({ map: tex(T, hc), transparent: true, blending: T.AdditiveBlending, depthWrite: false }), 0, -0.32, 0, false); halo.rotation.x = -Math.PI / 2;
-      const redL = new T.PointLight('#ff3a2a', 3, 7, 1.6); redL.position.set(0, 0.6, 0); scene.add(redL);
+      // ===== 中央：枯死的黑樹＋貫穿中央的大裂谷（黑色深淵、紅光邊緣、翻起的土塊、往上冒的火星與紅霧、伸出來的觸鬚） =====
+      const deadM = M('#1a1012', { roughness: 1, flatShading: true });
+      const big = new T.Group(); big.scale.setScalar(0.62); scene.add(big);
+      const tb = new T.Mesh(new T.CylinderGeometry(0.28, 0.62, 3.0, 7), deadM); tb.position.y = 1.5; tb.rotation.z = 0.08; tb.castShadow = q.high; big.add(tb);
+      const limb = (par, len, r0, depth) => { const n = depth > 1 ? 3 : 2; for (let k = 0; k < n; k++) { const g3 = new T.Group(); g3.position.y = len * (0.55 + k * 0.2); g3.rotation.set(rnd(-0.9, 0.9), rnd(0, 6.28), rnd(0.5, 1.0) * (k % 2 ? 1 : -1)); par.add(g3);
+          const l = len * rnd(0.55, 0.75), m = new T.Mesh(new T.CylinderGeometry(r0 * 0.4, r0, l, 5), deadM); m.position.y = l / 2; g3.add(m); if (depth > 0) limb(g3, l, r0 * 0.6, depth - 1); } };
+      { const top = new T.Group(); top.position.y = 1.6; tb.add(top); limb(top, 1.6, 0.16, 2); }
+      for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28; const rt = new T.Mesh(new T.CylinderGeometry(0.04, 0.18, 1.8, 5), deadM); rt.position.set(Math.cos(a) * 0.75, 0.1, Math.sin(a) * 0.75); rt.rotation.set(Math.sin(a) * 1.3, 0, -Math.cos(a) * 1.3); big.add(rt); }
+      const crown = [];
+      // 裂谷形狀：沿對角線的鋸齒長縫（世界座標）
+      const RA = -0.62, RL = 4.5, rift = []; { let w = 0; for (let k = 0; k <= 26; k++) { const u = k / 26, x = (u - 0.5) * RL * 2, wd = Math.pow(Math.sin(u * Math.PI), 0.8) * (0.95 + Math.sin(u * 17) * 0.18) + 0.03; w = wd; rift.push([x, wd * rnd(0.75, 1.1), wd * rnd(0.75, 1.1), rnd(-0.25, 0.25)]); } void w; }
+      const rpt = (x, z) => [x * Math.cos(RA) - z * Math.sin(RA), x * Math.sin(RA) + z * Math.cos(RA)];
+      { const [bx, bz] = rpt(-1.4, -2.3); big.position.set(bx, -0.36, bz); }
+      { const N = 512, sc = N / 13, [cc, cg] = cvs(N), C = (x, z) => { const [a, b] = rpt(x, z); return [N / 2 + a * sc, N / 2 + b * sc]; };
+        const outline = () => { cg.beginPath(); rift.forEach(([x, a, b, j], k) => { const [px, py] = C(x, -a + j * 0.3); k ? cg.lineTo(px, py) : cg.moveTo(px, py); }); for (let k = rift.length - 1; k >= 0; k--) { const [x, a, b, j] = rift[k]; const [px, py] = C(x, b + j * 0.3); cg.lineTo(px, py); } cg.closePath(); };
+        // 紅光：外圍暈光＋邊緣亮線＋往外分岔的細裂縫
+        cg.clearRect(0, 0, N, N); cg.shadowColor = '#ff2a10'; cg.shadowBlur = 40; cg.fillStyle = 'rgba(255,40,20,.55)'; outline(); cg.fill(); cg.shadowBlur = 14; cg.lineWidth = 7; cg.strokeStyle = '#ff5a2a'; outline(); cg.stroke(); cg.lineWidth = 2.5; cg.strokeStyle = '#ffd0a0'; outline(); cg.stroke();
+        cg.lineWidth = 3; cg.strokeStyle = '#ff4a2a'; cg.shadowBlur = 12; for (let k = 0; k < 22; k++) { const r = rift[2 + Math.floor(rnd(0, rift.length - 4))], side = k % 2 ? 1 : -1; let x = r[0], z = side * (side > 0 ? r[2] : r[1]) * 0.9, a = Math.atan2(side, rnd(-0.6, 0.6)); cg.beginPath(); let [px, py] = C(x, z); cg.moveTo(px, py); for (let j = 0; j < 5; j++) { a += rnd(-0.6, 0.6); x += Math.sin(a) * 0.35; z += Math.cos(a) * 0.35 * 1; [px, py] = C(x, z); cg.lineTo(px, py); } cg.lineWidth = rnd(1.5, 4); cg.stroke(); }
+        var riftGlow = new T.MeshBasicMaterial({ map: tex(T, cc), transparent: true, blending: T.AdditiveBlending, depthWrite: false });
+        const gp = add(new T.PlaneGeometry(13, 13), riftGlow, 0, -0.335, 0, false); gp.rotation.x = -Math.PI / 2;
+        // 深淵：黑色往中間越深，最深處透一點暗紅
+        const [dc, dg] = cvs(N); dg.clearRect(0, 0, N, N); outline.call(null); dg.save(); dg.beginPath(); rift.forEach(([x, a, b, j], k) => { const [px, py] = C(x, -a * 0.82 + j * 0.3); k ? dg.lineTo(px, py) : dg.moveTo(px, py); }); for (let k = rift.length - 1; k >= 0; k--) { const [x, a, b, j] = rift[k]; const [px, py] = C(x, b * 0.82 + j * 0.3); dg.lineTo(px, py); } dg.closePath();
+        dg.fillStyle = '#050002'; dg.fill(); dg.clip(); dg.lineCap = 'round'; for (let k = 0; k < 4; k++) { dg.strokeStyle = ['#140204', '#2a0406', '#4a0608', '#7a0c0c'][k]; dg.lineWidth = [26, 16, 8, 3][k]; dg.beginPath(); rift.forEach(([x, a, b, j], i) => { const [px, py] = C(x, j * 0.3 + (b - a) * 0.3); i ? dg.lineTo(px, py) : dg.moveTo(px, py); }); dg.stroke(); } dg.restore();
+        var abyssM = new T.MeshBasicMaterial({ map: tex(T, dc), transparent: true, depthWrite: false });
+        const ap = add(new T.PlaneGeometry(13, 13), abyssM, 0, -0.33, 0, false); ap.rotation.x = -Math.PI / 2; ap.renderOrder = 2; }
+      const glowM = riftGlow;
+      // 裂谷兩側翻起來的土塊
+      { const chM = M('#2a2018', { roughness: 1, flatShading: true }), chM2 = M('#3a2a1e', { roughness: 1, flatShading: true });
+        rift.forEach(([x, a, b], k) => { if (k < 2 || k > rift.length - 3 || k % 2) return; [[-a - 0.25, -1], [b + 0.25, 1]].forEach(([z, sd2]) => { const [px, pz] = rpt(x + rnd(-0.2, 0.2), z + sd2 * rnd(0, 0.3)), s2 = rnd(0.16, 0.34) * (0.5 + Math.min(a, b));
+          const m = add(new T.DodecahedronGeometry(s2, 0), k % 3 ? chM : chM2, px, -0.36 + s2 * 0.25, pz, q.high); m.scale.set(1.3, 0.55, 1); m.rotation.set(sd2 * rnd(0.2, 0.6), rnd(0, 6), rnd(-0.3, 0.3)); }); }); }
+      const halo = { material: { opacity: 1 } };
+      const redL = new T.PointLight('#ff3a2a', 4, 12, 1.4); redL.position.set(0, 0.4, 0); scene.add(redL);
+      // 從裂谷往上冒的火星＋紅霧
+      const emberM = new T.MeshBasicMaterial({ color: '#ff6a3a', transparent: true, blending: T.AdditiveBlending, depthWrite: false }), embers = [];
+      for (let k = 0; k < (q.high ? 50 : 26); k++) { const r = rift[2 + Math.floor(rnd(0, rift.length - 4))], [px, pz] = rpt(r[0], rnd(-r[1], r[2]) * 0.6); const m = add(new T.SphereGeometry(0.03, 4, 3), emberM, px, 0, pz, false); m.userData = { x: px, z: pz, o: rnd(0, 1), s: rnd(0.25, 0.6) }; embers.push(m); }
+      const [mc, mg] = cvs(64); { const rg2 = mg.createRadialGradient(32, 32, 0, 32, 32, 32); rg2.addColorStop(0, 'rgba(200,30,20,.5)'); rg2.addColorStop(1, 'rgba(200,30,20,0)'); mg.fillStyle = rg2; mg.fillRect(0, 0, 64, 64); }
+      const mistT = tex(T, mc), mists = []; for (let k = 0; k < (q.high ? 14 : 7); k++) { const r = rift[3 + Math.floor(rnd(0, rift.length - 6))], [px, pz] = rpt(r[0], 0); const sp = new T.Sprite(new T.SpriteMaterial({ map: mistT, transparent: true, depthWrite: false, blending: T.AdditiveBlending })); sp.position.set(px, 0, pz); sp.userData = { x: px, z: pz, o: rnd(0, 1), s: rnd(0.08, 0.16) }; scene.add(sp); mists.push(sp); }
+      // 從裂谷裡伸出來、會慢慢擺動的觸鬚
+      const tenM = M('#3a0a12', { roughness: 0.5, emissive: '#4a0610', emissiveIntensity: 0.5 }), tents = [];
+      for (let k = 0; k < (q.high ? 7 : 4); k++) { const r = rift[4 + Math.floor((k + 0.5) / (q.high ? 7 : 4) * (rift.length - 8))], [px, pz] = rpt(r[0], 0); const g3 = new T.Group(); g3.position.set(px, -0.4, pz); scene.add(g3);
+        const pts = []; const h = rnd(0.8, 1.6), lean = rnd(-0.6, 0.6); for (let j = 0; j < 7; j++) pts.push(new T.Vector3(Math.sin(j * 0.9) * 0.15 + lean * j * 0.1, j / 6 * h, Math.cos(j * 1.1) * 0.12));
+        g3.add(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 16, 0.06, 5, false), tenM)); const tip = new T.Mesh(new T.SphereGeometry(0.05, 5, 4), M('#e0283a', { emissive: '#ff2a2a', emissiveIntensity: 1.5 })); tip.position.copy(pts[6]); g3.add(tip); g3.userData = { p: rnd(0, 6) }; tents.push(g3); }
       // 孢子（倒影世界飄過來的灰白碎屑）
       const sporeM = new T.MeshBasicMaterial({ color: '#d8d0c8', transparent: true, opacity: 0.7, depthWrite: false }), spores = [];
       for (let k = 0; k < (q.high ? 90 : 45); k++) { const m = add(new T.SphereGeometry(0.035, 5, 4), sporeM, 0, 0, 0, false); m.userData = { a: rnd(0, 6.28), d: rnd(0.5, 14), h: rnd(0, 5), s: rnd(0.1, 0.35), on: k / (q.high ? 90 : 45) }; spores.push(m); }
@@ -380,10 +408,13 @@
         const flick = Math.random() < 0.004 ? 0.2 : 1; // 偶爾整個小鎮的燈閃一下
         lamps.forEach((l, k) => { l.material.emissiveIntensity = (Math.sin(t * 13 + k * 7) > 0.97 ? 0.3 : 2) * flick; });
         const pulse = 0.6 + Math.sin(t * 1.3) * 0.25 + Math.max(0, Math.sin(t * 0.37)) * 0.4 * decay + (Math.random() < 0.01 ? 0.6 : 0);
-        glowM.opacity = Math.min(1, pulse); halo.material.opacity = Math.min(1, 0.5 + pulse * 0.5); redL.intensity = (2 + pulse * 2) * (1 + decay);
+        glowM.opacity = Math.min(1, 0.55 + pulse * 0.45); void halo; redL.intensity = (3 + pulse * 3) * (1 + decay);
+        embers.forEach(m => { const u = m.userData, p = (t * u.s + u.o) % 1; m.position.set(u.x + Math.sin(t * 2 + u.o * 9) * 0.15, -0.3 + p * 3.2, u.z); m.scale.setScalar(1 - p); });
+        mists.forEach(m => { const u = m.userData, p = (t * u.s + u.o) % 1; m.position.set(u.x, -0.2 + p * 1.6, u.z); m.scale.setScalar(1.2 + p * 2.4); m.material.opacity = Math.sin(p * Math.PI) * (0.7 + decay * 0.3); });
+        tents.forEach((g3, k) => { const u = g3.userData; g3.rotation.set(Math.sin(t * 0.9 + u.p) * 0.35, t * 0.2 + u.p, Math.cos(t * 0.7 + u.p) * 0.35); g3.position.y = -0.4 + Math.max(0, Math.sin(t * 0.25 + u.p)) * 0.15; });
         spores.forEach(m => { const u = m.userData; m.visible = u.on < 0.25 + decay * 0.75; if (!m.visible) return; const a = u.a + t * u.s * 0.3; m.position.set(Math.cos(a) * u.d, (u.h + t * u.s) % 5, Math.sin(a) * u.d); });
         leaves.forEach(m => { const u = m.userData, p = (t * u.s + u.o) % 1; m.position.set(u.x + Math.sin(t + u.o * 9) * 0.8, 5.5 - p * 5.8, u.z + Math.cos(t * 0.8 + u.o * 7) * 0.6); m.rotation.set(t * 2 + u.o * 9, t * 1.5, t * 3); });
-        crown.forEach((c2, k) => { c2.rotation.y = Math.sin(t * 0.5 + k) * 0.05; });
+        crown.forEach((c2, k) => { c2.rotation.set(Math.sin(t * 1.3 + k) * 0.4, k, Math.sin(t * 0.9 + k * 2) * 0.3); });
       });
     } else if (theme === 'magic') {
       // ===== 夜晚的魔法古堡：星空、月亮、漂浮蠟燭、尖塔、黑湖、森林 =====
