@@ -190,20 +190,20 @@
       '.......LLLLLHHMMMMMMDDDDD.......',
       '.......LLLLLHHMMMMMMDDDDD.......',
       '......LLLLLLHMMMMMMMDDDDDD......',
-      '......LLLLLLHMLMMMMMDDDDDD......',
-      '......LLLLLLLLLLLLMMDDDDDD......',
-      '........LLLLLHLwLLMMDDDD........',
-      '...MMEEEELLLLHHLLLLMDDDFFFFDD...',
-      '..MLLLMMMELLLLLLLLMMDDFMMMDDDD..',
-      '.MLLLLLMMMwLLLLLLLMMDwMMMMMDDDD.',
-      '.MLLLLLMnnnnLwLMMMwMnnnnMMMDDDD.',
-      '.MLLLLWNNnNNNNMMMMNNNNnNNWMDDDD.',
+      '......LLLLLLHMMMMMMMDDDDDD......',
+      '......LLLLLLLMLMMMMMDDDDDD......',
+      '........LLLLLLLLLLMMDDDD........',
+      '........LLLLLHLLLLMMDDDD........',
+      '.......ELLLLLHHwLLLMDDDDF.......',
+      '...MMMMMEELLLLLLLLMMDDFFDDDDD...',
+      '..LLLLMMMELLLLLLLLMMDDFMMMMDDD..',
+      '.MLLLLLMMMwLLMLMMMMMDwMMMMMDDDD.',
+      '.MLLLLLMnnnnLwMMMMwMnnnnMMMDDDD.',
+      '.MMLLLWNNnNNNNDDDDNNNNnNNWDDDDD.',
       '.MMMMMWMNNNNNDDDDDDNNNNNDWDDDDD.',
       '.MMMMMMwWWMWWDDDDDDWWDWWwDDDDDD.',
-      '.MMMMMMMMMwMMDDDDDDDEwDDDDDDDDD.',
-      '..DDDDDDDDMMMDDDDDDDEEEEEEEEEE..',
-      '...DDDDD......DDDD......EEEEE...',
-      '................................',
+      '.DDDDDDDDDwMMDDDDDDDEwEEEEEEEEE.',
+      '...DDDDDDMMMMDDDDDDDEEEEEEEEE...',
       '................................',
       '................................',
       '................................',
@@ -214,7 +214,7 @@
     const dy = (p.dy || 0) + (p.legs === 'jump' ? -3 : p.legs === 'a' || p.legs === 'b' ? -1 : 0), ox = 2, oy = 3 + dy, big = p.mouth === 'o' || p.eyes === 'wide';
     NOSE_MAP.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const c = row[x]; if (c !== '.') R(ox + x, oy + y, 1, 1, NOSE_PAL[c]); } });
     // 嚇到／吸的時候鼻孔撐大：彎月再往下多一排
-    if (big) [[8, 32, 11], [7, 33, 13]].forEach(([a, y, b]) => { for (let x = a; x <= b; x++) { R(ox + x, oy + y, 1, 1, NOSE_PAL.N); R(ox + 31 - x, oy + y, 1, 1, NOSE_PAL.N); } }); // 撐大：鼻孔往上多開兩排，白粉還在下緣
+    if (big) [[8, 34, 11], [7, 35, 13]].forEach(([a, y, b]) => { for (let x = a; x <= b; x++) { R(ox + x, oy + y, 1, 1, NOSE_PAL.N); R(ox + 31 - x, oy + y, 1, 1, NOSE_PAL.N); } }); // 撐大：鼻孔往上多開兩排，白粉還在下緣
     // 鼻樑上的小眼睛
     const r = (x, y, w, h, c) => R(x, y + dy, w, h, c), ey = p.eyes || 'open', ex = [13, 20], eyY = 13;
     if (ey === 'blink') ex.forEach(x => r(x, eyY + 1, 4, 1, '#3a1a1a'));
