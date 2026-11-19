@@ -166,6 +166,18 @@
       this._hostPeerEvents(peer);
       return pin;
     },
+    // 房間連不上、但這台有暫存：原房主的手機被系統關掉時，信令伺服器會把房號再占住約 1 分鐘（房間其實已經不在）。
+    // 這段時間內輪流「救回房間」和「連房主」，最多 80 秒，房號一釋放就由這台救回；不會只試一次就跳「找不到這個房間」
+    async _rescue(pin, name) {
+      const until = Date.now() + 80000, say = (m) => { try { this.onProgress && this.onProgress(m); } catch (e) {} };
+      for (;;) {
+        try { await this.revive(pin, name); return 'revived'; } catch (e2) { if (!/unavailable/.test(String(e2 && e2.message))) throw e2; }
+        say('房間交接中，自動重試（最多約 1 分鐘）…');
+        try { this._connecting = false; if (this.peer && this.peer.destroyed) this.peer = null; if (!this.peer) { this.peer = await this._openPeer(null); Voice.attach(this.peer); this._watchPeer(this.peer); } await this._connect(); return 'joined'; }
+        catch (e) { if (Date.now() > until) throw new Error('房間暫時連不上，請稍等 1 分鐘再按一次（這台有暫存，會自動救回）'); }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    },
     // 回到網頁時：立刻重連；房間不見了就用暫存救回
     async wake() {
       if (!this.pin || this._leaving || this._waking || this._joining) return; // 正在加入中就不要再插一腳（會變成兩條連線互搶）
@@ -190,10 +202,7 @@
         if (!this.peer) { this.peer = await this._openPeer(null); Voice.attach(this.peer); this._watchPeer(this.peer); }
         this._connecting = false; await this._connect(); return 'joined';
       } catch (e) {
-        if (this.hasSnap(this.pin) && !(this._noRevive > Date.now())) {
-          try { await this.revive(this.pin, this.name); return 'revived'; }
-          catch (e2) { if (/unavailable/.test(String(e2 && e2.message))) { await new Promise(r => setTimeout(r, 1500)); this._connecting = false; await this._connect(); return 'joined'; } throw e2; }
-        }
+        if (this.hasSnap(this.pin) && !(this._noRevive > Date.now())) return await this._rescue(this.pin, this.name);
         throw e;
       }
     },
@@ -279,7 +288,7 @@
       try { await this._connect(); }
       catch (e) {
         // 房間不在了，但這台裝置有暫存 → 直接救回
-        if (this.hasSnap(pin) && !(this._noRevive > Date.now())) { try { await this.revive(pin, name); return 'revived'; } catch (e2) { if (!/unavailable/.test(String(e2 && e2.message))) throw e2; this._connecting = false; await this._connect(); } }
+        if (this.hasSnap(pin) && !(this._noRevive > Date.now())) { if (await this._rescue(pin, name) === 'revived') return 'revived'; }
         else throw e;
       }
       clearInterval(this._watch);
