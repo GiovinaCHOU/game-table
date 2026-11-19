@@ -257,9 +257,9 @@
     const bld = e.mode === 'bld', bills = spray(30, 3, { sx: 1, up: 1.3 });
     const snd = () => { const K = kit(SFX); if (!K) return;
       [0.25, 0.6, 0.95].forEach((d, i) => { K.drum(d, 55, 0.5, 0.35); K.crack(d + 0.05, 0.25, 0.12 + i * 0.05); }); K.wind(0, 1.1, 0.06);
-      K.boom(1.08, 90, 30, 0.8, 0.45); K.stinger(1.08, 0.25); K.growl(1.12, 1.6, 62, 0.55); K.growl(1.15, 1.5, 95, 0.35); K.howl(1.2, 1.3, 210, 0.12); K.scream(1.3, 1.0, 330, 0.05);
-      if (bld) { K.whoosh(3.0, 0.3, false, 0.35); K.boom(3.3, 70, 22, 1.4, 0.65); K.crack(3.32, 0.9, 0.4); K.tear(3.35, 0.5, 0.3); } else { K.whoosh(3.0, 0.35, false, 0.4); K.drum(3.25, 90, 0.6, 0.2); K.boom(3.26, 120, 50, 0.5, 0.4); for (let i = 0; i < 10; i++) K.whoosh(3.3 + i * 0.1, 0.2, i % 2 === 0, 0.06); }
-      for (let i = 0; i < 8; i++) K.drum(3.9 + i * 0.16, i % 2 ? 70 : 62, 0.45, 0.18); K.growl(4.0, 1.2, 70, 0.4); };
+      K.boom(1.08, 90, 30, 0.8, 0.32); K.stinger(1.08, 0.25); K.growl(1.12, 1.6, 62, 0.42); K.growl(1.15, 1.5, 95, 0.26); K.howl(1.2, 1.3, 210, 0.12); K.scream(1.3, 1.0, 330, 0.05);
+      if (bld) { K.whoosh(3.0, 0.3, false, 0.35); K.boom(3.3, 70, 22, 1.4, 0.48); K.crack(3.32, 0.9, 0.4); K.tear(3.35, 0.5, 0.3); } else { K.whoosh(3.0, 0.35, false, 0.4); K.drum(3.25, 90, 0.45, 0.2); K.boom(3.26, 120, 50, 0.5, 0.3); for (let i = 0; i < 10; i++) K.whoosh(3.3 + i * 0.1, 0.2, i % 2 === 0, 0.06); }
+      for (let i = 0; i < 8; i++) K.drum(3.9 + i * 0.16, i % 2 ? 70 : 62, 0.34, 0.18); K.growl(4.0, 1.2, 70, 0.3); };
     return ui.overlay(T, (g, W, Hh, dpr, t) => {
       const U = Math.min(W, Hh) / 420, cx = W / 2, gy = Hh * 0.82; g.save();
       const close = t >= 1.1 && t < 2.75;
