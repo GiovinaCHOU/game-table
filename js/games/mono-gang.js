@@ -1051,6 +1051,70 @@
     }, snd);
   };
 
+  // ======================= 正派掃蕩（第 31 回合起每 3 回合，打最有錢的人）=======================
+  // 警燈紅藍閃 → 兩台警車甩尾停下 → 鎮暴警察（原創：頭盔面罩、深藍制服、透明盾牌）衝出來包圍
+  // 搶錢版：沒收錢袋丟進證物箱、他舉手投降；砸房版：拉起黃黑封鎖線（沒有字），拿大鎚把頂樓的招牌和違建敲掉
+  function cop(pose, f) { return mkspr('cop' + pose + f, 30, 54, (g2, r) => {
+    const lg = f % 2, w = pose === 'walk'; [[9, lg], [17, 1 - lg]].forEach(([x, k]) => { r(x + (w ? (k ? 1 : -1) : 0), 36, 5, 14, '#141a30'); r(x - 1 + (w ? (k ? 1 : -1) : 0), 49, 7, 3, '#08080c'); });
+    for (let y = 0; y < 20; y++) { const ww = y < 3 ? 9 + y : 12 - Math.floor(y / 10); r(15 - ww, 17 + y, ww * 2, 1, y > 8 && y < 11 ? '#0e1222' : '#1e2848'); } r(13, 20, 4, 3, '#c8b040'); // 制服＋腰帶＋徽章
+    if (pose === 'hammer') { r(24, 6, 4, 14, '#1e2848'); r(25, 2, 2, 6, '#c8906a'); } else if (pose === 'grab') { r(1, 22, 4, 12, '#1e2848'); r(25, 22, 4, 6, '#1e2848'); r(25, 27, 4, 3, '#c8906a'); } else { r(2, 19, 4, 14, '#1e2848'); r(24, 19, 4, 14, '#1e2848'); r(24, 32, 4, 3, '#c8906a'); }
+    r(9, 3, 12, 14, '#c8906a'); r(8, 1, 14, 9, '#22284a'); r(9, 0, 12, 2, '#3a4268'); r(9, 7, 12, 5, '#5a7aa0'); r(10, 7, 4, 1, '#a8c8e8'); r(12, 14, 6, 1, '#6a3a2a'); // 頭盔＋面罩
+    if (pose !== 'hammer' && pose !== 'grab') { for (let y = 14; y < 44; y++) r(0, y, 7, 1, y % 6 === 0 ? 'rgba(220,235,255,.85)' : 'rgba(170,200,230,.45)'); r(0, 14, 7, 1, '#e8f0ff'); } // 透明盾牌
+  }); }
+  function patrol() { return mkspr('patrol', 96, 38, (g2, r) => { // 警車（朝左）：白車身、藍色腰線、車頂警燈架
+    r(4, 18, 88, 12, '#e8eaf0'); r(4, 18, 88, 2, '#ffffff'); r(20, 8, 54, 11, '#e8eaf0'); r(2, 24, 92, 4, '#b8bcc8'); r(4, 22, 88, 3, '#2a4ac8');
+    r(24, 10, 22, 8, '#1a2430'); r(48, 10, 22, 8, '#1a2430'); r(46, 9, 2, 10, '#e8eaf0'); r(38, 4, 20, 4, '#2a2a34'); r(2, 20, 4, 3, '#f4e8a0'); r(90, 20, 4, 3, '#c82020');
+    [[22, 31], [74, 31]].forEach(([x, y]) => { disc(g2, x, y, 6, '#101014'); disc(g2, x, y, 3, '#b8b8c4'); }); }); }
+  function shop(broke) { return mkspr('rshop' + broke, 70, 92, (g2, r) => { // 兩層樓店面＋頂樓加蓋鐵皮違建＋空白招牌
+    r(4, 40, 62, 50, '#4a3a3a'); r(4, 40, 62, 2, '#6a5050'); r(10, 64, 22, 26, '#1a1418'); r(12, 66, 18, 22, '#3a4a5a'); r(38, 64, 22, 14, '#2a2a34'); r(38, 66, 22, 2, '#c8a83a');
+    r(8, 46, 14, 10, '#ffc870'); r(28, 46, 14, 10, '#2a2230'); r(48, 46, 14, 10, '#ffc870'); r(2, 58, 66, 4, '#c82a2a'); r(6, 59, 58, 2, '#e85a5a'); // 遮雨棚
+    if (!broke) { r(8, 6, 54, 34, '#6a6a72'); for (let x = 8; x < 62; x += 4) r(x, 6, 1, 34, '#4a4a52'); r(6, 4, 58, 3, '#8a8a92'); r(16, 16, 12, 10, '#ffc870'); r(42, 16, 12, 10, '#2a2a34'); // 鐵皮加蓋
+      r(14, 30, 42, 9, '#1a1a22'); r(15, 31, 40, 7, '#ff3ab0'); r(18, 34, 34, 1, '#ffd0f0'); } // 空白霓虹招牌
+    else { r(6, 34, 58, 6, '#3a3036'); r(10, 30, 6, 4, '#5a5a62'); r(30, 32, 10, 2, '#5a5a62'); r(50, 31, 4, 3, '#5a5a62'); }
+  }); }
+  GA.sweep = function (SFX, e) {
+    const ln = (a, b2, k) => a + (b2 - a) * k;
+    const ui = this, s = e.seat, vi = seatChar(ui.v, s), op = seatOpt(ui, s), Tm = 6800, pt = parts(), bld = e.mode === 'bld'; let sm = [];
+    const snd = () => { const K = kit(SFX); if (!K) return;
+      for (let i = 0; i < 9; i++) { SFX.tone(i % 2 ? 960 : 720, 0.32, { type: 'square', vol: 0.025, lp: 1800, delay: 0.1 + i * 0.32, glide: i % 2 ? 720 : 960 }); } // 警笛
+      SFX.noise(0.7, { f: 2500, type: 'bandpass', q: 3, vol: 0.12, delay: 1.0 }); SFX.noise(0.6, { f: 2200, type: 'bandpass', q: 3, vol: 0.1, delay: 1.2 }); // 煞車
+      [1.7, 1.8, 1.9].forEach(d => S.thud(SFX, d, 0.5)); for (let i = 0; i < 10; i++) SFX.noise(0.05, { f: 700, vol: 0.07, delay: 2.0 + i * 0.12 }); // 開車門、腳步
+      K.drone(0, 6.6, [55, 65.4], { lp: 300, vol: 0.05 }); K.stinger(2.9, 0.15);
+      if (bld) { SFX.noise(0.6, { f: 3000, type: 'highpass', vol: 0.05, delay: 2.9 }); [3.5, 3.9, 4.3].forEach(d => { S.thud(SFX, d, 1.2); SFX.noise(0.12, { f: 1800, type: 'bandpass', vol: 0.12, delay: d }); }); K.crack(4.35, 0.8, 0.3); K.boom(4.5, 70, 30, 1.0, 0.45); S.glass(SFX, 4.4); }
+      else { SFX.noise(0.3, { f: 1200, vol: 0.08, delay: 3.0 }); S.thud(SFX, 3.6, 0.8); for (let i = 0; i < 6; i++) SFX.tone(1400 + i * 120, 0.08, { type: 'triangle', vol: 0.03, delay: 3.6 + i * 0.05 }); }
+      S.thud(SFX, 4.9, 1.2); SFX.tone(70, 1.4, { type: 'sawtooth', glide: 140, vol: 0.06, lp: 400, delay: 5.0 }); SFX.noise(1.2, { f: 400, vol: 0.06, delay: 5.0 }); };
+    return pix(ui, Tm, (g, W, Hh, t) => {
+      const gy = street(g, W, Hh, t, { lampX: 0.12, wall: false }), py = gy + 26, siren = Math.floor(t * 6) % 2;
+      // 目標：人（站中間）或店面
+      const sx = Math.round(W * 0.5), hit = bld ? (t > 4.35 ? 1 : 0) : 0;
+      if (bld) { const sh = shop(hit); put(g, sh, sx, gy + 4, { scale: 1 }); if (hit) pt.s2 || (pt.s2 = 1, pt.burst(28, sx, gy - 70, 2.2, t, ['#6a6a72', '#8a8a92', '#ff3ab0', '#4a4a52'], { gr: 120, life: 1.6 })); }
+      // 兩台警車從兩邊甩尾進來 → 最後一台開走
+      const arr = ease(clamp((t - 0.7) / 0.6)), go = ein(clamp((t - 5.0) / 1.0)), car = patrol();
+      const c1 = -110 + arr * (W * 0.5 - 60 + 110) - go * 0, c2 = W + 110 - arr * (W + 110 - (W * 0.5 + 60)) + go * (W * 0.7);
+      [[c1, true], [c2, false]].forEach(([x, fl], k) => { put(g, car, x, gy + 54 + k * 8, { scale: 1, flip: fl }); const lx = x - 8, ly = gy + 54 + k * 8 - 36; R(g, lx, ly, 8, 3, (siren + k) % 2 ? '#ff2a2a' : '#5a1010'); R(g, lx + 9, ly, 8, 3, (siren + k) % 2 ? '#1a2a4a' : '#2a6aff');
+        if (arr > 0 && arr < 1 && sm.length < 40) sm.push(...puffs(1, x + (fl ? -40 : 40), gy + 50, t, { c: '#8a8690', gr: 8, life: 1, a: 0.5 })); });
+      smoke(g, sm, t);
+      // 鎮暴警察：下車包圍
+      const out = clamp((t - 1.8) / 0.8), cops = [[-38, 0], [38, 1], [bld ? -18 : -22, 2]];
+      if (t > 1.8) cops.forEach(([dx, k]) => { const fromX = k === 1 ? c2 : c1, x = ln(fromX, sx + dx, ease(out)), walking = out < 1; let pose = walking ? 'walk' : 'stand';
+        if (!bld && k === 2 && t > 2.9 && t < 3.7) pose = 'grab'; if (bld && k === 2 && t > 3.2 && t < 4.6) pose = 'hammer';
+        const yy = k === 2 ? (bld ? py + 8 : py - 3) : py; put(g, cop(pose, Math.floor(t * 6) + k), x, yy, { scale: 1.15, flip: dx > 0 });
+        if (bld && k === 2 && t > 3.2 && t < 4.6) { const sw = Math.sin((t - 3.2) * 7.5); line(g, x + 6, yy - 52, x + 6 + 10, yy - 70 - sw * 8, '#6a4a2a'); R(g, x + 12, yy - 76 - sw * 8, 8, 6, '#4a4a52'); } });
+      if (bld && t > 2.6) { const k = clamp((t - 2.6) / 0.5); for (let x = 0; x < W * k; x++) R(g, x, gy - 10 + Math.round(Math.sin(x * 0.08) * 1.5), 1, 3, Math.floor(x / 5) % 2 ? '#ffd23a' : '#141414'); } // 黃黑封鎖線（沒有字）
+      if (!bld) { const surr = t > 2.6; let vp = { eyes: 'open', mouth: 'flat' }; if (t > 1.0) vp = { eyes: 'wide', mouth: 'o', arms: surr ? ['up', 'up'] : ['out', 'out'], dy: Math.floor(t * 16) % 2 };
+        spr(g, CH(vi, vp, Math.floor(t * 4), op), sx, py - 2, { scale: 1.25 });
+        // 錢袋被沒收 → 丟進證物箱（白色紙箱）→ 搬上車
+        const bagK = clamp((t - 3.0) / 0.6), boxX = ln(sx + 20, c1 + 10, ein(clamp((t - 4.3) / 0.6))), boxY = py + 10;
+        if (t > 2.4) { R(g, boxX - 8, boxY - 10, 16, 10, '#d8d0c0'); R(g, boxX - 8, boxY - 10, 16, 2, '#f0e8d8'); R(g, boxX - 1, boxY - 10, 2, 10, '#b8a888'); }
+        if (bagK < 1) { const bx = ln(sx - 6, boxX, bagK), by = ln(py - 24, boxY - 12, bagK) - Math.sin(bagK * Math.PI) * 18; R(g, bx - 4, by - 4, 8, 8, '#8a6a3a'); R(g, bx - 3, by - 5, 6, 1, '#6a4a2a'); R(g, bx - 1, by - 2, 3, 3, '#e8b020'); }
+        if (t > 3.0 && !pt.s1) { pt.s1 = 1; pt.burst(14, sx - 4, py - 26, 1.4, t, ['#e8b020', '#ffd23a', '#7ab070'], { gr: 120, life: 1.2 }); } }
+      pt.draw(g, t);
+      // 紅藍警燈打在整個畫面上
+      if (t > 0.3) { g.globalAlpha = 0.1 + (t > 1.2 ? 0.05 : 0); R(g, 0, 0, W, Hh, siren ? '#ff1a2a' : '#1a4aff'); g.globalAlpha = 1; }
+      if (hit && t < 4.55) { g.globalAlpha = 0.3; R(g, 0, 0, W, Hh, '#ffffff'); g.globalAlpha = 1; }
+    }, snd, 100);
+  };
+
   root.MONO_GANG = GA;
   // 接到彩蛋表：MONO_EGGS[key]
   if (root.MONO_EGGS) Object.keys(GA).forEach(k => { root.MONO_EGGS[k] = function (SFX, e) { return GA[k].call(this, SFX, e); }; });

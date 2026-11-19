@@ -65,18 +65,43 @@
   const DOOM_BY_N = { 2: 18, 3: 21, 4: 25, 5: 27, 6: 29 };
   const doomRound = (st) => globalThis.__DOOM || DOOM_BY_N[st.n] || 25;
   const INF = (globalThis.__INF || { start: 6, rate: 0.1, max: 3 });
-  // 怪奇小鎮：第 35 回合起，每回合開頭有一半機率魔狗突襲「總資產前 30%」的其中一人，充公 1~2 萬（最多扣到現金歸零，不會因此破產；厄運免疫可擋）
-  const HOUND = { round: 35, p: 0.5, top: 0.3, min: 10000, max: 20000 };
+  // 襲擊（全主題）：第 31 回合起每 3 回合（31、34、37…）一定出現，打「有錢人」其中一位
+  // 挑人：存活人數×40%（四捨五入、至少 1；5 人＝前 2 名）裡，總資產高於全員平均的人；機率照「超出平均多少」加權（剛好在平均附近幾乎不會被選）
+  // 損失：現金 20～30%；現金低於 10,000 改成隨機一塊有建築的地降一級（沒有建築就照樣扣現金）；不會因此破產；厄運免疫可擋
+  const RAID = { round: 31, every: 3, top: 0.4, min: 0.2, max: 0.3, floor: 10000, warn: 3 };
+  const RAID_INFO = {
+    town: { icon: '🐺', who: '魔狗', start: '倒影世界的魔狗開始出沒，會襲擊最有錢的人', why: '魔狗突襲' },
+    ragnarok: { icon: '😈', who: '路西法', start: '路西法從地獄降臨，專挑最有錢的人下手', why: '路西法降臨' },
+    animal: { icon: '🦍', who: '猩猩', start: '叢林暴君出沒，最有錢的人小心被爆擊', why: '猩猩爆擊' },
+    cyber: { icon: '🦾', who: '乞丐幫', start: '乞丐幫開始在夜城出沒，專門圍剿有錢人', why: '乞丐幫圍剿' },
+    alien: { icon: '🦠', who: '未知生物', start: '未知星球的生物甦醒了，會吞噬最有錢的人', why: '未知生物吞噬' },
+    buddha: { icon: '🪡', who: '扎小人詛咒', start: '有人開始扎小人，詛咒最有錢的人', why: '被詛咒' },
+    magic: { icon: '🐍', who: '黑魔王', start: '黑魔王歸來，會襲擊最有錢的人', why: '黑魔王襲擊' },
+    gang: { icon: '🚔', who: '正派掃蕩', start: '警方展開正派掃蕩，專抓最有錢的人', why: '正派掃蕩' }
+  };
+  const raidInfo = (theme) => RAID_INFO[theme] || RAID_INFO.ragnarok;
+  const raidAt = (r) => r >= RAID.round && (r - RAID.round) % RAID.every === 0;
+  function raidPick(st) {
+    const al = st.players.map((p, k) => k).filter(k => st.players[k].alive); if (al.length < 2) return -1;
+    const w = {}; al.forEach(k => w[k] = worth(st, k)); const avg = al.reduce((a, k) => a + w[k], 0) / al.length;
+    const top = al.slice().sort((a, b) => w[b] - w[a]).slice(0, Math.max(1, Math.round(al.length * RAID.top)));
+    const c = top.filter(k => w[k] > avg); if (!c.length) return top[Math.floor(Math.random() * top.length)];
+    let r = Math.random() * c.reduce((a, k) => a + (w[k] - avg), 0);
+    for (const k of c) { r -= w[k] - avg; if (r < 0) return k; } return c[0];
+  }
   function houndRound(st) {
-    if (st.theme !== 'town' || st.round < HOUND.round) return;
-    if (st.round === HOUND.round) ev(st, { t: 'alert', text: '🐺 倒影世界的魔狗開始出沒，會隨機襲擊最有錢的人' });
-    if (Math.random() >= (globalThis.__HOUND_P == null ? HOUND.p : globalThis.__HOUND_P)) return;
-    const al = st.players.map((p, k) => k).filter(k => st.players[k].alive); if (al.length < 2) return;
-    const n = Math.max(1, Math.round(al.length * HOUND.top)), rich = al.sort((a, b) => worth(st, b) - worth(st, a)).slice(0, n), k = rich[Math.floor(Math.random() * rich.length)], p = st.players[k];
-    ev(st, { t: 'hound', seat: k }); st.anim += 6800;
-    if (p.immune > 0) { p.immune--; ev(st, { t: 'note', seat: k, text: '🛡️ 厄運免疫擋下了魔狗' }); return; }
-    const amt = Math.min(Math.max(0, Math.floor(p.cash / 100) * 100), Math.round((HOUND.min + Math.random() * (HOUND.max - HOUND.min)) / 1000) * 1000);
-    if (amt > 0) pay(st, k, -1, amt, '魔狗突襲');
+    const I = raidInfo(st.theme);
+    if (st.round === RAID.round - RAID.warn) ev(st, { t: 'alert', text: `${I.icon} ${RAID.warn} 回合後（第 ${RAID.round} 回合）${I.who}會出現，之後每 ${RAID.every} 回合一次，專打有錢人` });
+    if (!raidAt(st.round)) return;
+    if (st.round === RAID.round) ev(st, { t: 'alert', text: `${I.icon} ${I.start}` });
+    const k = raidPick(st); if (k < 0) return; const p = st.players[k];
+    const blds = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === k && st.levels[t.i] > 0);
+    const mode = p.cash < RAID.floor && blds.length ? 'bld' : 'cash', tile = mode === 'bld' ? blds[Math.floor(Math.random() * blds.length)].i : null;
+    ev(st, { t: 'hound', seat: k, mode, tile }); st.anim += 6800;
+    if (p.immune > 0) { p.immune--; ev(st, { t: 'note', seat: k, text: `🛡️ 厄運免疫擋下了${I.who}` }); return; }
+    if (mode === 'bld') { st.levels[tile]--; ev(st, { t: 'down', tile, level: st.levels[tile], seat: k, raid: true }); return; }
+    const lo = Math.ceil(p.cash * RAID.min / 100) * 100, hi = Math.max(lo, Math.floor(p.cash * RAID.max / 100) * 100), amt = Math.min(Math.max(0, Math.floor(p.cash / 100) * 100), Math.min(hi, Math.max(lo, Math.round(p.cash * (RAID.min + Math.random() * (RAID.max - RAID.min)) / 100) * 100))); // 20～30%，取整到百
+    if (amt > 0) pay(st, k, -1, amt, I.why);
   }
   function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * 0.6); }
   function rentOf(st, i) {
@@ -432,7 +457,7 @@
   }
 
   const R = {
-    _applyCard: applyCard, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;

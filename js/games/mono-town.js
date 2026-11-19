@@ -352,5 +352,40 @@
     }, snd);
   };
 
+  // ---------- 魔狗砸房（現金不夠時）：從裂縫衝出來，撲上一棟房子咬塌屋頂，磚塊四散，再鑽回裂縫 ----------
+  TW.houndBld = function (ui, SFX, e) {
+    const seed = ((e && e.tile) || 3) % 5, bricks = Array.from({ length: 30 }, () => ({ vx: rnd(-2, 2), vy: rnd(-3, -1), d: rnd(0, 0.15), c: Math.random() < 0.5 ? 0 : 1 })), cbr = [-1, 1, -1, 1].map((sd, k) => ({ s: sd, n: 6 + k * 2, d: Array.from({ length: 12 }, () => Math.round(rnd(-2, 2))) })), fog = Array.from({ length: 8 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(0.02, 0.06), r: rnd(10, 18) }));
+    const snd = () => { const K = kit(SFX); if (!K) return; K.wind(0, 6.5, 0.08); K.choir(0.2, 5.5, [55, 58.3, 82.4], { v: 'oo', vol: 0.05, bend: 0.97 }); K.heart(0, 6, 70, 0.35, 1.6); K.drone(0, 6.5, [36.7, 38.9, 55], { lp: 260, vol: 0.1, sweep: 400 });
+      K.crack(0.5, 0.8, 0.35); K.boom(0.9, 70, 25, 1.2, 0.5); K.growl(1.0, 1.0, 55, 0.3); K.howl(1.3, 1.2, 330, 0.12); for (let i = 0; i < 8; i++) K.drum(1.5 + i * 0.11, 70, 0.14, 0.08);
+      K.whoosh(2.3, 0.35, false, 0.3); K.growl(2.5, 0.8, 80, 0.45); K.crack(2.6, 0.9, 0.4); K.boom(2.65, 80, 30, 1.0, 0.5); for (let i = 0; i < 12; i++) K.drum(2.7 + i * 0.06, 140 + i * 9, 0.1, 0.05);
+      for (let i = 0; i < 9; i++) K.drum(3.4 + i * 0.11, 70, 0.12, 0.08); K.growl(4.0, 0.8, 50, 0.3); K.boom(4.3, 60, 22, 1.4, 0.5); K.crack(4.4, 0.5, 0.25); K.howl(4.9, 1.3, 260, 0.06); };
+    return pix(ui, 6500, (g, W, Hh, t) => {
+      const sk = (t > 2.6 && t < 2.95) || (t > 0.9 && t < 1.1) ? 2 : 0; g.save(); shk(g, sk);
+      const hy = street(g, W, Hh, t, { lampX: 0.62, up: true }), gy = hy + 30, vx = Math.round(W * 0.28), cx = Math.round(W * 0.8), cy = hy + 26;
+      g.globalAlpha = 0.28 + Math.sin(t * 2) * 0.05; R(g, 0, 0, W, Hh, '#3a0006'); g.globalAlpha = 1; fog.forEach(f => { const x = ((f.x + t * f.v) % 1.2 - 0.1) * W; g.globalAlpha = 0.18; disc(g, x, hy + 8 + f.y * 30, f.r, '#7a0a12'); }); g.globalAlpha = 1;
+      const op = t < 0.5 ? 0 : t < 1.0 ? ease((t - 0.5) / 0.5) : t < 4.4 ? 1 : 1 - ease(clamp((t - 4.4) / 0.6));
+      if (op > 0) { const cw = Math.round(42 * op), chh = 14 * op; glow(g, cx, cy, 34 * op + Math.sin(t * 9) * 3, '255,40,30', 0.7 * op);
+        cbr.forEach(b => { let x = cx + b.s * cw * 0.85, y = cy; const n = Math.floor(b.n * op); for (let k = 0; k < n; k++) { const nx = x + b.s * 3, ny = y + b.d[k]; line(g, x, y, nx, ny, '#ff4a2a', 1); x = nx; y = ny; } });
+        for (let x = -cw; x <= cw; x++) { const u = x / cw, h = Math.max(1, chh * (1 - u * u) * (0.65 + 0.35 * Math.sin(x * 1.7))); R(g, cx + x, cy - h, 1, h * 2, '#050002'); R(g, cx + x, cy - h - 1, 1, 1, '#ff6a3a'); } }
+      // 房子：屋頂（上半）在被咬的瞬間塌掉
+      const hs = P.house(seed, 0), S = 1.6, hw = hs.width * S, hh = hs.height * S, hx0 = vx - hw / 2, hy0 = gy - hh, cut = Math.round(hs.height * 0.45), broke = t >= 2.65;
+      g.drawImage(hs, 0, cut, hs.width, hs.height - cut, hx0, hy0 + cut * S, hw, hh - cut * S);
+      if (!broke) { const wob = t > 2.45 ? Math.round(Math.sin(t * 60)) : 0; g.drawImage(hs, 0, 0, hs.width, cut, hx0 + wob, hy0, hw, cut * S); }
+      else { R(g, hx0 + 4, hy0 + cut * S - 2, hw - 8, 3, '#2a1a14'); for (let k = 0; k < 6; k++) R(g, hx0 + 6 + k * (hw - 12) / 6, hy0 + cut * S - 3 - (k % 2) * 2, 3, 2 + (k % 2) * 2, '#4a2a20');
+        bricks.forEach(b => { const a = t - 2.65 - b.d; if (a < 0 || a > 1.8) return; g.globalAlpha = clamp(1.8 - a); R(g, vx + b.vx * a * 30, hy0 + cut * S * 0.5 + b.vy * a * 40 + a * a * 80, 3, 2, b.c ? '#5a3a30' : '#8a4a3a'); g.globalAlpha = 1; }); }
+      let hx = cx, hyy = cy + 2, flip = false, run = false, jaw = 0, rot = 0, alpha = 1;
+      if (t < 1.0) alpha = 0; else if (t < 1.5) { const k = ease((t - 1.0) / 0.5); hyy = cy + 40 * (1 - k); rot = 0.3 * (1 - k); jaw = 0.6; }
+      else if (t < 2.3) { const k = (t - 1.5) / 0.8; hx = cx + (vx + 50 - cx) * k; run = true; jaw = 0.4; if (Math.floor(t * 9) % 2) puff(hx + 20, gy - 4, 1, t); hyy = gy; }
+      else if (t < 2.65) { const k = (t - 2.3) / 0.35; hx = vx + 50 - 34 * k; hyy = gy - Math.sin(k * Math.PI * 0.5) * (hh - cut * S * 0.4); jaw = 1; rot = -0.4; }
+      else if (t < 3.3) { const k = clamp((t - 2.65) / 0.3); hx = vx + 16 + k * 12; hyy = gy - (hh - cut * S * 0.4) * (1 - ease(k)); jaw = Math.sin(t * 30) > 0 ? 1 : 0.4; rot = -0.4 * (1 - k); }
+      else if (t < 4.3) { const k = (t - 3.3) / 1.0; flip = true; run = true; hx = vx + 28 + (cx - vx - 28) * k; hyy = gy - (gy - cy - 2) * clamp((k - 0.8) / 0.2); jaw = 0.3; if (Math.floor(t * 9) % 2) puff(hx - 20, hyy - 4, 1, t); }
+      else { const k = clamp((t - 4.3) / 0.3); flip = true; hx = cx; hyy = cy + 2 + 40 * k; rot = 0.5 * k; jaw = 0.3; alpha = 1 - k; }
+      if (alpha > 0 && (t < 1.5 || t > 4.3)) { g.save(); g.beginPath(); g.rect(0, 0, W, cy + 1); g.clip(); g.globalAlpha = alpha; hound(g, hx, hyy, Math.floor(t * 12), { flip, run, jaw, rot, t }); g.restore(); }
+      if (alpha > 0 && t >= 1.5 && t <= 4.3) hound(g, hx, hyy, Math.floor(t * 12), { flip, run, jaw, rot, t });
+      drawDust(g, t); g.restore();
+      if (t > 2.65 && t < 2.85) { g.globalAlpha = 0.35; R(g, 0, 0, W, Hh, '#ff2a1a'); g.globalAlpha = 1; }
+    }, snd);
+  };
+
   root.MONO_TOWN = TW;
 })(typeof window !== 'undefined' ? window : globalThis);

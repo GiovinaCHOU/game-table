@@ -37,7 +37,8 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - mono-town.js：怪奇小鎮的動畫
 - mono-gangpix.js：幫派街區的像素角色（共用 MONO_PIXEL）
 - mono-gangmap.js：幫派街區的像素地圖與建築
-- mono-gang.js：幫派街區的動畫
+- mono-gang.js：幫派街區的動畫（含「正派掃蕩」襲擊）
+- mono-raid.js：第 31 回合起每 3 回合的「襲擊」動畫＋分派（MONO_EGGS.raid）：諸神黃昏 路西法、動物星球 猩猩、夜城 乞丐幫、深空異種 未知生物、神佛之境 扎小人、魔法學院 黑魔王；怪奇小鎮魔狗在 mono-town.js（hound／houndBld）、幫派街區在 mono-gang.js（sweep）
 
 主題 id 對照：ragnarok 諸神黃昏、cyber 夜城、animal 動物星球、alien 深空異種、buddha 神佛之境、magic 魔法學院、town 怪奇小鎮、gang 幫派街區
 
@@ -54,7 +55,8 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 ## 測試
 - 網址加 `?local=1`：同一個瀏覽器開多個分頁模擬多人（沒有語音）
 - 測試房 PIN 777777：有電腦玩家
-- 大富翁在測試房裡、網址加 `?egg=<動畫key>`：開局 3 秒後直接預覽該彩蛋動畫
+- 大富翁在測試房裡、網址加 `?egg=<動畫key>`：開局 3 秒後直接預覽該彩蛋動畫（襲擊：`?egg=raid` 搶錢版、`?egg=raidBld` 砸房版，依房間主題）
+- 襲擊規則（mono-rules.js 的 RAID）：第 31 回合起每 3 回合；挑存活人數×40%（5 人＝前 2 名）裡資產高於平均的人、按超出平均多少加權；扣現金 20～30%，現金低於 1 萬改成隨機一塊地降一級；第 28 回合預告
 
 ## 設計原則（使用者的固定要求）
 - 規則要鎖死、防呆，畫面直覺；手機（iPhone／Samsung）優先

@@ -406,7 +406,7 @@
             case 'buy': SFX.build(); b.mood(e.seat, 'joy', 900); this.fx(`買下！`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 買下 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'good'); this.syncBoard(false, true); await sleep(500); break;
             case 'buyout': SFX.build(); SFX.lose(); b.mood(e.seat, 'joy', 1200); b.mood(e.from, 'sad', 1200); this.fx('強制收購！', 'gain big', null, e.tile); this.feed(`${this.who(e.seat)} 花 <b>${$(e.amt)}</b> 收購了 ${this.who(e.from)} 的 <b>${U.esc(R().tileName(v.theme, e.tile))}</b>`, 'big'); this.syncBoard(false, true); await sleep(900); break;
             case 'up': SFX.build(); this.fx(e.free ? '免費升級！' : `升級 Lv${e.level}`, 'gain', null, e.tile); this.feed(`${this.who(e.seat)} 把 <b>${U.esc(R().tileName(v.theme, e.tile))}</b> 蓋到 Lv${e.level}`, 'good'); this.syncBoard(false, true); await sleep(600); break;
-            case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); this.syncBoard(false, true); await sleep(600); break;
+            case 'down': SFX.lose(); b.mood(e.seat, 'scared', 900); this.fx(`建築被毀 Lv${e.level}`, 'loss', null, e.tile); if (e.raid) this.feed(`${this.who(e.seat)} 的 <b>${U.esc(R().tileName(v.theme, e.tile))}</b> 被打掉一層（剩 Lv${e.level}）`, 'pay'); this.syncBoard(false, true); await sleep(e.raid ? 1000 : 600); break;
             case 'sell': this.fx(e.what === 'land' ? '被迫賣地' : '被迫賣房', 'loss', null, e.tile); this.feed(`${this.who(e.seat)} 錢不夠，被迫${e.what === 'land' ? '賣掉' : '拆掉'} <b>${U.esc(R().tileName(v.theme, e.tile))}</b>${e.what === 'land' ? '' : ' 的建築'}`, 'pay'); this.syncBoard(false, true); await sleep(400); break;
             case 'card': if (window.gameLog) window.gameLog(`${this.who(e.seat)} 抽到${e.deck === 'luck' ? '好運' : '厄運'}卡：${U.esc(e.text)}`); await this.showCard(e); break;
             case 'quiz': {
@@ -479,7 +479,7 @@
                 break;
               }
               this.feed(`💥 ${this.who(e.seat)} 破產了！`, 'big'); SFX.doom(); b.mood(e.seat, 'fall'); this.fx('💥 破產了', 'loss big', e.seat); await b.shake(e.seat); await sleep(800); break;
-            case 'hound': this.feed(`🐺 魔狗突襲 ${this.who(e.seat)}！`, 'big'); if (root.MONO_EGGS && root.MONO_EGGS.hound) await root.MONO_EGGS.hound.call(this, SFX, { seat: e.seat }); break;
+            case 'hound': { const RI = (R().RAID_INFO || {})[v.theme] || { icon: '🐺', who: '魔狗' }; this.feed(`${RI.icon} ${RI.who}襲擊 ${this.who(e.seat)}！${e.mode === 'bld' ? '（現金不夠，改砸房子）' : ''}`, 'big'); const egg = root.MONO_EGGS && (root.MONO_EGGS.raid || root.MONO_EGGS.hound); if (egg) await egg.call(this, SFX, { seat: e.seat, mode: e.mode || 'cash', tile: e.tile }); break; }
             case 'alert': this.feed(U.esc(e.text), 'big'); this.fx(e.text, 'loss big', v.turn); SFX.doom && SFX.doom(); await sleep(1500); break;
             case 'note': if (e.poor) SFX.tone && SFX.tone(220, 0.25, { type: 'triangle', vol: 0.07, glide: 160 }); this.fx(e.text, e.poor ? 'loss' : '', e.seat); if (e.feed && e.seat === v.seat) this.feed(`💡 ${U.esc(e.text)}`, ''); await sleep(e.feed ? 1200 : 600); break;
           }
