@@ -209,7 +209,7 @@
     // 排線：額頭橫紋、臉頰斜線、陰影區密排
     g.strokeStyle = INK; g.lineCap = 'round';
     const hatch = (x0, y0, x1, y1, n, ang, len, w) => { for (let i = 0; i < n; i++) { const x = lerp(x0, x1, r()), y = lerp(y0, y1, r()), a = ang + (r() - 0.5) * 0.35, l = len * (0.6 + r() * 0.7); g.lineWidth = w * (0.6 + r() * 0.8); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); } };
-    hatch(120, 50, 300, 120, 110, 0.05, 40, 2.4); hatch(280, 130, 390, 380, 240, 1.25, 38, 2.8); hatch(20, 170, 120, 380, 180, 1.9, 36, 2.8); hatch(130, 370, 290, 455, 120, 1.57, 26, 2.4); hatch(110, 220, 170, 330, 60, 1.75, 30, 2); hatch(250, 220, 310, 330, 60, 1.4, 30, 2);
+    hatch(130, 60, 290, 115, 60, 0.05, 40, 2.4); hatch(290, 150, 385, 370, 130, 1.25, 38, 2.8); hatch(25, 180, 115, 370, 100, 1.9, 36, 2.8); hatch(140, 380, 280, 450, 60, 1.57, 24, 2.4);
     g.strokeStyle = PEACH; hatch(100, 136, 200, 150, 14, -0.35, 30, 2); hatch(220, 136, 320, 150, 14, 0.35, 30, 2); hatch(60, 240, 100, 300, 14, 1.6, 24, 1.6); g.strokeStyle = INK;
     for (let i = 0; i < 16; i++) { g.lineWidth = 2.5; g.beginPath(); g.moveTo(150 + i * 8, 60 + Math.abs(i - 8) * 3); g.quadraticCurveTo(210, 40, 270 - i * 2, 70); g.stroke(); }
     // 眉骨：粗黑、皺起來
@@ -237,7 +237,7 @@
     g.save(); g.translate(x, y); g.rotate(rot); g.scale(s * (flip ? -1 : 1), s); const r = seeded(5);
     g.fillStyle = MAG; g.strokeStyle = INK; g.lineWidth = 5; g.beginPath(); g.moveTo(-60, -40); for (let k = 0; k < 4; k++) g.quadraticCurveTo(-60 + k * 30 + 15, -64, -30 + k * 30, -40); g.quadraticCurveTo(70, 10, 40, 60); g.lineTo(-50, 60); g.quadraticCurveTo(-80, 10, -60, -40); g.closePath(); g.fill(); g.stroke();
     g.lineWidth = 3; for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(-60 + k * 30, -42); g.lineTo(-56 + k * 30, -4); g.stroke(); } g.beginPath(); g.moveTo(-60, 0); g.quadraticCurveTo(0, 14, 50, 0); g.stroke();
-    g.fillStyle = MAGD; g.beginPath(); g.moveTo(-50, 60); g.quadraticCurveTo(-78, 20, -62, -10); g.lineTo(-30, 30); g.closePath(); g.fill(); for (let i = 0; i < 60; i++) { const xx = -55 + r() * 100, yy = -30 + r() * 86; g.lineWidth = 2.4; g.beginPath(); g.moveTo(xx, yy); g.lineTo(xx + 6, yy + 14); g.stroke(); }
+    g.fillStyle = MAGD; g.beginPath(); g.moveTo(-50, 60); g.quadraticCurveTo(-78, 20, -62, -10); g.lineTo(-30, 30); g.closePath(); g.fill(); for (let i = 0; i < 22; i++) { const xx = -50 + r() * 90, yy = 10 + r() * 44; g.lineWidth = 2.4; g.beginPath(); g.moveTo(xx, yy); g.lineTo(xx + 6, yy + 14); g.stroke(); }
     g.restore();
   }
   // 閃電放射背景（黑底＋桃膚色鋸齒閃電）
@@ -249,7 +249,7 @@
   }
   function jungle(g, W, Hh, t, sway, U) {
     g.fillStyle = PEACH; g.fillRect(-40, -40, W + 80, Hh + 80); const r = seeded(23);
-    for (let i = 0; i < 34; i++) { const side = i % 3, x = side === 0 ? r() * W : side === 1 ? r() * W * 0.18 : W - r() * W * 0.18, y = side === 0 ? r() * Hh * 0.16 : r() * Hh * 0.8, s = (70 + r() * 90) * U, a = (side === 1 ? 0 : side === 2 ? 3.14 : 1.57) + (r() - 0.5) * 1.6 + Math.sin(t * 9 + i) * sway * 0.25;
+    for (let i = 0; i < 15; i++) { const side = i % 3, x = side === 0 ? (i / 15) * W + r() * 40 * U : side === 1 ? r() * W * 0.1 : W - r() * W * 0.1, y = side === 0 ? r() * Hh * 0.08 : Hh * 0.1 + r() * Hh * 0.5, s = (70 + r() * 90) * U, a = (side === 1 ? 0 : side === 2 ? 3.14 : 1.57) + (r() - 0.5) * 1.6 + Math.sin(t * 9 + i) * sway * 0.25;
       g.save(); g.translate(x + Math.sin(t * 13 + i) * sway * 8 * U, y); g.rotate(a); g.fillStyle = INK; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(s * 0.5, -s * 0.35, s, 0); g.quadraticCurveTo(s * 0.5, s * 0.35, 0, 0); g.fill(); g.strokeStyle = PEACH; g.lineWidth = 2 * U; g.beginPath(); g.moveTo(0, 0); g.lineTo(s * 0.9, 0); g.stroke(); g.restore(); }
     g.fillStyle = INK; g.fillRect(-40, Hh * 0.82, W + 80, Hh); g.strokeStyle = PEACH; g.lineWidth = 2 * U; for (let x = 0; x < W; x += 14 * U) { g.beginPath(); g.moveTo(x, Hh * 0.84); g.lineTo(x + 8 * U, Hh * 0.9); g.stroke(); }
   }
@@ -269,13 +269,14 @@
         g.save(); g.translate(cx + Math.sin(t * 37) * 6 * U, Hh * 0.47); g.rotate(Math.sin(t * 23) * 0.03); g.drawImage(img, -210 * sc, -240 * sc, 420 * sc, 470 * sc); g.restore();
         g.strokeStyle = INK; g.lineWidth = 4 * U; for (let i = 0; i < 26; i++) { const a = i / 26 * 6.283 + t, r0 = Math.hypot(W, Hh) * (0.42 + ((t * 2 + i * 0.37) % 1) * 0.1); g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, Hh * 0.5 + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * (r0 + 120 * U), Hh * 0.5 + Math.sin(a) * (r0 + 120 * U)); g.stroke(); }
       } else {
-        const sway = t < 1.1 ? clamp(t / 0.3) : clamp((t - 2.75) / 0.3) * 0.6; jungle(g, W, Hh, t, sway, U); shake(g, t < 1.1 ? (Math.sin(t * 9) > 0.7 ? 4 * U : 0) : (t > 3.2 && t < 3.6 ? 10 * U : 0));
+        if (t < 1.1) jungle(g, W, Hh, t, clamp(t / 0.3), U);
+        else { bolts(g, W, Hh, cx, Hh * 0.3, t * 0.4, 1); g.fillStyle = 'rgba(12,6,8,.45)'; g.fillRect(-40, -40, W + 80, Hh + 80); g.fillStyle = INK; g.fillRect(-40, Hh * 0.82, W + 80, Hh); g.strokeStyle = PEACH; g.lineWidth = 2 * U; for (let x = 0; x < W; x += 14 * U) { g.beginPath(); g.moveTo(x, Hh * 0.84); g.lineTo(x + 8 * U, Hh * 0.9); g.stroke(); } } shake(g, t < 1.1 ? (Math.sin(t * 9) > 0.7 ? 4 * U : 0) : (t > 3.2 && t < 3.6 ? 10 * U : 0));
         // 遠景：猩猩（大頭＋兩個拳頭）——第 2.75 秒後從上方壓下來
-        if (t >= 2.75) { const rise = eout((t - 2.75) / 0.3), out = ein((t - 5.0) / 0.8), hx = cx, hy = lerp(-Hh * 0.3, Hh * 0.28, rise) - out * Hh * 0.5, hs = U * 0.78;
+        if (t >= 2.75) { const rise = eout((t - 2.75) / 0.3), out = ein((t - 5.0) / 0.8), hx = cx, hy = lerp(-Hh * 0.3, Hh * 0.26, rise) - out * Hh * 0.5, hs = U * 0.72;
           const jaw = t < 3.9 ? 0.25 : 0.5 + Math.sin(t * 20) * 0.2; g.drawImage(gorillaHead(jaw), hx - 210 * hs, hy - 240 * hs, 420 * hs, 470 * hs);
           // 拳頭：搶錢版右拳橫掃、砸房版雙拳一起砸；之後捶胸
           const beat = t > 3.9 ? Math.sin(t * 20) : 0, fs = U * 0.9;
-          let lx = hx - 180 * U, ly = hy + 190 * U + (beat > 0 ? beat * 20 * U : 0), rx = hx + 180 * U, ry = hy + 190 * U + (beat < 0 ? -beat * 20 * U : 0), lr = 0.2, rr = -0.2;
+          let lx = hx - 200 * U, ly = hy + 200 * U + (beat > 0 ? beat * 20 * U : 0), rx = hx + 200 * U, ry = hy + 200 * U + (beat < 0 ? -beat * 20 * U : 0), lr = 0.2, rr = -0.2;
           if (bld && t > 2.95 && t < 3.9) { const up = ease((t - 2.95) / 0.25), dn = ein((t - 3.15) / 0.15), back = ease((t - 3.5) / 0.4); ly = ry = hy + 190 * U - up * 120 * U + dn * (gy - 200 * U - hy - 70 * U) * (1 - back); lx = cx - 70 * U; rx = cx + 70 * U; lr = 3.14; rr = 3.14; }
           if (!bld && t > 2.95 && t < 3.9) { const k = clamp((t - 2.95) / 0.45); rx = lerp(hx + 220 * U, hx - 320 * U, ein(k)); ry = lerp(hy + 150 * U, gy - 140 * U, Math.sin(k * Math.PI) * 1.2 > 1 ? 1 : Math.sin(k * Math.PI) * 1.2); rr = -1.2 + k * 0.6; }
           fist(g, lx, ly, fs, lr, false); fist(g, rx, ry, fs, rr, true);
@@ -421,12 +422,15 @@
       g.strokeStyle = '#c8a870'; g.lineWidth = 1; for (let k = 0; k < n / 2; k++) { const u = r() * 2 - 1; g.beginPath(); g.moveTo(x0 + Math.cos(a) * w * u, y0 + Math.sin(a) * w * u); g.lineTo(x1 + Math.cos(a) * w * 0.8 * u, y1 + Math.sin(a) * w * 0.8 * u); g.stroke(); } };
     const split = o.split || 0;
     straw(-20, -10, -30, 90, 14, 14); straw(20, -10, 30, 90, 14, 14); // 腿
-    if (split > 0) { g.save(); g.translate(-split * 18, 0); g.rotate(-split * 0.2); } straw(0, -120, 0 - 2, 0, 40, 30); if (split > 0) g.restore();
+    straw(0, -120, 0 - 2, 0, 40, 30);
     straw(-90, -95, 90, -95, 14, 22); // 手臂
     g.fillStyle = '#94763e'; g.beginPath(); g.ellipse(0, -150, 34, 38, 0, 0, 7); g.fill(); g.strokeStyle = '#a88a52'; g.lineWidth = 1.4; for (let k = 0; k < 26; k++) { const a = r() * 6.28, l = 6 + r() * 20, ex = [[-90, -95], [90, -95], [-30, 90], [30, 90], [0, -188]][k % 5]; g.beginPath(); g.moveTo(ex[0], ex[1]); g.lineTo(ex[0] + Math.cos(a) * l, ex[1] + Math.sin(a) * l); g.stroke(); } // 戳出來的亂草 g.strokeStyle = '#6a4a22'; g.lineWidth = 1.3; for (let k = 0; k < 22; k++) { const a = r() * 6.28; g.beginPath(); g.moveTo(Math.cos(a) * 8, -150 + Math.sin(a) * 8); g.lineTo(Math.cos(a) * 34, -150 + Math.sin(a) * 38); g.stroke(); }
     g.strokeStyle = '#a8141a'; g.lineWidth = 5; [[-118, 40], [-40, 46], [-10, 38]].forEach(([yy, w]) => { g.beginPath(); g.moveTo(-w * 0.9, yy); g.lineTo(w * 0.9, yy + 3); g.stroke(); }); [-80, 80].forEach(xx => { g.beginPath(); g.moveTo(xx, -108); g.lineTo(xx + 4, -82); g.stroke(); });
+    // 肚子裂開：中間一道黑色裂口，兩側亂草翹出來（軀幹本身不動）
+    if (split > 0) { const w = split * 16; g.fillStyle = '#120804'; g.beginPath(); g.moveTo(0, -96); for (let k = 0; k <= 6; k++) g.lineTo(-w * Math.sin(k / 6 * Math.PI) - (k % 2) * 3, -96 + k * 14); for (let k = 6; k >= 0; k--) g.lineTo(w * Math.sin(k / 6 * Math.PI) + (k % 2) * 3, -96 + k * 14); g.fill();
+      g.strokeStyle = '#a88a52'; g.lineWidth = 1.4; for (let k = 0; k < 12; k++) { const y = -90 + k * 7, sd = k % 2 ? 1 : -1, x = sd * w * Math.sin((y + 96) / 84 * Math.PI); g.beginPath(); g.moveTo(x, y); g.lineTo(x + sd * (6 + split * 8), y - 4); g.stroke(); } }
     // 黃符：紅色符紋（不是字）
-    g.save(); g.translate(0, -64); g.rotate(-0.05); g.fillStyle = '#e8c84a'; g.fillRect(-20, -34, 40, 70); g.strokeStyle = '#b8141a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(-10, -26); g.bezierCurveTo(10, -22, -12, -10, 8, -4); g.bezierCurveTo(-12, 4, 12, 10, -6, 18); g.moveTo(-12, 26); g.quadraticCurveTo(0, 20, 12, 28); g.moveTo(10, -28); g.lineTo(12, -14); g.stroke(); g.beginPath(); g.arc(0, -12, 4, 0, 7); g.stroke(); g.restore();
+    g.save(); g.translate(-split * 26, -64 + split * 8); g.rotate(-0.05 - split * 0.5); g.fillStyle = '#e8c84a'; g.fillRect(-20, -34, 40, 70); g.strokeStyle = '#b8141a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(-10, -26); g.bezierCurveTo(10, -22, -12, -10, 8, -4); g.bezierCurveTo(-12, 4, 12, 10, -6, 18); g.moveTo(-12, 26); g.quadraticCurveTo(0, 20, 12, 28); g.moveTo(10, -28); g.lineTo(12, -14); g.stroke(); g.beginPath(); g.arc(0, -12, 4, 0, 7); g.stroke(); g.restore();
     // 已經扎進去的針
     (o.needles || []).forEach(([nx, ny, na]) => { g.strokeStyle = '#d8dce4'; g.lineWidth = 2; g.beginPath(); g.moveTo(nx, ny); g.lineTo(nx + Math.cos(na) * 70, ny + Math.sin(na) * 70); g.stroke(); g.fillStyle = '#c81a1a'; g.beginPath(); g.arc(nx + Math.cos(na) * 70, ny + Math.sin(na) * 70, 4, 0, 7); g.fill(); });
     g.restore();
@@ -495,7 +499,7 @@
     const wa = o.wand || 0; if (body) { limb(g, 34, -210, 70 - wa * 10, -150 - wa * 110, 9, 7); limb(g, -34, -210, -60, -130, 9, 7); }
     const wx = 70 - wa * 10, wy = -150 - wa * 110, tx2 = wx + 30 - wa * 22, ty2 = wy - 40 - wa * 20; if (body) { g.strokeStyle = '#1a1420'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(wx, wy); g.lineTo(tx2, ty2); g.stroke(); }
     // 骨白面具＋發紫光的眼縫
-    const mg = g.createLinearGradient(-20, -280, 20, -230); mg.addColorStop(0, '#e8e2d4'); mg.addColorStop(1, '#8a8478'); g.fillStyle = mg; g.globalAlpha = form; g.beginPath(); g.ellipse(0, -254, 20, 27, 0, 0, 7); g.fill(); g.globalAlpha = 1;
+    const mg = g.createLinearGradient(-20, -280, 20, -230); mg.addColorStop(0, '#e8e2d4'); mg.addColorStop(1, '#8a8478'); g.fillStyle = mg; const a0 = g.globalAlpha; g.globalAlpha = a0 * form; g.beginPath(); g.ellipse(0, -254, 20, 27, 0, 0, 7); g.fill(); g.globalAlpha = a0;
     const ey = o.eyes || 0; if (ey > 0) { g.globalCompositeOperation = 'lighter'; g.shadowColor = '#b04aff'; g.shadowBlur = 16; g.fillStyle = `rgba(210,150,255,${ey})`; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 8, -258, 6, 2, sd * -0.25, 0, 7); g.fill(); }); }
     g.restore(); return [x + tx2 * s, y + ty2 * s];
   }
