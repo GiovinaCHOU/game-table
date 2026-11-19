@@ -344,7 +344,6 @@
         sparks.forEach(p => { const a = ((t - 3.2) * 2 + p.d * 3) % 0.5; g.fillStyle = `rgba(255,${200 + p.s * 50},120,${1 - a * 2})`; g.fillRect(tx + p.vx * a * 300 * U, ty + 40 * U + p.vy * a * 200 * U + a * a * 300 * U, 3 * U, 3 * U); }); }
       // 散開後：錢包被掏空，幾枚硬幣在積水上滾
       if (!bld && t > 4.3) coins.forEach((c, i) => { const a = t - 4.3 - c.d; if (a < 0) return; const x = tx + (i - 3) * 22 * U + c.vx * Math.min(a, 1.2) * 70 * U, y = gy - 6 * U + Math.abs(Math.sin(a * 6 + i)) * 12 * U * Math.max(0, 1 - a); coin(g, x, y, 7 * U, a * 8 + c.sp, 1); });
-      if (!bld && t > 4.3) { g.fillStyle = '#d8d0e8'; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(tx + sd * 24 * U, gy - 90 * U, 6 * U, 9 * U, 0, 0, 7); g.fill(); }); } // 翻出來的空口袋
       // 招牌掉下來（砸房版）
       if (bld && t > 3.95) { const k = ein((t - 3.95) / 0.35), sy = lerp(ty - 10 * U, gy - 20 * U, k); g.save(); g.translate(tx + 30 * U * k, sy); g.rotate(k * 0.5); g.strokeStyle = k < 1 ? '#ff3ab0' : '#5a2a4a'; g.lineWidth = 4 * U; g.strokeRect(-50 * U, -14 * U, 100 * U, 28 * U); g.restore();
         g.strokeStyle = '#1a1a24'; g.lineWidth = 2 * U; for (let k2 = 0; k2 < 3; k2++) { g.beginPath(); g.moveTo(tx - 40 * U + k2 * 40 * U, ty - 60 * U); g.quadraticCurveTo(tx - 30 * U + k2 * 40 * U + Math.sin(t * 5 + k2) * 10 * U, ty + 10 * U, tx - 35 * U + k2 * 40 * U, ty + 40 * U); g.stroke(); } }

@@ -179,10 +179,13 @@
     render(el, v, ui) {
       R().useLayout(v.layout);
       if (v.seat >= 0 && v.turn === v.seat && ['buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase)) { const k = v.evId + ':' + v.phase; if (this._decKey !== k) { this._decKey = k; this._decAt = Date.now(); } }
-      this.ui = ui; this.v = v;
+      const prev = this.v; this.ui = ui; this.v = v;
       const lk = (v.layout || []).join(','); // 這局的地圖排列（每個玩家畫面都要先切過來）
       if (el.dataset.g !== 'monopoly' || this._theme !== v.theme || this._layoutKey !== lk) { this._layoutKey = lk; this.build(el, v); }
       el.classList.toggle('dim-bg', false);
+      // 上方玩家列（輪到誰的亮框、現金、總資產）跟著動畫走：新的一批動畫還沒播完前先維持舊畫面，扣款／入帳在播到那一步時才變，換人等鏡頭切過去才換
+      const fresh = v.evId !== this._evId && this.board && this.board.ready && v.phase !== 'pick' && prev && prev.phase !== 'pick' && prev.players && (v.ev || []).length;
+      if (fresh && !this._hud) this._hud = this.hudSnap(prev); else if (!fresh && !this._backlog) this._hud = null;
       this.renderHud(); this.renderPick();
       if (v.phase === 'pick') { this.showPrompt(); return; }
       if (!this.board || !this.board.ready) { this._pendingSync = true; return; }
@@ -190,14 +193,14 @@
         const evs = v.ev.slice(); this._evId = v.evId; this._backlog = (this._backlog || 0) + 1;
         // 還有後面的動畫在排隊時，不要先把棋子擺到最新位置（不然會先跳過去、再倒退重播）
         const gen = this._gen;
-        this.queue = this.queue.then(() => gen === this._gen ? this.play(evs) : null).then(() => { this._backlog--; return this._backlog ? null : this.holdCam(); }).then(() => { if (!this._backlog) this.syncBoard(); }).catch(e => { this._backlog = Math.max(0, this._backlog - 1); console.error(e); });
+        this.queue = this.queue.then(() => gen === this._gen ? this.play(evs) : null).then(() => { this._backlog--; return this._backlog ? null : this.holdCam(); }).then(() => { if (!this._backlog) { this.syncBoard(); this.hudDone(); } }).catch(e => { this._backlog = Math.max(0, this._backlog - 1); if (!this._backlog) this.hudDone(); console.error(e); });
       } else if (!this.playing) this.syncBoard();
       this.queue.then(() => { if (!this._backlog) this.showPrompt(); });
     },
-    destroy() { this._gen = (this._gen || 0) + 1; this._backlog = 0; if (this.board) this.board.dispose(); if (this._booting) this._booting.dispose(); this.board = null; this._theme = null; },
+    destroy() { this._gen = (this._gen || 0) + 1; this._backlog = 0; this._hud = null; if (this.board) this.board.dispose(); if (this._booting) this._booting.dispose(); this.board = null; this._theme = null; },
     build(el, v) {
       if (this.board) this.board.dispose();
-      this.board = null; this._theme = v.theme; this._evId = v.evId; this.queue = Promise.resolve(); this._backlog = 0; this.playing = false;
+      this.board = null; this._theme = v.theme; this._evId = v.evId; this.queue = Promise.resolve(); this._backlog = 0; this._hud = null; this.playing = false;
       el.dataset.g = 'monopoly';
       const th = TH()[v.theme];
       el.innerHTML = `
@@ -244,8 +247,12 @@
     quality() { try { return localStorage.getItem('mono-q') || ((navigator.hardwareConcurrency || 4) <= 4 ? 'low' : 'high'); } catch (e) { return 'high'; } },
     canAct(phase) { const v = this.v; return v && v.seat >= 0 && v.turn === v.seat && v.phase === phase && !this.playing; },
 
+    // 玩家列的延遲快照：只留會變動的欄位，其他（名字、主題…）用最新狀態
+    hudSnap(p) { return { players: p.players.map(x => Object.assign({}, x)), assets: p.assets ? p.assets.map(x => Object.assign({}, x)) : p.assets, turn: p.turn, phase: p.phase, round: p.round, infl: p.infl }; },
+    hudAdj(s, d, dead) { const h = this._hud; if (!h || !h.players[s]) return; const p = h.players[s]; p.cash = Math.max(0, p.cash + d); if (h.assets && h.assets[s]) { h.assets[s].total += d; if (h.assets[s].cash != null) h.assets[s].cash = Math.max(0, h.assets[s].cash + d); } if (dead) p.alive = false; if (this.el) this.renderHud(); },
+    hudDone() { if (!this._hud) return; this._hud = null; if (this.el && this.v) this.renderHud(); },
     renderHud() {
-      const v = this.v, hud = this.el.querySelector('.mono-hud'); const unit = TH()[v.theme].unit;
+      const v = this._hud ? Object.assign({}, this.v, this._hud) : this.v, hud = this.el.querySelector('.mono-hud'); const unit = TH()[v.theme].unit;
       hud.innerHTML = v.players.map((p, s) => `
         <div class="mp ${s === v.turn && v.phase !== 'over' ? 'turn' : ''} ${p.alive ? '' : 'dead'}" data-s="${s}">
           ${this.faceHTML(v, s, 34)}
@@ -255,7 +262,7 @@
       hud.querySelectorAll('.mp').forEach(d => d.onclick = () => this.assetInfo(+d.dataset.s));
       this.renderItems();
       const info = this.el.querySelector('.mono-info');
-      info.innerHTML = v.phase === 'over' ? '' : `第 ${v.round}${v.maxRounds && v.maxRounds < 900 ? '/' + v.maxRounds : ''} 回合${v.maxRounds === 0 ? '（有人破產就結束）' : ''}${v.infl > 1 ? ` · 過路費 ×${v.infl.toFixed(1)}` : ''} · 輪到 <b>${U.esc(v.names[v.turn])}</b> <span class="timer" data-deadline="${v.deadline || ''}"></span>`;
+      info.innerHTML = v.phase === 'over' ? '' : `第 ${v.round}${v.maxRounds && v.maxRounds < 900 ? '/' + v.maxRounds : ''} 回合${v.maxRounds === 0 ? '（有人破產就結束）' : ''}${v.infl > 1 ? ` · 過路費 ×${v.infl.toFixed(1)}` : ''} · 輪到 <b>${U.esc(v.names[v.turn])}</b> ${this._hud ? '' : `<span class="timer" data-deadline="${v.deadline || ''}"></span>`}`;
     },
     renderPick() {
       const v = this.v, box = this.el.querySelector('.mono-pick');
@@ -389,15 +396,16 @@
       try {
         for (const e of evs) {
           // 追進度：後面還有排隊的畫面時（手機慢、網路一次送來好幾批），這批只記錄不播動畫，讓最新的提示框盡快出現
-          if (this._backlog > 1 && e.t !== 'bankrupt') { this.quickLog(e, $, why); continue; }
+          if (this._backlog > 1 && e.t !== 'bankrupt' && e.t !== 'quizres') { this.quickLog(e, $, why); continue; }
           if (e.t === 'bankrupt') this.cine(true);
           if (!this.board) break;
           switch (e.t) {
             case 'dice': this.closeCard(); this.ungrey(); if (!this._camFree) b.focusSeat(e.seat, true); await this.rollDice(e.d); break;
             case 'move': await b.hop(e.seat, e.path, watch(e.seat)); break;
             case 'tp': if (e.gate && this._gateShown) { this._gateShown = false; } else if (e.gate) { this.feed(`🌀 ${this.who(e.seat)} 穿越星門 → <b>${U.esc(R().tileName(v.theme, e.to))}</b>`, 'big'); await this.stargate(); } await b.teleport(e.seat, e.to, watch(e.seat)); break;
-            case 'cash': if (!e.boost && window.gameLog) window.gameLog(`${this.who(e.seat)} 獲得 <b class="g">+${$(e.amt)}</b>${U.esc(why(e.why))}`); SFX.coin(); this.fx(`+${$(e.amt)}${why(e.why)}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${$(e.amt)}</b>`, 'good'); await sleep(450); break;
+            case 'cash': this.hudAdj(e.seat, e.amt); if (!e.boost && window.gameLog) window.gameLog(`${this.who(e.seat)} 獲得 <b class="g">+${$(e.amt)}</b>${U.esc(why(e.why))}`); SFX.coin(); this.fx(`+${$(e.amt)}${why(e.why)}`, 'gain', e.seat); b.jumpJoy(e.seat); if (e.boost) this.feed(`${this.who(e.seat)} 落後補助 <b class="g">+${$(e.amt)}</b>`, 'good'); await sleep(450); break;
             case 'pay':
+              this.hudAdj(e.from, -e.amt); if (e.to >= 0) this.hudAdj(e.to, e.amt);
               SFX.lose(); b.mood(e.from, 'sad', 1300); this.fx(`-${$(e.amt)}${why(e.why)}`, 'loss', e.from); if (e.to >= 0) b.mood(e.to, 'joy', 900);
               if (e.to >= 0) setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.to), 300);
               if (e.to >= 0) this.feed(`${this.who(e.from)} 付給 ${this.who(e.to)} <b class="r">${$(e.amt)}</b>${U.esc(why(e.why))}${e.tile != null ? `<small>（${U.esc(R().tileName(v.theme, e.tile))}）</small>` : ''}`, 'pay');
@@ -424,7 +432,7 @@
               if (e.blocked) { SFX.glory(); b.itemFx(e.k, null, e.target, true); b.mood(e.target, 'joy', 1200); this.fx(`${this.itemName('shield')} 擋下了！`, 'gain big', e.target); this.feed(`${tg} 的 <b>${U.esc(this.itemName('shield'))}</b> 擋下了攻擊`, 'good'); await sleep(1300); break; }
               if (e.k === 'bomb') { SFX.thunder(); this.vfx('doom'); b.itemFx('bomb', e.tile); b.mood(e.target, 'scared', 1400); this.syncBoard(false, true); this.fx(`建築降到 Lv${e.level}`, 'loss', null, e.tile); }
               else if (e.k === 'trap') { SFX.hiss(); b.itemFx('trap', null, e.target); b.mood(e.target, 'scared', 1400); this.fx('⏸ 下回合停一輪', 'loss', e.target); }
-              else if (e.k === 'steal') { SFX.coin(); b.itemFx('steal', null, e.target); b.mood(e.target, 'sad', 1300); b.mood(e.seat, 'joy', 1300); this.fx(`-${$(e.amt)}`, 'loss', e.target); setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.seat), 400); }
+              else if (e.k === 'steal') { this.hudAdj(e.target, -e.amt); this.hudAdj(e.seat, e.amt); SFX.coin(); b.itemFx('steal', null, e.target); b.mood(e.target, 'sad', 1300); b.mood(e.seat, 'joy', 1300); this.fx(`-${$(e.amt)}`, 'loss', e.target); setTimeout(() => this.fx(`+${$(e.amt)}`, 'gain', e.seat), 400); }
               else if (e.k === 'invest') { SFX.build(); b.itemFx('invest', null, e.seat); this.fx(`第 ${e.due} 回合拿回 ${$(e.amt)}`, 'gain', e.seat); }
               await sleep(1400); break;
             }
@@ -483,6 +491,7 @@
             case 'alert': this.feed(U.esc(e.text), 'big'); this.fx(e.text, 'loss big', v.turn); SFX.doom && SFX.doom(); await sleep(1500); break;
             case 'note': if (e.poor) SFX.tone && SFX.tone(220, 0.25, { type: 'triangle', vol: 0.07, glide: 160 }); this.fx(e.text, e.poor ? 'loss' : '', e.seat); if (e.feed && e.seat === v.seat) this.feed(`💡 ${U.esc(e.text)}`, ''); await sleep(e.feed ? 1200 : 600); break;
           }
+          if (e.t === 'bankrupt') this.hudAdj(e.seat, 0, true);
         }
       } finally { this.playing = false; if (this._cine) this.cine(false); }
     },
@@ -816,7 +825,7 @@
           return `<button class="qz-o ${st}" data-c="${i}" ${mine && !answered(me) ? '' : 'disabled'}><span>${'ABCD'[i]}</span>${U.esc(o)}<i>${heads}</i></button>`; }).join('')}</div>
         ${res && res.note ? `<div class="qz-note">💡 ${U.esc(res.note)}</div>` : ''}
         <p class="qz-tip">${res ? (res.win ? `🎉 ${U.esc(v.names[pd.debtor])} 翻盤成功！不用付 ${fmt(pd.amt)} ${th.unit}` : `💀 ${U.esc(v.names[pd.debtor])} 翻盤失敗……`) + '<br><small>點一下繼續</small>' : mine ? (answered(me) ? '已送出，等對方……' : '搶答！比對方先答對就贏') : `賭注：${fmt(pd.amt)} ${th.unit} 過路費・破產者答對而且比收錢者快，就免付、不出局`}</p></div>`;
-      box.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (b.disabled) return; this.ui.send({ type: 'answer', c: +b.dataset.c }); box.querySelectorAll('[data-c]').forEach(x => x.disabled = true); b.classList.add('pick'); SFX.step(); });
+      box.querySelectorAll('[data-c]').forEach(b => b.onclick = (ev) => { ev.stopPropagation(); if (b.disabled) return; this.ui.send({ type: 'answer', c: +b.dataset.c }); box.querySelectorAll('[data-c]').forEach(x => x.disabled = true); b.classList.add('pick'); SFX.step(); });
     },
     now() { try { return root.Room && root.Room.serverNow ? root.Room.serverNow() : Date.now(); } catch (e) { return Date.now(); } },
     async quizReveal(e) {
@@ -825,7 +834,7 @@
       if (e.win) { SFX.glory(); this.vfx('glory'); this.board && this.board.mood(e.debtor, 'joy', 2000); this.board && this.board.mood(e.cred, 'sad', 2000); }
       else { SFX.doom(); this.board && this.board.mood(e.debtor, 'scared', 2500); }
       // 小知識讓大家看完（約 6.5 秒），點一下可以先收起來
-      await new Promise(r => { const qz = this.el.querySelector('.mono-quiz'); const t = setTimeout(r, 6500); qz.onclick = () => { clearTimeout(t); r(); }; });
+      await new Promise(r => { const qz = this.el.querySelector('.mono-quiz'); const t = setTimeout(r, 6500); qz.onclick = null; setTimeout(() => { if (qz.isConnected && !qz.hidden) qz.onclick = () => { clearTimeout(t); r(); }; }, 2000); }); // 前 2 秒不能點掉（避免作答那一下直接把解答關掉）
       const qz0 = this.el && this.el.querySelector('.mono-quiz'); if (qz0) qz0.onclick = null;
       this._revealing = false; const qz = this.el && this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true;
     },

@@ -65,10 +65,10 @@
   const DOOM_BY_N = { 2: 18, 3: 21, 4: 25, 5: 27, 6: 29 };
   const doomRound = (st) => globalThis.__DOOM || DOOM_BY_N[st.n] || 25;
   const INF = (globalThis.__INF || { start: 6, rate: 0.1, max: 3 });
-  // 襲擊（全主題）：第 31 回合起每 3 回合（31、34、37…）一定出現，打「有錢人」其中一位
+  // 襲擊（全主題）：第 31 回合起每 3 回合（31、34、37…）擲一次，一半機率出現，打「有錢人」其中一位
   // 挑人：存活人數×40%（四捨五入、至少 1；5 人＝前 2 名）裡，總資產高於全員平均的人；機率照「超出平均多少」加權（剛好在平均附近幾乎不會被選）
   // 損失：現金 20～30%；現金低於 10,000 改成隨機一塊有建築的地降一級（沒有建築就照樣扣現金）；不會因此破產；厄運免疫可擋
-  const RAID = { round: 31, every: 3, top: 0.4, min: 0.2, max: 0.3, floor: 10000, warn: 3 };
+  const RAID = { round: 31, every: 3, p: 0.5, top: 0.4, min: 0.2, max: 0.3, floor: 10000, warn: 3 };
   const RAID_INFO = {
     town: { icon: '🐺', who: '魔狗', start: '倒影世界的魔狗開始出沒，會襲擊最有錢的人', why: '魔狗突襲' },
     ragnarok: { icon: '😈', who: '路西法', start: '路西法從地獄降臨，專挑最有錢的人下手', why: '路西法降臨' },
@@ -91,9 +91,10 @@
   }
   function houndRound(st) {
     const I = raidInfo(st.theme);
-    if (st.round === RAID.round - RAID.warn) ev(st, { t: 'alert', text: `${I.icon} ${RAID.warn} 回合後（第 ${RAID.round} 回合）${I.who}會出現，之後每 ${RAID.every} 回合一次，專打有錢人` });
+    if (st.round === RAID.round - RAID.warn) ev(st, { t: 'alert', text: `${I.icon} ${RAID.warn} 回合後（第 ${RAID.round} 回合）${I.who}會出現，之後每 ${RAID.every} 回合有一半機率出現，專打有錢人` });
     if (!raidAt(st.round)) return;
-    if (st.round === RAID.round) ev(st, { t: 'alert', text: `${I.icon} ${I.start}` });
+    if (Math.random() >= (globalThis.__RAID_P == null ? RAID.p : globalThis.__RAID_P)) return;
+    if (!st.raidSeen) { st.raidSeen = true; ev(st, { t: 'alert', text: `${I.icon} ${I.start}` }); }
     const k = raidPick(st); if (k < 0) return; const p = st.players[k];
     const blds = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === k && st.levels[t.i] > 0);
     const mode = p.cash < RAID.floor && blds.length ? 'bld' : 'cash', tile = mode === 'bld' ? blds[Math.floor(Math.random() * blds.length)].i : null;
