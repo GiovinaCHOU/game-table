@@ -46,6 +46,8 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - img/themes/<主題id>-0~2.jpg：主題背景圖｜img/pet0~3.png：拉密鬼牌（三隻貓＋鳥）
 - vendor/：peerjs、three.js（不改）
 - tools/bump.py：替 index.html 的 js/css 加版本號（避免手機吃到舊快取）
+- tools/mono-sim.js：大富翁平衡模擬器（`node tools/mono-sim.js 2000 現況 擲骰選擇`），含 5 種打法的聰明電腦；指標＝技巧差距、落後翻盤、路線勝率、破產回合
+- 平衡提案開關：mono-rules.js 的 BAL（讀 globalThis.__MONO_BAL，預設全關、現行規則不變）；boost 階段與抵押還沒有畫面，正式開啟前要先做 UI
 
 ## 上線流程
 1. 改完程式後執行 `python3 tools/bump.py`

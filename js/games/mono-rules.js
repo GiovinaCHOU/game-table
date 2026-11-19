@@ -68,6 +68,15 @@
   // 襲擊（全主題）：第 31 回合起每 3 回合（31、34、37…）擲一次，一半機率出現，打「有錢人」其中一位
   // 挑人：存活人數×40%（四捨五入、至少 1；5 人＝前 2 名）裡，總資產高於全員平均的人；機率照「超出平均多少」加權（剛好在平均附近幾乎不會被選）
   // 損失：現金 20～30%；現金低於 10,000 改成隨機一塊有建築的地降一級（沒有建築就照樣扣現金）；不會因此破產；厄運免疫可擋
+  // ===== 平衡實驗開關（預設全關，現行規則完全不變；tools/mono-sim.js 用它比較提案）=====
+  // setMul：L1 以上、同色兩塊都是自己的，過路費 ×倍數｜lagBuyout：資產低於平均 85% 的人，強制收購倍率改成這個值
+  // invest：{price, lo, hi} 投資售價與回收範圍（隨機）｜bombRent：轟炸後那塊地到下一回合結束都不收租
+  // boostChoice：落後補助改三選一（現金／免費道具／自選點數）｜pot：稅金與襲擊的錢進彩池，停到休息站領走
+  // buyoutMul：所有人的強制收購倍率（現行 1.4）
+  // diceChoice：每回合可選擲 1 顆或 2 顆骰子（act roll 帶 one: true）｜doomRate：末日通膨每回合加幾倍（現行 0.6）
+  // mortgage：擲骰前可抵押自己的地（拿地＋建築價值的一半、不收租、不能加蓋），贖回要付 110%
+  // 注意：boost 階段、抵押按鈕還沒有畫面，正式開啟前要先做 UI
+  const BAL = () => globalThis.__MONO_BAL || {};
   const RAID = { round: 31, every: 3, p: 0.5, top: 0.4, min: 0.2, max: 0.3, floor: 10000, warn: 3 };
   const RAID_INFO = {
     town: { icon: '🐺', who: '魔狗', start: '倒影世界的魔狗開始出沒，會襲擊最有錢的人', why: '魔狗突襲' },
@@ -102,21 +111,24 @@
     if (p.immune > 0) { p.immune--; ev(st, { t: 'note', seat: k, text: `🛡️ 厄運免疫擋下了${I.who}` }); return; }
     if (mode === 'bld') { st.levels[tile]--; ev(st, { t: 'down', tile, level: st.levels[tile], seat: k, raid: true }); return; }
     const lo = Math.ceil(p.cash * RAID.min / 100) * 100, hi = Math.max(lo, Math.floor(p.cash * RAID.max / 100) * 100), amt = Math.min(Math.max(0, Math.floor(p.cash / 100) * 100), Math.min(hi, Math.max(lo, Math.round(p.cash * (RAID.min + Math.random() * (RAID.max - RAID.min)) / 100) * 100))); // 20～30%，取整到百
-    if (amt > 0) pay(st, k, -1, amt, I.why);
+    if (amt > 0) { const got = pay(st, k, -1, amt, I.why); if (BAL().pot) st.pot = (st.pot || 0) + got; }
   }
-  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * 0.6); }
+  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * (BAL().doomRate || 0.6)); }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
-    if (lv === 0) { const same = BOARD.filter(b => b.type === 'prop' && b.g === t.g); if (same.every(b => st.owners[b.i] === st.owners[i])) r *= 2; }
+    const full = BOARD.filter(b => b.type === 'prop' && b.g === t.g).every(b => st.owners[b.i] === st.owners[i]);
+    if (lv === 0) { if (full) r *= 2; } else if (full && BAL().setMul) r = Math.round(r * BAL().setMul);
     return r;
   }
   function assets(st, s) {
     const a = { cash: st.players[s].cash, land: 0, bld: 0, tiles: [] };
     BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s) { a.land += t.price; a.bld += st.levels[t.i] * t.up; a.tiles.push(t.i); } });
-    a.total = a.cash + a.land + a.bld; return a;
+    a.debt = st.mort ? a.tiles.reduce((x, i) => x + (st.mort[i] || 0), 0) : 0;
+    a.total = a.cash + a.land + a.bld - a.debt; return a;
   }
   function worth(st, s) { return assets(st, s).total; }
-  const buyoutOf = (st, i) => Math.round((BOARD[i].price + st.levels[i] * BOARD[i].up) * BUYOUT_MUL / 100) * 100;
+  const buyoutOf = (st, i, s) => Math.round((BOARD[i].price + st.levels[i] * BOARD[i].up) * (s != null && BAL().lagBuyout && behind(st, s) ? BAL().lagBuyout : (BAL().buyoutMul || BUYOUT_MUL)) / 100) * 100;
+  function behind(st, s) { const al = alive(st); if (al.length < 2) return false; const avg = al.reduce((a, k) => a + worth(st, k), 0) / al.length; return worth(st, s) < avg * 0.85; }
   const alive = (st) => U.range(st.n).filter(s => st.players[s].alive);
 
   // ===== 角色屬性（幫派街區）：主題的 perks[角色].m；自畫角色、沒有 perks 的主題一律空物件 =====
@@ -140,7 +152,8 @@
         p.pos = pos; ev(st, { t: 'move', seat: s, path }); path = [];
         const m = perk(st, s), sb = m.startFixed || (m.startMul ? r100(START_BONUS * m.startMul) : START_BONUS);
         p.cash += sb; ev(st, { t: 'cash', seat: s, amt: sb, why: '經過起點' }); p.buildTicket = 1;
-        if (!m.noBoost && isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
+        if (!m.noBoost && isLast(st, s) && BAL().boostChoice) p.boostTicket = 1;
+        else if (!m.noBoost && isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
         if (m.startTrance && !p.trance) { p.trance = true; ev(st, { t: 'note', seat: s, feed: true, text: '🍄 看見未來：下一次擲骰自己選點數' }); }
       }
     }
@@ -170,7 +183,7 @@
   }
   function liquidate(st, s) {
     const p = st.players[s]; if (p.cash >= 0) return;
-    const mine = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s);
+    const mine = BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s && !(st.mort && st.mort[t.i]));
     // 先賣建築（半價），再賣地（半價）
     for (const t of mine.slice().sort((a, b) => st.levels[b.i] - st.levels[a.i])) {
       while (p.cash < 0 && st.levels[t.i] > 0) { st.levels[t.i]--; p.cash += Math.round(t.up / 2); ev(st, { t: 'sell', seat: s, tile: t.i, what: 'building' }); }
@@ -178,7 +191,7 @@
     for (const t of mine) { if (p.cash >= 0) break; st.owners[t.i] = -1; p.cash += Math.round(t.price / 2); ev(st, { t: 'sell', seat: s, tile: t.i, what: 'land' }); }
   }
   function canPay(st, s, amt) {
-    let v = st.players[s].cash; BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s) v += Math.round(t.price / 2) + st.levels[t.i] * Math.round(t.up / 2); });
+    let v = st.players[s].cash; BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s && !(st.mort && st.mort[t.i])) v += Math.round(t.price / 2) + st.levels[t.i] * Math.round(t.up / 2); });
     return v >= amt;
   }
   const QUIZ_MS = 10000;
@@ -217,7 +230,7 @@
     // 海洛因蒂：第一次要破產時被 Narcan 救回來（地產已經賣光，債務一筆勾銷，現金補到 revive）
     if (m.revive && !p.revived) { p.revived = true; p.cash = m.revive; ev(st, { t: 'revive', seat: s, amt: m.revive }); ev(st, { t: 'note', seat: s, feed: true, text: `💉 被 Narcan 救回來了！債務一筆勾銷，現金回到 ${m.revive.toLocaleString()}` }); st.anim += 2500; return; }
     p.alive = false;
-    BOARD.forEach(t => { if (st.owners[t.i] === s) { st.owners[t.i] = -1; st.levels[t.i] = 0; } });
+    BOARD.forEach(t => { if (st.owners[t.i] === s) { st.owners[t.i] = -1; st.levels[t.i] = 0; if (st.mort) delete st.mort[t.i]; } });
     ev(st, { t: 'bankrupt', seat: s, by: by >= 0 && st.players[by].alive ? by : -1 });
     st.anim += 12000; // 破產動畫
   }
@@ -366,9 +379,9 @@
   const ITEM_BASE = { invest: 1000, shield: 1500, trap: 2000, bomb: 2500, steal: 3000 }, ITEM_MULT = [1, 2, 3.5, 5], ITEM_RESET = 25;
   root.MONO_ITEMS.BASE = ITEM_BASE; root.MONO_ITEMS.MULT = ITEM_MULT; root.MONO_ITEMS.RESET = ITEM_RESET;
   function itemBought(st, s) { const p = st.players[s], era = Math.floor((st.round - 1) / ITEM_RESET); if (p.buyEra !== era) { p.buyEra = era; p.bought = 0; } return p.bought || 0; }
-  function itemPrice(st, s, k) { const n = itemBought(st, s); return Math.round(ITEM_BASE[k] * ITEM_MULT[Math.min(n, ITEM_MULT.length - 1)] * Math.min(3, inflation(st)) * (isLast(st, s) ? 0.5 : 1) / 100) * 100; }
+  function itemPrice(st, s, k) { const n = itemBought(st, s); return Math.round((k === 'invest' && BAL().invest ? BAL().invest.price : ITEM_BASE[k]) * ITEM_MULT[Math.min(n, ITEM_MULT.length - 1)] * Math.min(3, inflation(st)) * (isLast(st, s) ? 0.5 : 1) / 100) * 100; }
   // 投資：買道具的錢就是本金，3 回合後拿回 6,000（跟著通膨，最多 3 倍）
-  function investAmt(st) { return Math.round(6000 * Math.min(3, inflation(st)) / 100) * 100; }
+  function investAmt(st) { const v = BAL().invest, base = v ? v.lo + Math.random() * (v.hi - v.lo) : 6000; return Math.round(base * Math.min(3, inflation(st)) / 100) * 100; }
   // 偷錢：拿對方現金的 15%；偷比自己有錢的人上限高（翻盤用），偷比自己窮的人上限很低（不欺負弱勢）
   function stealAmt(st, s, t) {
     const tp = st.players[t], richer = worth(st, t) > worth(st, s), m = Math.min(3, inflation(st));
@@ -390,8 +403,10 @@
       const o = st.owners[t.i];
       const short = (cost, what) => ev(st, { t: 'note', seat: s, feed: true, poor: true, text: `💸 買不起：${what}要 ${cost.toLocaleString()}，手上只有 ${Math.max(0, p.cash).toLocaleString()}` });
       if (o === -1) { const c = priceOf(st, s, t.i); if (p.cash >= c) { st.phase = 'buy'; st.pending = { tile: t.i }; return true; } short(c, '買這塊地'); return false; }
-      if (o === s) { if (st.levels[t.i] >= 4) return false; const c = upOf(st, s, t.i); if (p.cash >= c) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } short(c, '升級'); return false; }
+      if (o === s) { if (st.levels[t.i] >= 4 || (st.mort && st.mort[t.i])) return false; const c = upOf(st, s, t.i); if (p.cash >= c) { st.phase = 'upgrade'; st.pending = { tile: t.i }; return true; } short(c, '升級'); return false; }
       if (!st.players[o].alive) return false;
+      if (st.mort && st.mort[t.i]) { ev(st, { t: 'note', seat: s, feed: true, text: '這塊地抵押中，不用付過路費' }); return false; }
+      if (st.noRent && st.noRent[t.i] >= st.round) { ev(st, { t: 'note', seat: s, feed: true, text: '這塊地剛被轟炸，暫停收過路費' }); return false; }
       let rent = rentOf(st, t.i); { const mi = perk(st, o).rentIn || 1, mo = perk(st, s).rentOut || 1; if (mi !== 1 || mo !== 1) rent = r100(rent * mi * mo); }
       if (p.freeRent > 0) { p.freeRent--; ev(st, { t: 'note', seat: s, feed: true, text: '🪷 神明保佑：這次過路費免付' }); return false; }
       if (p.curse > 0) { p.curse--; rent *= 2; ev(st, { t: 'note', seat: s, feed: true, text: `👁️ 多眼鳥的詛咒：過路費加倍（還剩 ${p.curse} 次）` }); }
@@ -400,25 +415,27 @@
       pay(st, s, o, rent, '過路費', t.i);
       // 翻盤機制：付完過路費後，可以用 1.4 倍價格強制收購（地標 Lv4 不能收購）
       if (p.alive && st.levels[t.i] < 4 && !(st.boLock[t.i] > st.round)) {
-        if (p.cash >= buyoutOf(st, t.i)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i) }; return true; }
-        ev(st, { t: 'note', seat: s, feed: true, text: `可以強制收購這塊地（要 ${buyoutOf(st, t.i).toLocaleString()}），但錢不夠` });
+        if (p.cash >= buyoutOf(st, t.i, s)) { st.phase = 'buyout'; st.pending = { tile: t.i, from: o, cost: buyoutOf(st, t.i, s) }; return true; }
+        ev(st, { t: 'note', seat: s, feed: true, text: `可以強制收購這塊地（要 ${buyoutOf(st, t.i, s).toLocaleString()}），但錢不夠` });
       }
       return false;
     }
     if (t.type === 'luck' || t.type === 'bad') { cardWithPerk(st, s, t.type, drawCard(st, t.type), depth); return st.phase !== 'roll'; }
+    if (t.type === 'free' && st.pot > 0) { const g = st.pot; st.pot = 0; p.cash += g; ev(st, { t: 'cash', seat: s, amt: g, why: '休息站彩池' }); }
     if (t.type === 'item' || t.type === 'free') return openShop(st, s, t.type === 'free');
     if (t.type === 'tax' && perk(st, s).noTax) { ev(st, { t: 'note', seat: s, feed: true, text: `🎩 老大逃漏稅：${TH()[st.theme].tax}免繳` }); return false; }
-    if (t.type === 'tax') { const d = taxDetail(st, s); ev(st, { t: 'note', seat: s, text: `財產稅 ${d.wealth.toLocaleString()}＋房屋稅 ${d.house.toLocaleString()}${d.total > d.wealth + d.house ? '（最少 1,000）' : ''}` }); pay(st, s, -1, d.total, '稅金'); return false; }
+    if (t.type === 'tax') { const d = taxDetail(st, s); ev(st, { t: 'note', seat: s, text: `財產稅 ${d.wealth.toLocaleString()}＋房屋稅 ${d.house.toLocaleString()}${d.total > d.wealth + d.house ? '（最少 1,000）' : ''}` }); { const got = pay(st, s, -1, d.total, '稅金'); if (BAL().pot) st.pot = (st.pot || 0) + got; } return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
     return false;
   }
   // 經過起點的加蓋機會：自己的地（未滿 4 級、付得起建築費）任選一塊加蓋一層
-  function buildOpts(st, s) { const p = st.players[s]; return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s && st.levels[t.i] < 4 && p.cash >= upOf(st, s, t.i)).map(t => t.i); }
+  function buildOpts(st, s) { const p = st.players[s]; return BOARD.filter(t => t.type === 'prop' && st.owners[t.i] === s && !(st.mort && st.mort[t.i]) && st.levels[t.i] < 4 && p.cash >= upOf(st, s, t.i)).map(t => t.i); }
   function endTurn(st, now) {
     const cp = st.players[st.turn];
     if (cp && cp.alive && cp.jailAsk && st.phase !== 'over') { st.phase = 'jailask'; st.pending = { left: cp.jailChoice, extra: !!st.extra }; st.extra = false; setDeadline(st, now, 20000); return; }
     if (cp && cp.jailAsk && !cp.alive) cp.jailAsk = false;
+    if (cp && cp.alive && cp.boostTicket > 0 && st.phase !== 'over') { cp.boostTicket = 0; st.phase = 'boost'; st.pending = { opts: ['cash', 'item', 'trance'] }; setDeadline(st, now, 20000); return; }
     if (cp && cp.alive && cp.buildTicket > 0 && st.phase !== 'over') { cp.buildTicket = 0; const opts = buildOpts(st, st.turn); if (opts.length) { st.phase = 'passbuild'; st.pending = { opts }; setDeadline(st, now, 25000); return; } if (BOARD.some(t => t.type === 'prop' && st.owners[t.i] === st.turn && st.levels[t.i] < 4)) ev(st, { t: 'note', seat: st.turn, feed: true, poor: true, text: '💸 經過起點可以加蓋，但錢不夠蓋任何一塊地' }); }
     st.phase = 'roll'; st.pending = null;
     if (st.extra) { st.extra = false; if (st.players[st.turn].alive && alive(st).length > 1) { setDeadline(st, now, 15000); return; } }
@@ -458,7 +475,7 @@
   }
 
   const R = {
-    _applyCard: applyCard, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, behind, isLast, mine, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
@@ -515,7 +532,7 @@
       // 換成自己畫的角色：遊戲中任何時候都可以（選角色時來不及畫的人可以補）
       if (a.type === 'custom') { const p0 = st.players[s]; if (!p0 || !p0.alive || TH()[st.theme].noCustom) return 'silent'; p0.char = { kind: 'custom', i: p0.char ? p0.char.i : s }; return; }
       // 提示框真的出現在玩家畫面上了：從這一刻起再給完整的 15 秒（網路慢、動畫還沒播完時不會被系統先決定）
-      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick', 'passbuild'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + (['gate', 'dicepick', 'passbuild'].includes(st.phase) || (st.phase === 'roll' && st.players[s].trance) ? 30000 : 15000)); return; } return 'silent'; }
+      if (a.type === 'seen') { if (s === st.turn && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick', 'passbuild', 'boost'].includes(st.phase) && st.seenId !== st.evId + ':' + st.phase) { st.seenId = st.evId + ':' + st.phase; st.deadline = Math.max(st.deadline, now + (['gate', 'dicepick', 'passbuild'].includes(st.phase) || (st.phase === 'roll' && st.players[s].trance) ? 30000 : 15000)); return; } return 'silent'; }
       if (s !== st.turn) return '還沒輪到你';
       const p = st.players[s];
       st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
@@ -523,6 +540,7 @@
         if (st.phase !== 'roll') return 'silent';
         let d = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
         // 神明附身：這一次可以自己決定點數（2～12）
+        if (BAL().diceChoice && a.one) d = [d[0], 0];
         if (p.trance) { const n = a.pick | 0; if (n >= 2 && n <= 12) d = [Math.ceil(n / 2), Math.floor(n / 2)]; p.trance = false; }
         st.dice = d; ev(st, { t: 'dice', seat: s, d });
         const dm = perk(st, s).dice || 0; if (dm) ev(st, { t: 'note', seat: s, text: dm < 0 ? `🌿 慢慢來：少走 ${-dm} 格` : `多走 ${dm} 格` });
@@ -573,7 +591,22 @@
         if (k === 'trap') { const tm = perk(st, tgt); ev(st, { t: 'item', seat: s, k, target: tgt }); if (tm.noSkip) ev(st, { t: 'note', seat: tgt, feed: true, text: '🥄 麻掉沒感覺：停回合對我無效' }); else tp.skip += 1 + (tm.skipExtra || 0); }
         else if (k === 'steal') { const amt = stealAmt(st, s, tgt); tp.cash -= amt; p.cash += amt; ev(st, { t: 'item', seat: s, k, target: tgt, amt }); }
         else if (k === 'invest') { const amt = investAmt(st); (p.invest = p.invest || []).push({ due: st.round + 3, amt }); ev(st, { t: 'item', seat: s, k, amt, due: st.round + 3 }); }
-        else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
+        else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; if (BAL().bombRent) (st.noRent = st.noRent || {})[tl] = st.round + 1; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
+        setDeadline(st, now, 15000); return;
+      }
+      if (a.type === 'boost') { // 落後補助三選一（BAL.boostChoice）
+        if (st.phase !== 'boost') return 'silent';
+        if (a.k === 'item' && (p.items || []).length < ITEM_MAX) { const it = ITEM_KEYS[Math.floor(Math.random() * ITEM_KEYS.length)]; (p.items = p.items || []).push(it); st.anim += 1600; ev(st, { t: 'getitem', seat: s, k: it, amt: 0 }); }
+        else if (a.k === 'trance') { p.trance = true; ev(st, { t: 'note', seat: s, feed: true, text: '🎯 落後補助：下一次擲骰自己選點數' }); }
+        else { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
+        st.pending = null; st.phase = 'roll'; endTurn(st, now); return;
+      }
+      if (a.type === 'mortgage' || a.type === 'redeem') { // 抵押／贖回（BAL.mortgage），擲骰前才能做
+        if (!BAL().mortgage || st.phase !== 'roll') return 'silent';
+        const tl = a.tile | 0, t = BOARD[tl]; if (!t || t.type !== 'prop' || st.owners[tl] !== s) return '這不是你的地';
+        st.mort = st.mort || {};
+        if (a.type === 'mortgage') { if (st.mort[tl]) return '已經抵押了'; const v = r100((t.price + st.levels[tl] * t.up) / 2); st.mort[tl] = r100(v * 1.1); p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '抵押' }); }
+        else { const c = st.mort[tl]; if (!c) return '沒有抵押'; if (p.cash < c) return '錢不夠'; p.cash -= c; delete st.mort[tl]; ev(st, { t: 'pay', from: s, to: -1, amt: c, why: '贖回抵押' }); }
         setDeadline(st, now, 15000); return;
       }
       if (a.type === 'passbuild') {
@@ -612,6 +645,7 @@
         }
         return { seat: st.turn, a: { type: 'roll' } };
       }
+      if (st.phase === 'boost') return { seat: st.turn, a: { type: 'boost', k: 'cash' } };
       if (st.phase === 'passbuild') { // 電腦：蓋最高的那塊（最快變地標），但要留 6000 保命錢
         const p = st.players[st.turn], best = st.pending.opts.filter(i => p.cash - upOf(st, st.turn, i) >= 6000).sort((x, y) => st.levels[y] - st.levels[x])[0];
         return { seat: st.turn, a: { type: 'passbuild', to: best == null ? -1 : best } };
