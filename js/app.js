@@ -275,7 +275,7 @@
       <div class="lobby-detail">
         <p class="gdesc">${U.esc(mod.desc)}</p>
         ${sel === 'monopoly' ? themeGrid(mod, opts, host) : ''}
-        ${(mod.options || []).filter(o => !(sel === 'monopoly' && o.key === 'theme')).map(o => o.type === 'text' ? (host ? `<label class="opt col"><span>${o.label}</span>
+        ${(mod.options || []).filter(o => !(sel === 'monopoly' && o.key === 'theme') && (!o.test || room.test)).map(o => o.type === 'text' ? (host ? `<label class="opt col"><span>${o.label}</span>
           <textarea data-opt="${o.key}" rows="2" maxlength="1500" placeholder="${U.esc(o.placeholder || '')}">${U.esc(opts[o.key] || '')}</textarea><small class="hint">其他人看不到內容，只會看到題目數量</small></label>`
           : `<label class="opt"><span>${o.label}</span><span class="hint">${String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}

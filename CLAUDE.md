@@ -46,8 +46,8 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - img/themes/<主題id>-0~2.jpg：主題背景圖｜img/pet0~3.png：拉密鬼牌（三隻貓＋鳥）
 - vendor/：peerjs、three.js（不改）
 - tools/bump.py：替 index.html 的 js/css 加版本號（避免手機吃到舊快取）
-- tools/mono-sim.js：大富翁平衡模擬器（`node tools/mono-sim.js 2000 現況 擲骰選擇`），含 5 種打法的聰明電腦；指標＝技巧差距、落後翻盤、路線勝率、破產回合
-- 平衡提案開關：mono-rules.js 的 BAL（讀 globalThis.__MONO_BAL，預設全關、現行規則不變）；boost 階段與抵押還沒有畫面，正式開啟前要先做 UI
+- tools/mono-sim.js：大富翁平衡模擬器（`node tools/mono-sim.js main 2000 A E`／`themes`／`players`／`check`），固定亂數種子配對比較，含 5 種打法的聰明電腦
+- 平衡提案開關：mono-rules.js 的 BAL，存在每局的 st.bal（開局決定）；正式房間一律關。擲骰選擇、危險預覽、色組 ×2、末日提前有畫面與 🧪 選項；落後收購、投資浮動、轟炸停租、補助三選一、彩池、抵押只有規則（模擬器用 o.bal 開），沒有畫面
 
 ## 上線流程
 1. 改完程式後執行 `python3 tools/bump.py`
@@ -56,7 +56,8 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 
 ## 測試
 - 網址加 `?local=1`：同一個瀏覽器開多個分頁模擬多人（沒有語音）
-- 測試房 PIN 777777：有電腦玩家
+- 測試房 PIN 777777：有電腦玩家；大富翁有「🧪」平衡實驗選項（只有測試房看得到，room.js 開局時把其他房間的 test 選項強制改回預設）
+- 改到大富翁規則後跑 `node tools/mono-sim.js check`：開關全關時的指紋要跟改之前一樣（＝正式規則沒變）
 - 大富翁在測試房裡、網址加 `?egg=<動畫key>`：開局 3 秒後直接預覽該彩蛋動畫（襲擊：`?egg=raid` 搶錢版、`?egg=raidBld` 砸房版，依房間主題）
 - 襲擊規則（mono-rules.js 的 RAID）：第 31 回合起每 3 回合擲一次、50% 機率出現（測試可設 globalThis.__RAID_P）；挑存活人數×40%（5 人＝前 2 名）裡資產高於平均的人、按超出平均多少加權；扣現金 20～30%，現金低於 1 萬改成隨機一塊地降一級；第 28 回合預告
 

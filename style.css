@@ -854,3 +854,18 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
 /* 託管中：按鈕亮綠燈並慢慢呼吸，一眼看得出來 */
 .dock-btn.pilot.on { animation: pilotGlow 1.6s ease-in-out infinite; }
 @keyframes pilotGlow { 0%, 100% { box-shadow: 0 0 8px rgba(125,255,160,.45); } 50% { box-shadow: 0 0 18px rgba(125,255,160,.95), 0 0 0 3px rgba(125,255,160,.35); } }
+/* 🧪 大富翁平衡實驗：擲骰前選 1／2 顆＋前方危險預覽（只在測試房開啟時出現） */
+.risk-bar { position: absolute; left: 10px; right: 10px; bottom: 132px; z-index: 5; background: rgba(15,10,35,.9); border: 2px solid #8a6bff; border-radius: 14px; padding: 8px; color: #fff; font-size: 12px; box-shadow: 0 0 18px rgba(138,107,255,.4); }
+.risk-bar .rb-pick { display: flex; gap: 6px; }
+.risk-bar .rb-pick button { flex: 1; min-width: 0; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.25); border-radius: 10px; color: #fff; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; font: inherit; touch-action: manipulation; }
+.risk-bar .rb-pick button b { font-size: 14px; }
+.risk-bar .rb-pick button.on { border-color: #ffd36e; background: rgba(255,211,110,.2); box-shadow: 0 0 12px rgba(255,211,110,.55); }
+.risk-bar small { font-size: 11px; opacity: .85; }
+.risk-bar .rb-s { opacity: 1; color: #ffe9b0; }
+.risk-bar .rb-sum { text-align: center; color: #ffe9b0; }
+.risk-bar .rb-rows { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.risk-bar .rb-row { display: flex; gap: 6px; align-items: center; }
+.risk-bar .rb-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.risk-bar .rb-row.sell b { color: #ffcf5a; } .risk-bar .rb-row.dead b { color: #ff6b6b; }
+.risk-bar .rb-cash { margin-top: 4px; opacity: .8; text-align: right; }
+.mono-stage.picking .risk-bar, .choosing .risk-bar { display: none; }

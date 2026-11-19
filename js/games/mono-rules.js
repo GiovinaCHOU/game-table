@@ -63,20 +63,23 @@
   // 通膨：第 6 回合起每回合 +10%，最多 3 倍；「末日通膨」依人數提前（3人21／4人25／5人27回合），之後每回合再 +60%
   // 目標：第一次破產大約落在 30–35 回合，第 15 回合領先者最後翻盤率 55% 以上（tests 模擬 300 局）
   const DOOM_BY_N = { 2: 18, 3: 21, 4: 25, 5: 27, 6: 29 };
-  const doomRound = (st) => globalThis.__DOOM || DOOM_BY_N[st.n] || 25;
+  const doomRound = (st) => (globalThis.__DOOM || DOOM_BY_N[st.n] || 25) + (BAL(st).doomShift || 0);
   const INF = (globalThis.__INF || { start: 6, rate: 0.1, max: 3 });
   // 襲擊（全主題）：第 31 回合起每 3 回合（31、34、37…）擲一次，一半機率出現，打「有錢人」其中一位
   // 挑人：存活人數×40%（四捨五入、至少 1；5 人＝前 2 名）裡，總資產高於全員平均的人；機率照「超出平均多少」加權（剛好在平均附近幾乎不會被選）
   // 損失：現金 20～30%；現金低於 10,000 改成隨機一塊有建築的地降一級（沒有建築就照樣扣現金）；不會因此破產；厄運免疫可擋
-  // ===== 平衡實驗開關（預設全關，現行規則完全不變；tools/mono-sim.js 用它比較提案）=====
-  // setMul：L1 以上、同色兩塊都是自己的，過路費 ×倍數｜lagBuyout：資產低於平均 85% 的人，強制收購倍率改成這個值
+  // ===== 平衡實驗開關（預設全關，現行規則完全不變）=====
+  // 開關存在每一局的 st.bal（開局時決定，整局不變）：測試房 777777 的「🧪」選項可以開，其他房間一律關
+  // tools/mono-sim.js 另外可以用 o.bal 物件開下面全部開關（要先設 globalThis.__MONO_SIM）
+  // preview：擲骰前顯示前方危險的地（過路費、付不付得起）｜doomShift：末日通膨提前／延後幾回合（-1＝提前一回合）
+  // setMul：L1 以上、同色兩塊都是自己的，過路費 ×倍數（取代式：Lv0 原本的整組 ×2 不變，兩者不疊乘）｜lagBuyout：資產低於平均 85% 的人，強制收購倍率改成這個值
   // invest：{price, lo, hi} 投資售價與回收範圍（隨機）｜bombRent：轟炸後那塊地到下一回合結束都不收租
   // boostChoice：落後補助改三選一（現金／免費道具／自選點數）｜pot：稅金與襲擊的錢進彩池，停到休息站領走
   // buyoutMul：所有人的強制收購倍率（現行 1.4）
   // diceChoice：每回合可選擲 1 顆或 2 顆骰子（act roll 帶 one: true）｜doomRate：末日通膨每回合加幾倍（現行 0.6）
   // mortgage：擲骰前可抵押自己的地（拿地＋建築價值的一半、不收租、不能加蓋），贖回要付 110%
   // 注意：boost 階段、抵押按鈕還沒有畫面，正式開啟前要先做 UI
-  const BAL = () => globalThis.__MONO_BAL || {};
+  const BAL = (st) => (st && st.bal) || {};
   const RAID = { round: 31, every: 3, p: 0.5, top: 0.4, min: 0.2, max: 0.3, floor: 10000, warn: 3 };
   const RAID_INFO = {
     town: { icon: '🐺', who: '魔狗', start: '倒影世界的魔狗開始出沒，會襲擊最有錢的人', why: '魔狗突襲' },
@@ -111,13 +114,13 @@
     if (p.immune > 0) { p.immune--; ev(st, { t: 'note', seat: k, text: `🛡️ 厄運免疫擋下了${I.who}` }); return; }
     if (mode === 'bld') { st.levels[tile]--; ev(st, { t: 'down', tile, level: st.levels[tile], seat: k, raid: true }); return; }
     const lo = Math.ceil(p.cash * RAID.min / 100) * 100, hi = Math.max(lo, Math.floor(p.cash * RAID.max / 100) * 100), amt = Math.min(Math.max(0, Math.floor(p.cash / 100) * 100), Math.min(hi, Math.max(lo, Math.round(p.cash * (RAID.min + Math.random() * (RAID.max - RAID.min)) / 100) * 100))); // 20～30%，取整到百
-    if (amt > 0) { const got = pay(st, k, -1, amt, I.why); if (BAL().pot) st.pot = (st.pot || 0) + got; }
+    if (amt > 0) { const got = pay(st, k, -1, amt, I.why); if (BAL(st).pot) st.pot = (st.pot || 0) + got; }
   }
-  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * (BAL().doomRate || 0.6)); }
+  function inflation(st) { if (!st.inflate) return 1; const r = st.round; const base = Math.min(INF.max, 1 + Math.max(0, r - INF.start) * INF.rate); const D = doomRound(st); return r < D ? base : Math.min(20, INF.max + (r - D + 1) * (BAL(st).doomRate || 0.6)); }
   function rentOf(st, i) {
     const t = BOARD[i]; const lv = st.levels[i]; let r = Math.round(t.price * RENT_MUL[lv] * inflation(st));
     const full = BOARD.filter(b => b.type === 'prop' && b.g === t.g).every(b => st.owners[b.i] === st.owners[i]);
-    if (lv === 0) { if (full) r *= 2; } else if (full && BAL().setMul) r = Math.round(r * BAL().setMul);
+    if (lv === 0) { if (full) r *= 2; } else if (full && BAL(st).setMul) r = Math.round(r * BAL(st).setMul);
     return r;
   }
   function assets(st, s) {
@@ -127,7 +130,7 @@
     a.total = a.cash + a.land + a.bld - a.debt; return a;
   }
   function worth(st, s) { return assets(st, s).total; }
-  const buyoutOf = (st, i, s) => Math.round((BOARD[i].price + st.levels[i] * BOARD[i].up) * (s != null && BAL().lagBuyout && behind(st, s) ? BAL().lagBuyout : (BAL().buyoutMul || BUYOUT_MUL)) / 100) * 100;
+  const buyoutOf = (st, i, s) => Math.round((BOARD[i].price + st.levels[i] * BOARD[i].up) * (s != null && BAL(st).lagBuyout && behind(st, s) ? BAL(st).lagBuyout : (BAL(st).buyoutMul || BUYOUT_MUL)) / 100) * 100;
   function behind(st, s) { const al = alive(st); if (al.length < 2) return false; const avg = al.reduce((a, k) => a + worth(st, k), 0) / al.length; return worth(st, s) < avg * 0.85; }
   const alive = (st) => U.range(st.n).filter(s => st.players[s].alive);
 
@@ -152,7 +155,7 @@
         p.pos = pos; ev(st, { t: 'move', seat: s, path }); path = [];
         const m = perk(st, s), sb = m.startFixed || (m.startMul ? r100(START_BONUS * m.startMul) : START_BONUS);
         p.cash += sb; ev(st, { t: 'cash', seat: s, amt: sb, why: '經過起點' }); p.buildTicket = 1;
-        if (!m.noBoost && isLast(st, s) && BAL().boostChoice) p.boostTicket = 1;
+        if (!m.noBoost && isLast(st, s) && BAL(st).boostChoice) p.boostTicket = 1;
         else if (!m.noBoost && isLast(st, s)) { p.cash += BOOST; ev(st, { t: 'cash', seat: s, amt: BOOST, why: '落後補助', boost: true }); }
         if (m.startTrance && !p.trance) { p.trance = true; ev(st, { t: 'note', seat: s, feed: true, text: '🍄 看見未來：下一次擲骰自己選點數' }); }
       }
@@ -189,6 +192,36 @@
       while (p.cash < 0 && st.levels[t.i] > 0) { st.levels[t.i]--; p.cash += Math.round(t.up / 2); ev(st, { t: 'sell', seat: s, tile: t.i, what: 'building' }); }
     }
     for (const t of mine) { if (p.cash >= 0) break; st.owners[t.i] = -1; p.cash += Math.round(t.price / 2); ev(st, { t: 'sell', seat: s, tile: t.i, what: 'land' }); }
+  }
+  // 賣光所有房子和地（半價）能湊到多少錢；抵押中的地不算
+  function liqValue(st, s) { let v = st.players[s].cash; BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s && !(st.mort && st.mort[t.i])) v += Math.round(t.price / 2) + st.levels[t.i] * Math.round(t.up / 2); }); return v; }
+  // 停在第 i 格要付的過路費（跟 land() 同一套算法：角色加成、多眼鳥詛咒、免付、抵押、轟炸停租都算進去）
+  function rentIfLand(st, s, i) {
+    const t = BOARD[i], p = st.players[s]; if (t.type !== 'prop') return 0; const o = st.owners[i];
+    if (o < 0 || o === s || !st.players[o].alive || (st.mort && st.mort[i]) || (st.noRent && st.noRent[i] >= st.round) || p.freeRent > 0) return 0;
+    let r = rentOf(st, i); const mi = perk(st, o).rentIn || 1, mo = perk(st, s).rentOut || 1; if (mi !== 1 || mo !== 1) r = r100(r * mi * mo);
+    return p.curse > 0 ? r * 2 : r;
+  }
+  // 擲 1 顆（one）或 2 顆骰子，前方每一格的機率與過路費；pay＝現金付得起、sell＝要賣房賣地、dead＝賣光也不夠（會進翻盤問答）
+  const DICE2 = [0, 0, 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1];
+  function diceRisk(st, s, one) {
+    const p = st.players[s], dm = perk(st, s).dice || 0, liq = liqValue(st, s), at = {};
+    const dist = one ? [1, 2, 3, 4, 5, 6].map(k => [k, 1 / 6]) : U.range(11).map(k => [k + 2, DICE2[k + 2] / 36]);
+    let pHit = 0, pSell = 0, pDead = 0, exp = 0, max = 0, pPass = 0;
+    dist.forEach(([k, pr]) => {
+      const steps = Math.max(1, k + dm), i = (p.pos + steps) % N, pass = p.pos + steps >= N ? START_BONUS : 0; if (pass) pPass += pr;
+      const rent = rentIfLand(st, s, i); if (!rent) return;
+      const cash = p.cash + pass, how = rent <= cash ? 'pay' : rent <= liq + pass ? 'sell' : 'dead';
+      pHit += pr; exp += rent * pr; max = Math.max(max, rent); if (how !== 'pay') pSell += pr; if (how === 'dead') pDead += pr;
+      const r = at[i] || (at[i] = { tile: i, steps: [], p: 0, rent, owner: st.owners[i], level: st.levels[i], how }); r.steps.push(steps); r.p += pr;
+    });
+    const rows = Object.values(at).sort((a, b) => b.rent - a.rent);
+    return { one: !!one, rows, pHit, pSell, pDead, exp: Math.round(exp), max, pPass };
+  }
+  // 電腦／託管：選 1 顆還是 2 顆（破產風險最重，其次是期望要付的錢；2 顆走比較快、比較常領起點薪水）
+  function pickOne(st, s) {
+    const w = worth(st, s), val = (r) => -r.exp - r.pDead * w * 1.5 - (r.pSell - r.pDead) * w * 0.1 + r.pPass * START_BONUS;
+    return val(diceRisk(st, s, true)) > val(diceRisk(st, s, false)) + 300;
   }
   function canPay(st, s, amt) {
     let v = st.players[s].cash; BOARD.forEach(t => { if (t.type === 'prop' && st.owners[t.i] === s && !(st.mort && st.mort[t.i])) v += Math.round(t.price / 2) + st.levels[t.i] * Math.round(t.up / 2); });
@@ -379,9 +412,9 @@
   const ITEM_BASE = { invest: 1000, shield: 1500, trap: 2000, bomb: 2500, steal: 3000 }, ITEM_MULT = [1, 2, 3.5, 5], ITEM_RESET = 25;
   root.MONO_ITEMS.BASE = ITEM_BASE; root.MONO_ITEMS.MULT = ITEM_MULT; root.MONO_ITEMS.RESET = ITEM_RESET;
   function itemBought(st, s) { const p = st.players[s], era = Math.floor((st.round - 1) / ITEM_RESET); if (p.buyEra !== era) { p.buyEra = era; p.bought = 0; } return p.bought || 0; }
-  function itemPrice(st, s, k) { const n = itemBought(st, s); return Math.round((k === 'invest' && BAL().invest ? BAL().invest.price : ITEM_BASE[k]) * ITEM_MULT[Math.min(n, ITEM_MULT.length - 1)] * Math.min(3, inflation(st)) * (isLast(st, s) ? 0.5 : 1) / 100) * 100; }
+  function itemPrice(st, s, k) { const n = itemBought(st, s); return Math.round((k === 'invest' && BAL(st).invest ? BAL(st).invest.price : ITEM_BASE[k]) * ITEM_MULT[Math.min(n, ITEM_MULT.length - 1)] * Math.min(3, inflation(st)) * (isLast(st, s) ? 0.5 : 1) / 100) * 100; }
   // 投資：買道具的錢就是本金，3 回合後拿回 6,000（跟著通膨，最多 3 倍）
-  function investAmt(st) { const v = BAL().invest, base = v ? v.lo + Math.random() * (v.hi - v.lo) : 6000; return Math.round(base * Math.min(3, inflation(st)) / 100) * 100; }
+  function investAmt(st) { const v = BAL(st).invest, base = v ? v.lo + Math.random() * (v.hi - v.lo) : 6000; return Math.round(base * Math.min(3, inflation(st)) / 100) * 100; }
   // 偷錢：拿對方現金的 15%；偷比自己有錢的人上限高（翻盤用），偷比自己窮的人上限很低（不欺負弱勢）
   function stealAmt(st, s, t) {
     const tp = st.players[t], richer = worth(st, t) > worth(st, s), m = Math.min(3, inflation(st));
@@ -424,7 +457,7 @@
     if (t.type === 'free' && st.pot > 0) { const g = st.pot; st.pot = 0; p.cash += g; ev(st, { t: 'cash', seat: s, amt: g, why: '休息站彩池' }); }
     if (t.type === 'item' || t.type === 'free') return openShop(st, s, t.type === 'free');
     if (t.type === 'tax' && perk(st, s).noTax) { ev(st, { t: 'note', seat: s, feed: true, text: `🎩 老大逃漏稅：${TH()[st.theme].tax}免繳` }); return false; }
-    if (t.type === 'tax') { const d = taxDetail(st, s); ev(st, { t: 'note', seat: s, text: `財產稅 ${d.wealth.toLocaleString()}＋房屋稅 ${d.house.toLocaleString()}${d.total > d.wealth + d.house ? '（最少 1,000）' : ''}` }); { const got = pay(st, s, -1, d.total, '稅金'); if (BAL().pot) st.pot = (st.pot || 0) + got; } return false; }
+    if (t.type === 'tax') { const d = taxDetail(st, s); ev(st, { t: 'note', seat: s, text: `財產稅 ${d.wealth.toLocaleString()}＋房屋稅 ${d.house.toLocaleString()}${d.total > d.wealth + d.house ? '（最少 1,000）' : ''}` }); { const got = pay(st, s, -1, d.total, '稅金'); if (BAL(st).pot) st.pot = (st.pot || 0) + got; } return false; }
     if (t.type === 'gotojail') { sendJail(st, s); return false; }
     if (t.type === 'teleport') { const to = BOARD.filter(b => b.type === 'prop')[Math.floor(Math.random() * 16)].i; jump(st, s, to, false); return land(st, s, depth + 1); }
     return false;
@@ -475,7 +508,7 @@
   }
 
   const R = {
-    _applyCard: applyCard, behind, isLast, mine, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, behind, isLast, mine, diceRisk, rentIfLand, liqValue, pickOne, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
@@ -485,6 +518,10 @@
         startCash: cash, owners: Array(N).fill(-1), levels: Array(N).fill(0), boLock: Array(N).fill(0), decks: {}, ev: [], evId: 0, anim: 0, pending: null, dice: null
       };
       st.layout = o.layout === 'fixed' ? LAYOUT.slice() : randomLayout(); useLayout(st.layout);
+      // 平衡實驗：只看大富翁的 🧪 選項（房間層已經保證只有測試房能改，其他房間都是預設 0）
+      const bal = {}; if (+o.bDice) bal.diceChoice = true; if (+o.bPreview) bal.preview = true; if (+o.bSet > 1) bal.setMul = +o.bSet; if (+o.bDoom) bal.doomShift = -(+o.bDoom);
+      if (globalThis.__MONO_SIM && o.bal && typeof o.bal === 'object') Object.assign(bal, o.bal);
+      if (Object.keys(bal).length) st.bal = bal;
       st.deadline = now + 90000;
       return st;
     },
@@ -540,7 +577,7 @@
         if (st.phase !== 'roll') return 'silent';
         let d = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
         // 神明附身：這一次可以自己決定點數（2～12）
-        if (BAL().diceChoice && a.one) d = [d[0], 0];
+        if (BAL(st).diceChoice && !p.trance) { st.lastRoll = { d: d.slice(), one: !!a.one }; if (a.one) d = [d[0], 0]; }
         if (p.trance) { const n = a.pick | 0; if (n >= 2 && n <= 12) d = [Math.ceil(n / 2), Math.floor(n / 2)]; p.trance = false; }
         st.dice = d; ev(st, { t: 'dice', seat: s, d });
         const dm = perk(st, s).dice || 0; if (dm) ev(st, { t: 'note', seat: s, text: dm < 0 ? `🌿 慢慢來：少走 ${-dm} 格` : `多走 ${dm} 格` });
@@ -591,7 +628,7 @@
         if (k === 'trap') { const tm = perk(st, tgt); ev(st, { t: 'item', seat: s, k, target: tgt }); if (tm.noSkip) ev(st, { t: 'note', seat: tgt, feed: true, text: '🥄 麻掉沒感覺：停回合對我無效' }); else tp.skip += 1 + (tm.skipExtra || 0); }
         else if (k === 'steal') { const amt = stealAmt(st, s, tgt); tp.cash -= amt; p.cash += amt; ev(st, { t: 'item', seat: s, k, target: tgt, amt }); }
         else if (k === 'invest') { const amt = investAmt(st); (p.invest = p.invest || []).push({ due: st.round + 3, amt }); ev(st, { t: 'item', seat: s, k, amt, due: st.round + 3 }); }
-        else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; if (BAL().bombRent) (st.noRent = st.noRent || {})[tl] = st.round + 1; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
+        else if (k === 'bomb') { const tl = a.tile | 0; st.levels[tl]--; if (BAL(st).bombRent) (st.noRent = st.noRent || {})[tl] = st.round + 1; ev(st, { t: 'item', seat: s, k, target: tgt, tile: tl, level: st.levels[tl] }); }
         setDeadline(st, now, 15000); return;
       }
       if (a.type === 'boost') { // 落後補助三選一（BAL.boostChoice）
@@ -602,7 +639,7 @@
         st.pending = null; st.phase = 'roll'; endTurn(st, now); return;
       }
       if (a.type === 'mortgage' || a.type === 'redeem') { // 抵押／贖回（BAL.mortgage），擲骰前才能做
-        if (!BAL().mortgage || st.phase !== 'roll') return 'silent';
+        if (!BAL(st).mortgage || st.phase !== 'roll') return 'silent';
         const tl = a.tile | 0, t = BOARD[tl]; if (!t || t.type !== 'prop' || st.owners[tl] !== s) return '這不是你的地';
         st.mort = st.mort || {};
         if (a.type === 'mortgage') { if (st.mort[tl]) return '已經抵押了'; const v = r100((t.price + st.levels[tl] * t.up) / 2); st.mort[tl] = r100(v * 1.1); p.cash += v; ev(st, { t: 'cash', seat: s, amt: v, why: '抵押' }); }
@@ -643,7 +680,7 @@
           const score = n => { const t = BOARD[(p.pos + n) % N], o = st.owners[t.i]; return t.type === 'prop' ? (o === st.turn ? 3 : o === -1 ? 2 : -5) : t.type === 'luck' ? 1 : t.type === 'gotojail' || t.type === 'bad' ? -3 : 0; };
           let best = 7; for (let n = 2; n <= 12; n++) if (score(n) > score(best)) best = n; return { seat: st.turn, a: { type: 'roll', pick: best } };
         }
-        return { seat: st.turn, a: { type: 'roll' } };
+        return { seat: st.turn, a: BAL(st).diceChoice ? { type: 'roll', one: pickOne(st, st.turn) } : { type: 'roll' } };
       }
       if (st.phase === 'boost') return { seat: st.turn, a: { type: 'boost', k: 'cash' } };
       if (st.phase === 'passbuild') { // 電腦：蓋最高的那塊（最快變地標），但要留 6000 保命錢

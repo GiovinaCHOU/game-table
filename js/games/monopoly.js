@@ -116,6 +116,11 @@
       { key: 'theme', label: '主題', choices: [['ragnarok', '⚡ 諸神黃昏'], ['cyber', '🌃 夜城'], ['animal', '🦁 動物星球'], ['buddha', '🪷 神佛之境'], ['magic', '🔮 魔法學院'], ['town', '🚲 怪奇小鎮'], ['alien', '🌌 深空異種'], ['gang', '🕶️ 幫派街區']], def: 'ragnarok' },
       { key: 'layout', label: '地圖排列', choices: [['random', '每局隨機（角落不動、同色地相連）'], ['fixed', '固定']], def: 'random' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
+      // 🧪 平衡實驗（test: true → 只有測試房 777777 看得到、改得動；其他房間一律用預設值＝正式規則）
+      { key: 'bDice', label: '🧪 擲骰選 1／2 顆', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
+      { key: 'bPreview', label: '🧪 前方危險預覽', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
+      { key: 'bSet', label: '🧪 色組加成 Lv1 以上', test: true, choices: [[0, '關（正式規則）'], [2, '×2']], def: 0 },
+      { key: 'bDoom', label: '🧪 末日通膨', test: true, choices: [[0, '正式規則'], [1, '提前 1 回合']], def: 0 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
     init(n, o, names, now) { return R().init(n, o, now); },
@@ -145,7 +150,8 @@
         players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, pill: p.pill || null, stamp: p.stamp == null ? null : p.stamp, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
-        pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy
+        pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy,
+        bal: st.bal || null, risk: st.bal && st.bal.preview && seat === st.turn && st.phase === 'roll' && st.players[seat] && st.players[seat].alive ? { one: R().diceRisk(st, seat, true), two: R().diceRisk(st, seat, false) } : null
       };
     },
 
@@ -221,7 +227,7 @@
           <div class="mono-pick" hidden></div>
         </div>`;
       this.el = el;
-      el.querySelector('.go-btn').onclick = () => { if (!this.canAct('roll')) return; if (this.v.players[this.v.seat].trance) return this.diceBar(true); this.ui.send({ type: 'roll' }); el.querySelector('.go-btn').disabled = true; SFX.dice(); };
+      el.querySelector('.go-btn').onclick = () => { if (!this.canAct('roll')) return; if (this.v.players[this.v.seat].trance) return this.diceBar(true); const bal = this.v.bal || {}; this.ui.send(bal.diceChoice ? { type: 'roll', one: !!this._one } : { type: 'roll' }); this.riskBar(false); el.querySelector('.go-btn').disabled = true; SFX.dice(); };
       el.querySelector('[data-t="me"]').onclick = () => { if (this.board && this.v.seat >= 0) this.board.focusSeat(this.v.seat, true); };
       el.querySelector('[data-t="all"]').onclick = () => { if (this.board) this.board.overview(); };
       el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; if (this.board && this.board.setQuality) this.board.setQuality(nq === 'high'); this.ui.toast(nq === 'high' ? '高畫質：更清晰、有陰影（比較耗電）' : '省電畫質：解析度低一點、沒有陰影'); };
@@ -497,8 +503,9 @@
     },
     async rollDice(d) {
       const faces = this.el.querySelectorAll('.d6'); SFX.dice();
+      faces[1].style.visibility = d[1] ? '' : 'hidden'; // 🧪 擲 1 顆：第二顆藏起來
       for (let k = 0; k < 7; k++) { faces.forEach(f => f.textContent = '⚀⚁⚂⚃⚄⚅'[Math.floor(Math.random() * 6)]); await sleep(55); }
-      faces[0].textContent = '⚀⚁⚂⚃⚄⚅'[d[0] - 1]; faces[1].textContent = '⚀⚁⚂⚃⚄⚅'[d[1] - 1];
+      faces[0].textContent = '⚀⚁⚂⚃⚄⚅'[d[0] - 1]; faces[1].textContent = d[1] ? '⚀⚁⚂⚃⚄⚅'[d[1] - 1] : '';
       this.fx(`${d[0] + d[1]} 步`, 'dice', this.v.turn); await sleep(220);
     },
     // 卡片：所有人都看得到（頭像＋名字），可以自己關；下一位擲骰前自動收掉
@@ -609,7 +616,7 @@
       const inv = m.querySelector('[data-inv]'); if (inv) inv.onclick = () => send({});
       m.querySelector('[data-x]').onclick = () => { m.hidden = true; };
     },
-    hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; const go = this.el && this.el.querySelector('.go-btn'); if (go) go.disabled = true; },
+    hidePrompt() { const m = this.el && this.el.querySelector('.mono-modal'); if (m && !m.querySelector('.pad') && !m.querySelector('.tinfo')) m.hidden = true; const go = this.el && this.el.querySelector('.go-btn'); if (go) go.disabled = true; this.riskBar(false); },
     showPrompt() {
       const v = this.v; if (!this.el || this.playing || !this.el.querySelector('.go-btn')) return;
       if (v.phase === 'quiz' && v.pending && v.pending.quiz) this.quizUI(v.pending, null); else if (!this._revealing) { const qz = this.el.querySelector('.mono-quiz'); if (qz) qz.hidden = true; }
@@ -619,6 +626,7 @@
       const go = this.el.querySelector('.go-btn'); const m = this.el.querySelector('.mono-modal');
       if (m.classList.contains('top') && v.phase !== 'pick' && !m.hidden && m.querySelector('.pxpad, .stamp-grid')) { m.hidden = true; m.innerHTML = ''; m.classList.remove('top'); } // 畫藥丸畫到遊戲開始：關掉，避免擋住輪到你的提示
       go.disabled = !this.canAct('roll'); go.classList.toggle('pulse', !go.disabled); this.renderItems();
+      { const me0 = v.players[v.seat]; this.riskBar(!!(v.bal && (v.bal.diceChoice || v.bal.preview) && this.canAct('roll') && me0 && !me0.trance)); }
       if (!m.hidden && m.querySelector('.pad')) return;
       // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）
       if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); if (this._decAt && v.phase !== 'roll') root.Room.diagPd = Date.now() - this._decAt; }
@@ -699,6 +707,22 @@
       };
     },
     // 神明附身：自己選這次要走幾步，選了會在地圖上標出會停在哪
+    // 🧪 擲骰前：選 1 顆／2 顆＋前方危險預覽（測試房開了開關才會出現；數字由房主用規則算好放在 v.risk）
+    riskBar(on) {
+      const stg = this.el && this.el.querySelector('.mono-stage'); if (!stg) return; let bar = stg.querySelector('.risk-bar');
+      if (!on) { if (bar) bar.remove(); return; }
+      const v = this.v, bal = v.bal || {}, key = v.round + ':' + v.turn;
+      if (this._riskKey !== key) { this._riskKey = key; this._one = false; } // 每回合重新預設 2 顆
+      if (!bar) { bar = document.createElement('div'); bar.className = 'risk-bar'; stg.appendChild(bar); }
+      const th = TH()[v.theme], rk = v.risk || {}, pct = (x) => Math.round(x * 100) + '%';
+      const sum = (r) => !r ? '' : r.pHit ? `踩到別人地 ${pct(r.pHit)}・最高 ${fmt(r.max)}${r.pSell ? `・要賣房 ${pct(r.pSell)}` : ''}${r.pDead ? `・☠️ ${pct(r.pDead)}` : ''}` : '前方沒有別人的地 ✅';
+      const cur = bal.diceChoice && this._one ? rk.one : rk.two;
+      const icon = { pay: '✅', sell: '⚠️', dead: '☠️' }, word = { pay: '付得起', sell: '要賣房', dead: '賣光也不夠' };
+      bar.innerHTML = (bal.diceChoice ? `<div class="rb-pick"><button data-one="1" class="${this._one ? 'on' : ''}"><b>🎲 1 顆</b><small>走 1–6 步</small>${bal.preview ? `<small class="rb-s">${sum(rk.one)}</small>` : ''}</button><button data-one="0" class="${this._one ? '' : 'on'}"><b>🎲🎲 2 顆</b><small>走 2–12 步</small>${bal.preview ? `<small class="rb-s">${sum(rk.two)}</small>` : ''}</button></div>` : bal.preview ? `<div class="rb-sum">${sum(rk.two)}</div>` : '')
+        + (bal.preview && cur && cur.rows.length ? `<div class="rb-rows">${cur.rows.slice(0, 4).map(r => `<div class="rb-row ${r.how}">${icon[r.how]}<span>${r.steps.join('/')} 步・${U.esc(R().tileName(v.theme, r.tile))}（${U.esc(v.names[r.owner] || '')} Lv${r.level}）</span><b>${fmt(r.rent)}</b><small>${word[r.how]}・${pct(r.p)}</small></div>`).join('')}</div>` : '')
+        + (bal.preview ? `<div class="rb-cash">你的現金 ${fmt(v.players[v.seat].cash)} ${th.unit}${bal.diceChoice ? '・選好再按 GO' : ''}</div>` : '');
+      bar.querySelectorAll('[data-one]').forEach(b => b.onclick = () => { this._one = b.dataset.one === '1'; this.riskBar(true); });
+    },
     diceBar(on) {
       const st = this.el.querySelector('.mono-stage'); let bar = st.querySelector('.dice-bar');
       if (!on) { if (bar) { bar.remove(); this.barInset(null); } st.classList.remove('picking'); if (this.board) this.board.clearMarks(); return; }
@@ -1123,9 +1147,10 @@
         // 過路費跟規則算法完全一樣：漲價、整組空地加倍、地主角色的收費加成、自己角色的付費加成（幫派街區）
         const Rr = R(), pk = (k) => { try { return k >= 0 ? Rr.perk(v, k) : {}; } catch (e) { return {}; } }, me = v.seat;
         const full = o >= 0 && Rr.BOARD.filter(b => b.type === 'prop' && b.g === t.g).every(b => v.owners[b.i] === o);
-        const base = (k) => { let r = Math.round(t.price * Rr.RENT_MUL[k] * (v.infl || 1)); if (k === 0 && full) r *= 2; return r; };
+        const sm = v.bal && v.bal.setMul; // 🧪 色組加成：Lv1 以上整組 ×倍數（跟 Lv0 的 ×2 是分開的，不疊乘）
+        const base = (k) => { let r = Math.round(t.price * Rr.RENT_MUL[k] * (v.infl || 1)); if (k === 0 && full) r *= 2; else if (full && sm) r = Math.round(r * sm); return r; };
         const mi = o >= 0 ? (pk(o).rentIn || 1) : 1, rentAt = (k, mo) => (mi !== 1 || mo !== 1) ? Math.round(base(k) * mi * mo / 100) * 100 : base(k);
-        const notes = [v.infl > 1 ? `已含漲價 ×${v.infl.toFixed(1)}` : '', full ? 'Lv0 整組都是同一個地主，過路費加倍' : '', mi !== 1 ? `地主角色收費 ${mi > 1 ? '+' : '−'}${Math.round(Math.abs(mi - 1) * 100)}% 已算進去` : ''].filter(Boolean);
+        const notes = [v.infl > 1 ? `已含漲價 ×${v.infl.toFixed(1)}` : '', full ? 'Lv0 整組都是同一個地主，過路費加倍' : '', full && sm ? `🧪 Lv1 以上整組 ×${sm}` : '', mi !== 1 ? `地主角色收費 ${mi > 1 ? '+' : '−'}${Math.round(Math.abs(mi - 1) * 100)}% 已算進去` : ''].filter(Boolean);
         const mo = me >= 0 && o >= 0 && me !== o ? (pk(me).rentOut || 1) : 1;
         const payLine = me >= 0 && o >= 0 && me !== o ? `<br><b>你現在停到這裡要付 ${fmt(rentAt(lv, mo))} ${th.unit}</b>${mo !== 1 ? `（含你的角色付費 ${mo > 1 ? '+' : '−'}${Math.round(Math.abs(mo - 1) * 100)}%）` : ''}` : '';
         const buyer = o >= 0 ? o : me, costUp = buyer >= 0 ? Rr.upOf(v, buyer, i) : t.up, costBuy = me >= 0 ? Rr.priceOf(v, me, i) : t.price;
