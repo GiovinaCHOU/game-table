@@ -3,7 +3,7 @@
   const $ = (s) => document.querySelector(s);
   const U = window.GUTIL, R = window.Room, V = window.Net.Voice;
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw'];
+  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw', 'bluff'];
 
   let curGame = null, chatOpen = false, unread = 0, wakeLock = null;
 
@@ -143,6 +143,7 @@
     bigtwo: (v) => v.phase === 'play' && v.turn === v.seat ? '輪到你出牌' : '',
     rummi: (v) => v.phase === 'play' && v.turn === v.seat ? '輪到你了' : '',
     dice: (v) => v.phase === 'bid' && v.turn === v.seat ? '輪到你喊' : '',
+    bluff: (v) => v.phase === 'talk' && v.order[v.spk] === v.seat ? '輪到你說明了' : v.phase === 'vote' && v.judge === v.seat ? '換你判斷誰說真話' : '',
     mahjong: (v) => !v.me ? '' : v.me.claim ? '可以' + [v.me.claim.hu && '胡', v.me.claim.kong && '槓', v.me.claim.pong && '碰', v.me.claim.chi && '吃'].filter(Boolean).join('／') + '！' : v.phase === 'discard' && v.turn === v.me.p ? '輪到你打牌' : ''
   };
   let turnKey = '';
@@ -277,7 +278,7 @@
         ${sel === 'monopoly' ? themeGrid(mod, opts, host) : ''}
         ${(mod.options || []).filter(o => !(sel === 'monopoly' && o.key === 'theme') && (!o.test || room.test)).map(o => o.type === 'text' ? (host ? `<label class="opt col"><span>${o.label}</span>
           <textarea data-opt="${o.key}" rows="2" maxlength="1500" placeholder="${U.esc(o.placeholder || '')}">${U.esc(opts[o.key] || '')}</textarea><small class="hint">其他人看不到內容，只會看到題目數量</small></label>`
-          : `<label class="opt"><span>${o.label}</span><span class="hint">${String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
+          : `<label class="opt"><span>${o.label}</span><span class="hint">${o.count ? o.count(opts[o.key]) : String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
         ${room.test && host ? `<div class="testbox"><b>🧪 測試房</b><span>電腦玩家會自動出牌，用來測試遊戲流程</span>

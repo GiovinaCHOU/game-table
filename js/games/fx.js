@@ -191,6 +191,16 @@
       if ((v.bids || []).length !== (p.bids || []).length && v.phase === 'bid') S.shake();
       if (v.phase === 'reveal' && p.phase !== 'reveal') { S.drum(); const lo = v.lose.findIndex((x, i) => x > (p.lose[i] || 0)); if (lo >= 0 && once('dc' + JSON.stringify(v.lose))) setTimeout(() => lo === v.seat ? G.lose('喝！🍺 ' + G.mock()) : S.cheer(), 900); }
     },
+    bluff(p, v, G) {
+      G.want(v.phase === 'talk' || v.phase === 'vote' ? 'calm' : 'off');
+      if (!p) return;
+      if (v.phase === 'talk' && p.phase === 'prep') S.flip();
+      else if (v.phase !== p.phase && v.phase === 'vote') S.drum();
+      else if (v.phase === 'talk' && v.spk !== p.spk) S.pop();
+      if (v.phase === 'prep' && v.word !== p.word && p.phase === 'prep') S.card();
+      if (v.phase === 'reveal' && p.phase !== 'reveal' && v.last) { const L = v.last; if (v.seat >= 0 && L.gain[v.seat]) S.ding(); setTimeout(() => (L.ok ? S.cheer : S.buzz)(), 300); }
+      if (v.phase === 'over' && p.phase !== 'over' && v.seat >= 0 && once('bl' + v.turnId)) { const best = Math.max(...v.scores); setTimeout(() => v.scores[v.seat] === best ? G.win('👑 你是唬爛王！', `${best} 分`) : G.lose(G.mock(), `唬爛王是 ${v.names[v.scores.indexOf(best)]}`), 700); }
+    },
     draw(p, v, G) {
       G.want(v.phase === 'draw' ? 'calm' : 'off');
       if (!p) return;

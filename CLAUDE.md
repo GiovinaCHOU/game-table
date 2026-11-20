@@ -19,7 +19,7 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - style.css：全站樣式
 
 小遊戲（一個遊戲一個檔案）
-- mahjong.js 台灣16張麻將（3/4/5人）｜bigtwo.js 大老二｜slap.js 心臟病｜rummi.js 拉密｜dice.js 吹牛｜draw.js 你畫我猜
+- mahjong.js 台灣16張麻將（3/4/5人）｜bigtwo.js 大老二｜slap.js 心臟病｜rummi.js 拉密｜dice.js 吹牛｜draw.js 你畫我猜｜bluff.js 誰是唬爛王（瞎掰王玩法；題庫 BANK 分 6 類，每題附真正意思，3–9 人）
 
 大富翁（都在 js/games/）
 - monopoly.js：遊戲模組主體、主題選單、事件與動畫的調度
