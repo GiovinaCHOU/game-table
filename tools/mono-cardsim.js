@@ -29,7 +29,7 @@ R.act = function (st, s, a, now) {
     const d = w1 - w0[k] - other, died = alive0[k] && !st.players[k].alive;
     const nAl = alive0.filter(Boolean).length, r0 = rankOf(w0, k);
     G.cards.push({ eff, tier: tierOf(eff.replace(/:.*/, ':' + (eff.split(':')[1] || '0'))), d, ratio: w0[k] > 0 ? d / w0[k] : 0, dead: died && w0[k] >= avg0 * 0.3, straw: died && w0[k] < avg0 * 0.3,
-      rk: r0 - rankOf(ws1, k), lead: r0 === 0, last: r0 === nAl - 1, cashB: c0[k] < 10000 ? '現金<1萬' : c0[k] < 50000 ? '現金1–5萬' : '現金≥5萬', stage: st.round <= 15 ? '前期' : st.round < doom ? '中期' : '後期', theme, round: st.round });
+      rk: r0 - rankOf(ws1, k), lead: r0 === 0, last: r0 === nAl - 1, rr: avg0 > 0 ? d / avg0 : 0, avg0, cashB: c0[k] < 10000 ? '現金<1萬' : c0[k] < 50000 ? '現金1–5萬' : '現金≥5萬', stage: st.round <= 15 ? '前期' : st.round < doom ? '中期' : '後期', theme, round: st.round });
   };
   if (crisisCard) rec(crisisSeat, crisisCard.eff, st.theme, 0); // 危機處理：選完之後才是這張卡真正的效果
   else { const ci = evs.findIndex(e => e.t === 'card'); if (ci >= 0 && !evs.some(e => e.t === 'crisis')) rec(evs[ci].seat, evs[ci].eff, st.theme, ci); }
@@ -68,6 +68,9 @@ function run(sk, n) {
   out['3 卡片資產變動（依級別）'] = { 普通: dd(byTier('common')), 稀有: dd(byTier('rare')), 彩蛋: dd(byTier('egg')) };
   out['3b 卡片資產變動（依階段，全部級別）'] = { 前期: dd(cards.filter(c => c.stage === '前期')), 中期: dd(cards.filter(c => c.stage === '中期')), 後期: dd(cards.filter(c => c.stage === '後期')) };
   out['3e 依抽卡前現金（全部級別）'] = Object.fromEntries(['現金<1萬', '現金1–5萬', '現金≥5萬'].map(b => [b, Object.assign({ 次數: cards.filter(c => c.cashB === b).length, '致死‰': wilson(cards.filter(c => c.cashB === b && c.dead).length, cards.filter(c => c.cashB === b).length)?.map(x => +(x * 10).toFixed(2)) }, dd(cards.filter(c => c.cashB === b)))]));
+  const lucky = byTier('egg').filter(c => c.d > 0), rr = (a) => dist(a.map(c => +c.rr.toFixed(3)));
+  out['12 幸運彩蛋金額／全桌平均資產'] = { 全部: rr(lucky), 前期: rr(lucky.filter(c => c.stage === '前期')), 中期: rr(lucky.filter(c => c.stage === '中期')), 後期: rr(lucky.filter(c => c.stage === '後期')),
+    '全桌平均<3萬': rr(lucky.filter(c => c.avg0 < 30000)), '全桌平均3–6萬': rr(lucky.filter(c => c.avg0 >= 30000 && c.avg0 < 60000)), '全桌平均≥6萬': rr(lucky.filter(c => c.avg0 >= 60000)), '超過全桌平均50%的次數': lucky.filter(c => c.rr > 0.5).length, 樣本: lucky.length };
   out['3c 單張卡讓資產變動超過30%的比例%'] = { 全部: wilson(cards.filter(c => Math.abs(c.ratio) > 0.3).length, cards.length), 彩蛋: wilson(byTier('egg').filter(c => Math.abs(c.ratio) > 0.3).length, byTier('egg').length) };
   const per = {}; cards.forEach(c => { const k = c.theme + ' ' + c.eff.split(':')[0] + (c.tier === 'egg' ? '（彩蛋）' : ''); (per[k] = per[k] || []).push(c); });
   out['3d 變動最大的 10 種卡（依 |P10|、|P90|）'] = Object.entries(per).filter(([, a]) => a.length >= 30).map(([k, a]) => ({ k, n: a.length, P10: q(a.map(c => c.d), 0.1), P90: q(a.map(c => c.d), 0.9), 致死: a.filter(c => c.dead).length })).sort((x, y) => Math.max(Math.abs(y.P10), Math.abs(y.P90)) - Math.max(Math.abs(x.P10), Math.abs(x.P90))).slice(0, 10).map(o => `${o.k}：P10 ${Math.round(o.P10)}／P90 ${Math.round(o.P90)}（${o.n} 次，致死 ${o.致死}）`);

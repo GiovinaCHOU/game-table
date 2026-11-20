@@ -198,7 +198,7 @@ function survival(sc, N, opt) {
 }
 function fingerprint() { const out = []; for (let g = 0; g < 300; g++) { seed(g); const r = game(g % 2 ? ['平衡', '預設', '預設', '預設', '預設'] : ROUTES, {}); out.push(r.winner + ':' + r.round + ':' + r.L.rent.length); } let h = 2166136261; const s = out.join(','); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); }
 
-module.exports = { game, batch, summarize, survival, fingerprint, SCEN, STYLE, seed };
+module.exports = { game, batch, summarize, survival, fingerprint, SCEN, STYLE, seed, smartPre, smartDecide };
 if (require.main === module) {
   const [cmd, nArg, ...rest] = process.argv.slice(2), N = +nArg || 2000, keys = rest.length ? rest : Object.keys(SCEN);
   const show = (o) => console.log(JSON.stringify(o));

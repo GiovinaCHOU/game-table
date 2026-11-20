@@ -677,15 +677,15 @@
         const pd = v.pending, me = v.players[v.seat], B = R().BOARD;
         if (this._crisisKey !== v.evId) { this._crisisKey = v.evId; this._crisisSel = new Set(); }
         const sel = this._crisisSel, mineT = B.filter(t => t.type === 'prop' && v.owners[t.i] === v.seat);
-        const val = (t) => Math.round(t.price / 2) + v.levels[t.i] * Math.round(t.up / 2);
+        const sr = pd.sellRate || 0.5, val = (t) => Math.round(t.price * sr) + v.levels[t.i] * Math.round(t.up * sr), half = Math.round(pd.cost * (pd.shieldBlock || 0.5) / 100) * 100;
         const got = me.cash + [...sel].reduce((a, i) => a + val(B[i]), 0), loan = Math.max(0, pd.cost - pd.cash);
         m.hidden = false; m.onclick = null;
         m.innerHTML = `<div class="mm-card crisis-card"><h3>⚠️ 危機處理</h3>
           <p>這張厄運要付 <b>${fmt(pd.cost)}</b> ${th.unit}，你的現金只有 <b>${fmt(pd.cash)}</b>。</p>
-          <p class="hint">全部半價賣光最多湊到 ${fmt(pd.liq)}。只能選一次，選完重新結算；還是不夠就照原本規則破產。</p>
-          ${pd.opts.includes('sell') ? `<div class="cr-opt"><b>① 自選變賣（半價）</b><div class="cr-tiles">${mineT.map(t => `<label class="cr-tile"><input type="checkbox" data-t="${t.i}" ${sel.has(t.i) ? 'checked' : ''}><span class="tile-dot" style="background:${t.color}"></span><span>${U.esc(R().tileName(v.theme, t.i))} Lv${v.levels[t.i]}</span><small>+${fmt(val(t))}</small></label>`).join('')}</div>
+          <p class="hint">只能選一次，選完重新結算；還是不夠的部分照原本規則自動半價變賣，賣光也不夠就破產。</p>
+          ${pd.opts.includes('sell') ? `<div class="cr-opt"><b>① 自選變賣（回收 ${Math.round(sr * 100)}%）</b><div class="cr-tiles">${mineT.map(t => `<label class="cr-tile"><input type="checkbox" data-t="${t.i}" ${sel.has(t.i) ? 'checked' : ''}><span class="tile-dot" style="background:${t.color}"></span><span>${U.esc(R().tileName(v.theme, t.i))} Lv${v.levels[t.i]}</span><small>+${fmt(val(t))}</small></label>`).join('')}</div>
             <p class="hint">${sel.size ? `賣掉後現金 ${fmt(got)}，${got >= pd.cost ? '✅ 夠付' : '❌ 還不夠，不足的部分會自動變賣'}` : '沒勾的話，會從收租最少的地開始賣'}</p><button class="btn" data-c="sell">變賣${sel.size ? `這 ${sel.size} 塊` : ''}</button></div>` : ''}
-          ${pd.opts.includes('shield') ? `<div class="cr-opt"><b>② 用防護罩擋下</b><p class="hint">消耗 1 個防護罩，這張厄運完全不用付。</p><button class="btn" data-c="shield">用防護罩</button></div>` : ''}
+          ${pd.opts.includes('shield') ? `<div class="cr-opt"><b>② 用防護罩擋一半</b><p class="hint">消耗 1 個防護罩，擋下 ${fmt(half)}，還要付 ${fmt(pd.cost - half)}。</p><button class="btn" data-c="shield">用防護罩</button></div>` : ''}
           ${pd.opts.includes('debt') ? `<div class="cr-opt"><b>③ 負債</b><p class="hint">借 ${fmt(loan)}，之後要還 ${fmt(Math.round(loan * (1 + pd.rate / 100) / 100) * 100)}（利息 ${pd.rate}%）。起點薪水和收到的過路費會先拿去還；還清前不能買地、加蓋、收購；10 回合內沒還完會強制變賣。</p><button class="btn" data-c="debt">借錢付清</button></div>` : ''}
           <span class="timer" data-deadline="${v.deadline}"></span></div>`;
         m.querySelectorAll('[data-t]').forEach(c => c.onchange = () => { const i = +c.dataset.t; if (c.checked) sel.add(i); else sel.delete(i); this.showPrompt(); });

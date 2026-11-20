@@ -85,6 +85,7 @@
   // cardTier：分級抽卡，普通 70／稀有 25／彩蛋 5，先抽級別再在級別裡平均抽，卡片張數不影響級別機率（彩蛋約每局 1 次）
   // rescue：高額厄運（要扣 ≥ 8,000）超過現金時進入危機處理（phase 'crisis'），只能選一次：自選變賣（半價）／用防護罩擋下／負債（借差額、要還 130%，
   //   之後起點薪水與收到的過路費先還債，負債中不能買地、加蓋、收購，10 回合內沒還完就強制變賣）；選完重新結算，還不夠照原本破產流程
+  //   v1.1（使用者定案）：主動變賣回收 7 成（自動變賣維持 5 成）、負債一次性利息 50%（不逐回合累積）、防護罩只擋一半（剩下一半照付）
   // 注意：boost 階段、抵押按鈕還沒有畫面，正式開啟前要先做 UI
   const BAL = (st) => (st && st.bal) || {};
   const RAID = { round: 31, every: 3, p: 0.5, top: 0.4, min: 0.2, max: 0.3, floor: 10000, warn: 3 };
@@ -300,7 +301,7 @@
   const PCT2 = { ghost: 20, evo: 20, mandrake: 15, flip: 15, clock: 12, pizza: 12, friend: 12, horse: 12 }; // 比例型厄運調降後的 %（原本 15–30%）
   const CARD_FIX = { 'alien|bad|m:-30000': ['m:-15000', ['30000', '15000']], 'cyber|luck|m:30000': ['m:15000', null] };
   const TIER_W = { common: 70, rare: 25, egg: 5 };
-  const CRISIS_MIN = 8000;
+  const CRISIS_MIN = 8000, RESCUE = { sellRate: 0.7, debtRate: 50, shieldBlock: 0.5 };
   function cardTierOf(eff) { const [k, v] = eff.split(':'); if (!PLAIN_CARD.includes(k)) return 'egg'; if (k === 'm') return Math.abs(+v) <= 5000 ? 'common' : 'rare'; return ['mv', 'gonb'].includes(k) ? 'common' : 'rare'; }
   // 卡片實際數值（金額或百分比）與通膨倍率；沒開 cardAmt 時跟原本完全一樣
   function cardValue(st, s, k, v0) {
@@ -339,24 +340,25 @@
     const opts = []; if (mine(st, s).length) opts.push('sell'); if ((p.items || []).includes('shield')) opts.push('shield'); if (!(p.debt > 0)) opts.push('debt');
     if (!opts.length) return false;
     const [k, v0] = card.eff.split(':'); ev(st, { t: 'card', seat: s, deck: 'bad', text: card.text, eff: k + ':' + cardValue(st, s, k, +v0).v, mul: 1 });
-    st.phase = 'crisis'; st.pending = { card, cost, cash: p.cash, liq: liqValue(st, s), opts, depth, rate: 30 };
+    st.phase = 'crisis'; st.pending = { card, cost, cash: p.cash, liq: liqValue(st, s), opts, depth, rate: RESCUE.debtRate, sellRate: RESCUE.sellRate, shieldBlock: RESCUE.shieldBlock };
     st.anim += 1200; ev(st, { t: 'crisis', seat: s, cost, cash: p.cash }); return true;
   }
-  function sellTiles(st, s, tiles) {
-    const p = st.players[s];
+  function sellTiles(st, s, tiles, rate) { // 危機中主動變賣：回收 rate（7 成）
+    const p = st.players[s]; rate = rate || 0.5;
     tiles.forEach(i => { const t = BOARD[i]; if (!t || st.owners[i] !== s) return;
-      while (st.levels[i] > 0) { st.levels[i]--; p.cash += Math.round(t.up / 2); ev(st, { t: 'sell', seat: s, tile: i, what: 'building' }); }
-      st.owners[i] = -1; p.cash += Math.round(t.price / 2); ev(st, { t: 'sell', seat: s, tile: i, what: 'land' }); });
+      while (st.levels[i] > 0) { st.levels[i]--; p.cash += Math.round(t.up * rate); ev(st, { t: 'sell', seat: s, tile: i, what: 'building' }); }
+      st.owners[i] = -1; p.cash += Math.round(t.price * rate); ev(st, { t: 'sell', seat: s, tile: i, what: 'land' }); });
   }
-  function autoSellList(st, s, need) { // 電腦／逾時：從收租最少的地開始賣，湊到夠為止
-    const out = []; let got = st.players[s].cash;
-    for (const t of mine(st, s).sort((a, b) => rentOf(st, a.i) - rentOf(st, b.i))) { if (got >= need) break; out.push(t.i); got += Math.round(t.price / 2) + st.levels[t.i] * Math.round(t.up / 2); }
+  function autoSellList(st, s, need, rate) { // 電腦／沒勾地：從收租最少的地開始賣，湊到夠為止
+    const out = []; let got = st.players[s].cash; rate = rate || 0.5;
+    for (const t of mine(st, s).sort((a, b) => rentOf(st, a.i) - rentOf(st, b.i))) { if (got >= need) break; out.push(t.i); got += Math.round(t.price * rate) + st.levels[t.i] * Math.round(t.up * rate); }
     return out;
   }
+  function halfCard(card, keep) { const [k, v0] = card.eff.split(':'); return { idx: card.idx, text: card.text, eff: k + ':' + r100(+v0 * keep) }; } // 防護罩擋一半：剩下的金額
   function repayDebt(st, s, got) { // 負債：收到的起點薪水、過路費先還債
     const p = st.players[s]; if (!(p.debt > 0) || got <= 0) return; const x = Math.min(p.debt, got, Math.max(0, p.cash)); if (x <= 0) return;
     p.cash -= x; p.debt -= x; ev(st, { t: 'pay', from: s, to: -1, amt: x, why: '還債' });
-    if (p.debt <= 0) { p.debt = 0; p.debtDue = 0; ev(st, { t: 'note', seat: s, feed: true, text: '✅ 債務還清' }); }
+    if (p.debt <= 0) { (st.debtLog = st.debtLog || []).push({ s, from: p.debtAt, to: st.round, forced: false }); p.debt = 0; p.debtDue = 0; ev(st, { t: 'note', seat: s, feed: true, text: '✅ 債務還清' }); }
   }
   function drawCard0(st, deck) {
     const th = TH()[st.theme]; const list = th[deck === 'luck' ? 'lucky' : 'bad'];
@@ -584,7 +586,7 @@
   }
 
   const R = {
-    _applyCard: applyCard, amtF, cardTierOf, cardValue, autoSellList, behind, isLast, mine, diceRisk, rentIfLand, liqValue, pickOne, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
+    _applyCard: applyCard, RESCUE, amtF, cardTierOf, cardValue, autoSellList, behind, isLast, mine, diceRisk, rentIfLand, liqValue, pickOne, _raid: houndRound, RAID, RAID_INFO, raidPick, raidAt, perk, priceOf, upOf, useLayout, randomLayout, checkLayout, BOARD, N, LAYOUT, GROUP_COLOR, ITEMS: root.MONO_ITEMS, RENT_MUL, START_BONUS, BOOST, JAIL, ROUND_CAP, tileName, rentOf, inflation, worth, assets, taxOf, taxDetail, buyoutOf,
     init(n, o, now) {
       const theme = TH()[o.theme] ? o.theme : 'ragnarok';
       const cash = +o.cash || 50000;
@@ -651,7 +653,7 @@
       st.ev = []; st.anim = 0; st.evId++; st.animAt = now;
       if (a.type === 'roll') {
         if (st.phase !== 'roll') return 'silent';
-        if (p.debt > 0 && st.round >= p.debtDue) { const dd = p.debt; p.debt = 0; p.debtDue = 0; ev(st, { t: 'note', seat: s, feed: true, text: '⏰ 債務到期，強制變賣還債' }); pay(st, s, -1, dd, '債務到期'); if (!p.alive) { endTurn(st, now); return; } }
+        if (p.debt > 0 && st.round >= p.debtDue) { const dd = p.debt; (st.debtLog = st.debtLog || []).push({ s, from: p.debtAt, to: st.round, forced: true }); p.debt = 0; p.debtDue = 0; ev(st, { t: 'note', seat: s, feed: true, text: '⏰ 債務到期，強制變賣還債' }); pay(st, s, -1, dd, '債務到期'); if (!p.alive) { endTurn(st, now); return; } }
         let d = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
         // 神明附身：這一次可以自己決定點數（2～12）
         if (BAL(st).diceChoice && !p.trance) { st.lastRoll = { d: d.slice(), one: !!a.one }; if (a.one) d = [d[0], 0]; }
@@ -712,10 +714,13 @@
         if (st.phase !== 'crisis' || !st.pending) return 'silent';
         const pd = st.pending, c = a.c; if (!pd.opts.includes(c)) return '不能選這個';
         st.phase = 'roll'; st.pending = null;
-        if (c === 'shield') { p.items.splice(p.items.indexOf('shield'), 1); st.anim += 1500; ev(st, { t: 'immune', seat: s }); ev(st, { t: 'note', seat: s, feed: true, text: '🛡 用防護罩擋下這張厄運' }); }
-        else {
-          if (c === 'sell') { const want = (Array.isArray(a.tiles) ? a.tiles : []).map(x => x | 0).filter((i, j, arr) => BOARD[i] && st.owners[i] === s && arr.indexOf(i) === j); sellTiles(st, s, want.length ? want : autoSellList(st, s, pd.cost)); }
-          if (c === 'debt') { const loan = Math.max(0, pd.cost - p.cash); p.cash += loan; p.debt = r100(loan * (1 + pd.rate / 100)); p.debtDue = st.round + 10; ev(st, { t: 'cash', seat: s, amt: loan, why: '借款' }); ev(st, { t: 'note', seat: s, feed: true, text: `💸 負債 ${p.debt.toLocaleString()}（第 ${p.debtDue} 回合前要還清）` }); }
+        if (c === 'auto') cardWithPerk(st, s, 'bad', pd.card, pd.depth, true); // 只給模擬器的對照組（不補救、照原本自動半價變賣）；正式畫面不會出現這個選項
+        else if (c === 'shield') { // 防護罩只擋一半，剩下一半照付（現金不夠照原本自動半價變賣）
+          p.items.splice(p.items.indexOf('shield'), 1); st.anim += 1500; ev(st, { t: 'immune', seat: s }); ev(st, { t: 'note', seat: s, feed: true, text: '🛡 防護罩擋下一半' });
+          cardWithPerk(st, s, 'bad', halfCard(pd.card, 1 - pd.shieldBlock), pd.depth, true);
+        } else {
+          if (c === 'sell') { const want = (Array.isArray(a.tiles) ? a.tiles : []).map(x => x | 0).filter((i, j, arr) => BOARD[i] && st.owners[i] === s && arr.indexOf(i) === j); sellTiles(st, s, want.length ? want : autoSellList(st, s, pd.cost, pd.sellRate), pd.sellRate); }
+          if (c === 'debt') { const loan = Math.max(0, pd.cost - p.cash); p.cash += loan; p.debt = r100(loan * (1 + pd.rate / 100)); p.debtDue = st.round + 10; p.debtAt = st.round; ev(st, { t: 'cash', seat: s, amt: loan, why: '借款' }); ev(st, { t: 'note', seat: s, feed: true, text: `💸 負債 ${p.debt.toLocaleString()}（第 ${p.debtDue} 回合前要還清）` }); }
           cardWithPerk(st, s, 'bad', pd.card, pd.depth, true);
         }
         (st.rescueLog = st.rescueLog || []).push({ s, c, round: st.round, cost: pd.cost, alive: p.alive });
@@ -774,7 +779,10 @@
         return { seat: st.turn, a: BAL(st).diceChoice ? { type: 'roll', one: pickOne(st, st.turn) } : { type: 'roll' } };
       }
       if (st.phase === 'boost') return { seat: st.turn, a: { type: 'boost', k: 'cash' } };
-      if (st.phase === 'crisis') { const pd = st.pending; const c = pd.opts.includes('shield') ? 'shield' : pd.opts.includes('debt') && worth(st, st.turn) > pd.cost * 1.3 ? 'debt' : pd.opts.includes('sell') ? 'sell' : pd.opts[0]; return { seat: st.turn, a: { type: 'crisis', c } }; }
+      if (st.phase === 'crisis') { // 電腦／逾時：選「當下資產損失」最小的方式（缺口 L：變賣損失 L×(1/回收率−1)、負債損失 L×利率、防護罩損失 1,500＋剩下一半付不出時自動半價變賣的損失）
+        const pd = st.pending, p = st.players[st.turn], L = Math.max(0, pd.cost - p.cash), rest = pd.cost * (1 - pd.shieldBlock);
+        const loss = { sell: L * (1 / pd.sellRate - 1), debt: worth(st, st.turn) > pd.cost * 1.5 ? L * pd.rate / 100 : Infinity, shield: 1500 + Math.max(0, rest - p.cash) };
+        const c = pd.opts.slice().sort((a, b) => loss[a] - loss[b])[0]; return { seat: st.turn, a: { type: 'crisis', c } }; }
       if (st.phase === 'passbuild') { // 電腦：蓋最高的那塊（最快變地標），但要留 6000 保命錢
         const p = st.players[st.turn], best = st.pending.opts.filter(i => p.cash - upOf(st, st.turn, i) >= 6000).sort((x, y) => st.levels[y] - st.levels[x])[0];
         return { seat: st.turn, a: { type: 'passbuild', to: best == null ? -1 : best } };
