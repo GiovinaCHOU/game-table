@@ -910,3 +910,7 @@ body.my-turn #game .act-row .btn:not([disabled]):not(.ghost) { animation: myTurn
 body[data-skin="nebula"] .bl-card, body[data-skin="nebula"] .bl-reveal { background: var(--glass2); border-color: var(--neo1); box-shadow: 0 0 24px rgba(255,79,216,.35); }
 body[data-skin="nebula"] .bl-card h2 { color: #ffe08a; text-shadow: 0 0 12px rgba(255,79,216,.6); }
 body[data-skin="nebula"] .bl-order li { background: var(--glass); }
+.bl-angles { text-align: center; margin: 8px 0; }
+.bl-angles small { color: var(--muted); font-size: 12px; }
+.bl-angles div { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; align-items: center; }
+.bl-angles span { background: rgba(180,55,44,.3); border: 1px solid rgba(255,143,128,.5); border-radius: 99px; padding: 4px 12px; font-size: 14px; }
