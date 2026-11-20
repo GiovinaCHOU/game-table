@@ -8,7 +8,12 @@
 
   // ---------- 音效（Web Audio 即時合成） ----------
   const SFX = {
-    on: true, ctx: null, rev: null,
+    on: true, ctx: null, rev: null, stuck: false,
+    fresh() { try { this.ctx && this.ctx.close(); } catch (e) {} this.ctx = null; this.rev = null; this.stuck = false; }, // 丟掉舊引擎，下次用到時在使用者點擊中重建
+    probe() { // 點擊後確認引擎真的在跑（iPhone 有時顯示 running 但時間不走、沒聲音）→ 標記壞掉，下一次點擊重建
+      const c = this.ctx; if (!c) return; const t = c.currentTime;
+      setTimeout(() => { if (c === this.ctx && (c.state !== 'running' || c.currentTime === t)) this.stuck = true; }, 500);
+    },
     unlock() { // iPhone 要在使用者點擊時啟動音效，否則整場都沒聲音
       try { const c = this.ac(); const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); if (c.state !== 'running') c.resume(); } catch (e) {}
     },
@@ -233,7 +238,8 @@
       el.querySelector('[data-t="all"]').onclick = () => { if (this.board) this.board.overview(); };
       el.querySelector('[data-t="q"]').onclick = (e) => { const nq = this.quality() === 'high' ? 'low' : 'high'; try { localStorage.setItem('mono-q', nq); } catch (x) {} e.target.textContent = nq === 'high' ? '高' : '低'; if (this.board && this.board.setQuality) this.board.setQuality(nq === 'high'); this.ui.toast(nq === 'high' ? '高畫質：更清晰、有陰影（比較耗電）' : '省電畫質：解析度低一點、沒有陰影'); };
       el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (!this.board) return; const c = b.dataset.c; if (c === 'tu') this.board.nudge('tilt', -0.25); if (c === 'td') this.board.nudge('tilt', 0.25); if (c === 'zi') this.board.nudge('zoom', 0.8); if (c === 'zo') this.board.nudge('zoom', 1.25); });
-      el.querySelector('[data-t="sfx"]').onclick = (e) => { SFX.on = !SFX.on; e.target.textContent = SFX.on ? '🔊' : '🔇'; try { localStorage.setItem('mono-sfx', SFX.on ? '1' : '0'); } catch (x) {} };
+      el.querySelector('[data-t="sfx"]').onclick = (e) => { SFX.on = !SFX.on; e.target.textContent = SFX.on ? '🔊' : '🔇'; try { localStorage.setItem('mono-sfx', SFX.on ? '1' : '0'); } catch (x) {}
+        if (SFX.on) { SFX.fresh(); SFX.unlock(); SFX.probe(); SFX.tone(880, 0.12, { vol: 0.06, wet: false }); } }; // 打開音效：在這次點擊裡重建引擎，並響一聲確認
       const stage = el.querySelector('.mono-stage');
       const b = new root.MonoBoard3D();
       b.init(stage, v.theme, R()).then(() => {
@@ -1181,13 +1187,17 @@
     }
   };
   if (typeof document !== 'undefined') {
-    // 跳出遊戲太久再回來，手機會把音效引擎卡住：回來後第一次點畫面就換一個新的
-    let hiddenAt = 0, stale = false;
-    document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = Date.now(); else { if (hiddenAt && Date.now() - hiddenAt > 15000) stale = true; if (SFX.ctx && SFX.ctx.state !== 'running') SFX.ctx.resume().catch(() => {}); } });
+    // 手機音效引擎容易卡住（點擊前就建立、跳出去再回來、iPhone 顯示 running 卻沒聲音），一律在使用者點擊時重建：
+    //   ①第一次點擊：點擊前建立的引擎一律換新 ②跳出去再回來（不論多久）③引擎狀態不是 running 或時間沒在走（probe 標記）
+    let stale = false, gestured = false, fixedAt = 0; // 同一次點擊會連續觸發好幾個事件，1 秒內不重複重建
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { stale = true; if (SFX.ctx && SFX.ctx.state !== 'running') SFX.ctx.resume().catch(() => {}); } });
     window.addEventListener('pageshow', (e) => { if (e.persisted) stale = true; });
     ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => {
-      if (SFX.ctx && (stale || SFX.ctx.state === 'closed' || SFX.ctx.state === 'interrupted')) { stale = false; try { SFX.ctx.close(); } catch (e) {} SFX.ctx = null; SFX.rev = null; }
-      if (!SFX.ctx || SFX.ctx.state !== 'running') SFX.unlock(); }, { passive: true }));
+      if (Date.now() - fixedAt < 1000) return;
+      if (SFX.ctx && (!gestured || stale || SFX.stuck || SFX.ctx.state !== 'running')) SFX.fresh();
+      gestured = true; stale = false;
+      if (!SFX.ctx) { fixedAt = Date.now(); SFX.unlock(); SFX.probe(); } }, { passive: true }));
   }
+  M._sfxState = () => SFX.ctx ? SFX.ctx.state + '@' + SFX.ctx.currentTime.toFixed(2) : 'none'; // 測試用
   root.GAMES.monopoly = M;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -606,7 +606,9 @@
       };
       st.layout = o.layout === 'fixed' ? LAYOUT.slice() : randomLayout(); useLayout(st.layout);
       // 平衡實驗：只看大富翁的 🧪 選項（房間層已經保證只有測試房能改，其他房間都是預設 0）
-      const bal = {}; if (+o.bCardAmt) bal.cardAmt = true; if (+o.bCardTier) { bal.cardTier = true; bal.eggByN = true; bal.eggPity = true; } // 分級抽卡只剩選定的 P：依人數＋保底 if (+o.bRescue) bal.rescue = true; if (+o.bDice) bal.diceChoice = true; if (+o.bPreview) bal.preview = true;
+      // 分級抽卡只剩選定的 P：依人數＋保底
+      const bal = {}; if (+o.bCardAmt) bal.cardAmt = true; if (+o.bCardTier) { bal.cardTier = true; bal.eggByN = true; bal.eggPity = true; }
+      if (+o.bRescue) bal.rescue = true; if (+o.bDice) bal.diceChoice = true; if (+o.bPreview) bal.preview = true;
       if (globalThis.__MONO_SIM && o.bal && typeof o.bal === 'object') Object.assign(bal, o.bal);
       if (Object.keys(bal).length) st.bal = bal;
       st.deadline = now + 90000;

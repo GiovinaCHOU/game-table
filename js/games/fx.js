@@ -14,11 +14,13 @@
   }
   // iOS 要使用者點過畫面才能出聲
   // 切到別的 App 太久回來，手機常把音效引擎卡死（狀態 interrupted，或顯示 running 卻沒聲音）：回來後第一次點畫面就整個重建
-  let hiddenAt = 0, stale = false;
+  // 一律在使用者點擊時重建：第一次點擊（點擊前建立的引擎換新）、跳出去再回來（不論多久）、狀態不是 running 或時間沒在走
+  let stale = false, gestured = false, stuck = false, fixedAt = 0; // fixedAt：同一次點擊會連續觸發好幾個事件，1 秒內不重複重建
+  function probe() { const c = ctx; if (!c) return; const t = c.currentTime; setTimeout(() => { if (c === ctx && (c.state !== 'running' || c.currentTime === t)) stuck = true; }, 500); }
   function rebuild() { const old = ctx, mode = BGM.mode; try { old && old.close(); } catch (e) {} ctx = null; noiseBuf = null; if (BGM.timer) { clearInterval(BGM.timer); BGM.timer = null; } BGM.mode = 'off'; ac(); if (mode !== 'off') setBgm(mode); }
-  const unlock = () => { if (ctx && (stale || ctx.state === 'closed' || ctx.state === 'interrupted')) { stale = false; rebuild(); } const c = ac(); if (c && c.state !== 'running') c.resume(); if (c) { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } };
+  const unlock = () => { if (Date.now() - fixedAt < 1000) return; const bad = !gestured || stale || stuck || (ctx && ctx.state !== 'running'); if (ctx && bad) rebuild(); if (bad || !ctx) fixedAt = Date.now(); gestured = true; stale = false; stuck = false; if (!bad && ctx) return; const c = ac(); if (c && c.state !== 'running') c.resume(); if (c) { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); probe(); } };
   ['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
-  const vis = () => { if (document.hidden) { hiddenAt = Date.now(); if (ctx) ctx.suspend().catch(() => {}); } else { if (hiddenAt && Date.now() - hiddenAt > 15000) stale = true; if (ctx) ctx.resume().catch(() => {}); } };
+  const vis = () => { if (document.hidden) { if (ctx) ctx.suspend().catch(() => {}); } else { stale = true; if (ctx) ctx.resume().catch(() => {}); } };
   document.addEventListener('visibilitychange', vis); window.addEventListener('pageshow', (e) => { if (e.persisted) stale = true; if (ctx) ctx.resume().catch(() => {}); });
 
   // ---------- 基本音色 ----------
@@ -126,9 +128,9 @@
     loop();
   }
   const GFX = {
-    S, setBgm, get on() { return st.sfx; }, get music() { return st.bgm; },
-    toggleSfx() { st.sfx = !st.sfx; LS.set('gfx-sfx', st.sfx ? '1' : '0'); if (ac()) sfxBus.gain.value = st.sfx ? 0.8 : 0; return st.sfx; },
-    toggleBgm() { st.bgm = !st.bgm; LS.set('gfx-bgm', st.bgm ? '1' : '0'); setBgm(st.bgm ? (BGM.want || 'off') : 'off'); return st.bgm; },
+    S, setBgm, get audioState() { return ctx ? ctx.state + '@' + ctx.currentTime.toFixed(2) : 'none'; }, get on() { return st.sfx; }, // audioState：測試用 get music() { return st.bgm; },
+    toggleSfx() { st.sfx = !st.sfx; LS.set('gfx-sfx', st.sfx ? '1' : '0'); if (st.sfx) { stuck = true; fixedAt = 0; unlock(); } if (ac()) sfxBus.gain.value = st.sfx ? 0.8 : 0; return st.sfx; }, // 打開時在這次點擊裡重建引擎
+    toggleBgm() { st.bgm = !st.bgm; LS.set('gfx-bgm', st.bgm ? '1' : '0'); if (st.bgm) { stuck = true; fixedAt = 0; unlock(); } setBgm(st.bgm ? (BGM.want || 'off') : 'off'); return st.bgm; },
     win(title, sub) { overlay('win', title || '🎉 你贏了！', sub); },
     lose(title, sub) { overlay('lose', title || MOCK[Math.floor(Math.random() * MOCK.length)], sub); },
     mock() { return MOCK[Math.floor(Math.random() * MOCK.length)]; },
