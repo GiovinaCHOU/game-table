@@ -19,7 +19,7 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - style.css：全站樣式
 
 小遊戲（一個遊戲一個檔案）
-- mahjong.js 台灣16張麻將（3/4/5人）｜bigtwo.js 大老二｜slap.js 心臟病｜rummi.js 拉密｜dice.js 吹牛｜draw.js 你畫我猜｜bluff.js 誰是唬爛王（瞎掰王玩法；題庫 BANK 分 6 類，每題附真正意思，3–9 人）
+- mahjong.js 台灣16張麻將（3/4/5人）｜bigtwo.js 大老二｜slap.js 心臟病｜rummi.js 拉密｜dice.js 吹牛｜draw.js 你畫我猜｜bluff.js 誰是唬爛王（瞎掰王玩法，3–9 人；題庫 BANK 每題附真正意思，出題方向是「真有此事但聽起來像唬爛」，weird:1 的分類組成預設的「怪但是真的」；不用原版商品名、不搬原版卡片）
 
 大富翁（都在 js/games/）
 - monopoly.js：遊戲模組主體、主題選單、事件與動畫的調度
@@ -43,6 +43,7 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 主題 id 對照：ragnarok 諸神黃昏、cyber 夜城、animal 動物星球、alien 深空異種、buddha 神佛之境、magic 魔法學院、town 怪奇小鎮、gang 幫派街區
 
 其他
+- docs/上線規劃.md：正式上線的發想（參考別站的動線但不照抄：首頁加入／建立分頁卡、窄螢幕漢堡選單、隱私權／使用條款／關於頁、非官方聲明、自訂網址費用）
 - img/themes/<主題id>-0~2.jpg：主題背景圖｜img/pet0~3.png：拉密鬼牌（三隻貓＋鳥）
 - vendor/：peerjs、three.js（不改）
 - tools/bump.py：替 index.html 的 js/css 加版本號（避免手機吃到舊快取）
