@@ -272,7 +272,7 @@
   }
   function startTalk(st, now) {
     st.phase = 'talk'; st.spk = 0; st.turn = st.order[0];
-    st.peekHidden = !!st.peek;
+    st.peekHidden = true; // 開始輪流說明後，老實人也看不到答案，只能靠記憶轉述
     st.deadline = st.speakT ? now + st.speakT * 1000 : 0; st.step++;
   }
   function nextSpeaker(st, now) {
@@ -302,7 +302,7 @@
       { key: 'cat', label: '題目類型', choices: [['all', '全部混合'], ['history', '怪歷史・怪地名'], ['beast', '怪動物'], ['food', '怪食物'], ['job', '怪職業・怪習俗'], ['tw', '台灣在地'], ['myth', '神獸傳說'], ['psy', '怪效應・冷知識']], def: 'all' },
       { key: 'prepT', label: '準備時間', choices: [[30, '30 秒'], [45, '45 秒'], [20, '20 秒']], def: 30 },
       { key: 'speakT', label: '每人說明時間', choices: [[40, '40 秒'], [60, '60 秒'], [25, '25 秒'], [0, '不限（講完自己按）']], def: 40 },
-      { key: 'peek', label: '老實人看答案', choices: [[0, '準備時間都看得到'], [5, '只能看 5 秒（村規）'], [10, '只能看 10 秒']], def: 0 },
+      { key: 'peek', label: '老實人看答案', choices: [[0, '準備時間都看得到，開始後收起'], [5, '只能看 5 秒（村規）'], [10, '只能看 10 秒']], def: 0 },
       { key: 'hint', label: '唬爛王靈感', choices: [[1, '開（給 3 個瞎掰方向）'], [0, '關']], def: 1 },
       { key: 'source', label: '題庫', choices: [['builtin', '內建題目'], ['both', '內建＋自訂'], ['custom', '只用自訂']], def: 'builtin' },
       { key: 'custom', label: '自訂題目（一行一題，詞＝真正的意思）', type: 'text', placeholder: '例如：\n阿傑的貓＝一隻會開冰箱的橘貓\n囍＝雙喜，用在結婚', def: '', count: (s) => parseCustom(s).length }
@@ -374,12 +374,12 @@
     view(st, seat) {
       const open = st.phase === 'reveal' || st.phase === 'over';
       const isH = seat === st.honest && seat >= 0;
-      const seeM = open || (isH && (!st.peek || (st.phase === 'prep' && !st.peekHidden)));
+      const seeM = open || (isH && st.phase === 'prep' && !st.peekHidden);
       return {
         phase: st.phase, round: st.round, judge: st.judge, target: st.target, scores: st.scores, deadline: st.deadline, turn: st.turn, turnId: st.step,
         word: st.word.w, cat: st.word.c, meaning: seeM ? st.word.m : null,
         role: seat < 0 ? 'spec' : seat === st.judge ? 'judge' : isH ? 'honest' : 'liar',
-        hint: st.hint, peek: st.peek, peekUntil: isH && st.phase === 'prep' && st.peek && !st.peekHidden ? st.peekUntil : 0, peekGone: isH && st.peek && !seeM && !open,
+        hint: st.hint, peek: st.peek, peekUntil: isH && st.phase === 'prep' && st.peek && !st.peekHidden ? st.peekUntil : 0, peekGone: isH && !seeM && !open,
         order: st.order, spk: st.spk, said: st.said, readyN: Object.keys(st.ready).length, needN: st.n - 1, meReady: !!st.ready[seat], swaps: st.swaps,
         last: open ? st.last : null, log: st.log.slice(-3)
       };
@@ -398,7 +398,7 @@
 
       let body = '';
       if (v.phase === 'prep') {
-        const tip = { judge: '等大家準備。待會仔細聽每個人的說明，找出誰說的是真的。', honest: '你知道真正的意思！待會照實講，但講得太像背字典反而會被懷疑。', liar: '你不知道意思！從詞的字面去聯想，講得越有細節越像真的。', spec: '玩家準備中…' }[v.role];
+        const tip = { judge: '等大家準備。待會仔細聽每個人的說明，找出誰說的是真的。', honest: '你知道真正的意思！趁現在記熟，大家準備好後答案就會收起來，要靠記憶照實講。', liar: '你不知道意思！從詞的字面去聯想，講得越有細節越像真的。', spec: '玩家準備中…' }[v.role];
         body = `<p class="bl-tip">${tip}</p>
           ${v.role === 'liar' && v.hint ? this._angles(v) : ''}
           ${v.role === 'honest' ? (v.meaning ? `<div class="bl-mean"><small>真正的意思（只有你看得到）${v.peekUntil ? ` <span class="timer" data-deadline="${v.peekUntil}"></span> 後消失` : ''}</small><p>${U.esc(v.meaning)}</p></div>` : `<div class="bl-mean gone"><small>答案已經收起來了，靠記憶吧！</small></div>`) : ''}
