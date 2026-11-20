@@ -84,7 +84,7 @@
   //   比例型厄運調降（PCT2）；深空異種 −30,000、夜城 +30,000 兩張改成 15,000（只在這個開關下，正式資料不動）
   // cardTier：分級抽卡，普通 70／稀有 25／彩蛋 5，先抽級別再在級別裡平均抽，卡片張數不影響級別機率（彩蛋約每局 1 次）
   // eggByN：（搭配 cardTier）彩蛋權重依人數調整，讓每局平均約 1 次（2–6 人：7.6／6.6／5.1／4.3／3.6，由模擬實測每局抽卡數換算；普通 70、稀有 25 不變）
-  // eggPity：（搭配 eggByN）彩蛋「越久沒出越容易出、剛出過就比較難出」：每次抽卡出彩蛋的機率＝π÷(2D²)×距上次彩蛋的抽卡數（上限 50%），D＝平均間隔（約每局抽卡數），平均仍約每局 1 次
+  // eggPity：（搭配 eggByN，a＝0.7）彩蛋「越久沒出越容易出、剛出過就比較難出」：機率＝π÷(2a²D²)×累積值×隨機 0.7–1.3（上限 20%）；累積值每抽一張加 0.5–1.5、出彩蛋後隨機歸到負值（冷卻 0–0.3D），D＝平均間隔，平均仍約每局 1 次
   // rescue：高額厄運（要扣 ≥ 8,000）超過現金時進入危機處理（phase 'crisis'），只能選一次：自選變賣（半價）／用防護罩擋下／負債（借差額、要還 130%，
   //   之後起點薪水與收到的過路費先還債，負債中不能買地、加蓋、收購，10 回合內沒還完就強制變賣）；選完重新結算，還不夠照原本破產流程
   //   v1.1（使用者定案）：主動變賣回收 7 成（自動變賣維持 5 成）、負債一次性利息 50%（不逐回合累積）、防護罩只擋一半（剩下一半照付）
@@ -303,7 +303,7 @@
   const PCT2 = { ghost: 20, evo: 20, mandrake: 15, flip: 15, clock: 12, pizza: 12, friend: 12, horse: 12 }; // 比例型厄運調降後的 %（原本 15–30%）
   const CARD_FIX = { 'alien|bad|m:-30000': ['m:-15000', ['30000', '15000']], 'cyber|luck|m:30000': ['m:15000', null] };
   const TIER_W = { common: 70, rare: 25, egg: 5 }, EGG_W_BY_N = { 2: 7.6, 3: 6.6, 4: 5.1, 5: 4.3, 6: 3.6 };
-  const CRISIS_MIN = 8000, RESCUE = { sellRate: 0.7, debtRate: 50, shieldBlock: 0.5 };
+  const PITY_CAP = 0.2, CRISIS_MIN = 8000, RESCUE = { sellRate: 0.7, debtRate: 50, shieldBlock: 0.5 };
   function cardTierOf(eff) { const [k, v] = eff.split(':'); if (!PLAIN_CARD.includes(k)) return 'egg'; if (k === 'm') return Math.abs(+v) <= 5000 ? 'common' : 'rare'; return ['mv', 'gonb'].includes(k) ? 'common' : 'rare'; }
   // 卡片實際數值（金額或百分比）與通膨倍率；沒開 cardAmt 時跟原本完全一樣
   function cardValue(st, s, k, v0) {
@@ -321,10 +321,14 @@
   function drawTier(st, deck, list) {
     const by = { common: [], rare: [], egg: [] }; list.forEach((c, i) => by[cardTierOf(c[1])].push(i));
     const W = Object.assign({}, TIER_W, BAL(st).eggByN ? { egg: EGG_W_BY_N[st.n] || TIER_W.egg } : {});
-    if (BAL(st).eggPity) { const g = (st.eggGap || 0) + 1, D = (95 + W.egg) / W.egg, a = BAL(st).eggPityA || 0.75, pr = Math.min(0.5, Math.PI / (2 * a * a * D * D) * g); W.egg = 95 * pr / (1 - pr); } // 機率隨「距上次彩蛋的抽卡數」線性上升，平均間隔仍是 D
+    const D = (95 + W.egg) / W.egg; // 平均間隔（抽幾張出一次彩蛋）
+    if (BAL(st).eggPity) { // 保底：越久沒出越容易出，但每次都有隨機波動、上限 20%，玩家無法精確推算「下一張一定是彩蛋」
+      const g = Math.max(0, st.eggGap || 0) + 1, a = BAL(st).eggPityA || 0.7, jit = 0.7 + Math.random() * 0.6;
+      const pr = Math.min(PITY_CAP, Math.PI / (2 * a * a * D * D) * g * jit); st.eggP = pr; W.egg = 95 * pr / (1 - pr);
+    }
     const tiers = Object.keys(by).filter(t => by[t].length), tot = tiers.reduce((a, t) => a + W[t], 0);
     let r = Math.random() * tot, tier = tiers[tiers.length - 1]; for (const t of tiers) { r -= W[t]; if (r < 0) { tier = t; break; } }
-    st.eggGap = tier === 'egg' ? 0 : (st.eggGap || 0) + 1;
+    st.eggGap = tier === 'egg' ? -Math.random() * D * 0.3 : (st.eggGap || 0) + 0.5 + Math.random(); // 冷卻長度、累積速度都隨機
     if (tier === 'egg') { const last = (st.lastEgg || {})[deck], pool = by.egg.length > 1 ? by.egg.filter(i => i !== last) : by.egg; const idx = pool[Math.floor(Math.random() * pool.length)]; (st.lastEgg = st.lastEgg || {})[deck] = idx; return { idx, text: list[idx][0], eff: list[idx][1] }; }
     const key = deck + ':' + tier; if (!st.decks[key] || !st.decks[key].length) st.decks[key] = U.shuffle(by[tier].slice());
     const idx = st.decks[key].pop(); return { idx, text: list[idx][0], eff: list[idx][1] };

@@ -14,6 +14,7 @@ R.act = function (st, s, a, now) {
   const w0 = st.players.map((p, k) => R.worth(st, k)), alive0 = st.players.map(p => p.alive), ph0 = st.phase;
   const crisisCard = ph0 === 'crisis' && st.pending ? st.pending.card : null, crisisSeat = st.turn;
   const r = orig.call(this, st, s, a, now), evs = st.ev || [];
+  evs.forEach(e => { if (e.t === 'card' && st.eggP != null) G.draws.push([st.eggP, isEgg(e.eff)]); });
   const rank0 = (k) => w0.filter((w, j) => alive0[j] && w > w0[k]).length;
   const rec = (k, deck, eff, ci) => { // 卡片本身的帳（同 mono-cardsim.js）
     let other = 0; evs.forEach((e, idx) => { const ext = idx < ci || /過路費|稅金|起點|落後補助|還債/.test(e.why || '');
@@ -33,9 +34,9 @@ function run(sk, n) {
   for (const table of ['route', 'casual']) for (let g = 0; g < N; g++) {
     M.seed((table === 'route' ? 21e6 : 22e6) + n * 1e5 + g);
     const seats = table === 'route' ? Array.from({ length: n }, (_, i) => ROUTES[(i + g) % ROUTES.length]) : Array(n).fill('預設');
-    G = { eggs: [] }; const r = M.game(seats, sc.bal, { theme: THEMES[g % 8] }); const eggs = G.eggs; G = null;
+    G = { eggs: [], draws: [] }; const r = M.game(seats, sc.bal, { theme: THEMES[g % 8] }); const eggs = G.eggs, draws = G.draws; G = null;
     const fin = Array(n).fill(-1); (r.st.ranks || []).forEach(o => fin[o.s] = o.w);
-    games.push({ table, winner: r.winner, eggs, fin, err: r.L.err });
+    games.push({ table, winner: r.winner, eggs, fin, err: r.L.err, draws });
   }
   const T = games.length, cnt = games.map(x => x.eggs.length), out = { 情境: sc.name, 人數: n, 局數: T };
   out['每局彩蛋 平均'] = +mean(cnt).toFixed(2);
@@ -60,6 +61,15 @@ function run(sk, n) {
   const flip = withEgg.filter(x => { const adj = x.fin.map((w, k) => w < 0 ? -1e12 : w - x.eggs.filter(e => e.s === k).reduce((a, e) => a + e.d, 0)); return adj.indexOf(Math.max(...adj)) !== x.winner; });
   out['彩蛋改變勝負（占有彩蛋的局）%'] = wilson(flip.length, withEgg.length); out['彩蛋改變勝負（占全部局）%'] = wilson(flip.length, T);
   out['彩蛋淨收支 中位／P10／P90'] = (() => { const a = games.flatMap(x => x.eggs.map(e => e.d)).sort((x, y) => x - y); const q = (p) => a.length ? Math.round(a[Math.min(a.length - 1, Math.floor(p * a.length))]) : 0; return [q(0.5), q(0.1), q(0.9)]; })();
+  const dr = games.flatMap(x => x.draws);
+  if (dr.length) { const ps = dr.map(d => d[0]).sort((x, y) => x - y), q = (p) => +(ps[Math.min(ps.length - 1, Math.floor(p * ps.length))] * 100).toFixed(1);
+    const hi = dr.filter(d => d[0] >= 0.15);
+    out['保底：每次抽卡的彩蛋機率 中位／P90／最高 %'] = [q(0.5), q(0.9), +(ps[ps.length - 1] * 100).toFixed(1)];
+    out['保底：機率≥15% 的抽卡占比 %'] = +(hi.length / dr.length * 100).toFixed(2);
+    out['保底：機率≥15% 時真的出彩蛋 %'] = wilson(hi.filter(d => d[1]).length, hi.length);
+    const gapEgg = []; games.forEach(x => { let k = 0; x.draws.forEach(d => { k++; if (d[1]) { gapEgg.push(k); k = 0; } }); });
+    const gs = gapEgg.sort((x, y) => x - y), gq = (p) => gs[Math.min(gs.length - 1, Math.floor(p * gs.length))];
+    out['保底：兩次彩蛋之間隔幾張卡 P10／中位／P90'] = [gq(0.1), gq(0.5), gq(0.9)]; }
   out.錯誤局數 = games.filter(x => x.err).length;
   return out;
 }
