@@ -115,11 +115,22 @@
     if (st.source === 'both' && st.custom.length) return base.concat(st.custom, st.custom); // 自訂題目機率加倍
     return base;
   }
+  // 抽題像發牌：整個題庫抽完一輪才會重複；抽過的紀錄存在房主手機（localStorage），
+  // 下一局、甚至改天再開房也接著抽。一輪抽完重洗時，最近抽過的 1/3 先不放回，避免剛抽完又出現。
+  const USED_KEY = 'bluff-used';
+  function loadUsed() { try { const a = JSON.parse(root.localStorage.getItem(USED_KEY) || '[]'); return Array.isArray(a) ? a.slice(-500) : []; } catch (e) { return []; } }
+  function saveUsed(u) { try { root.localStorage.setItem(USED_KEY, JSON.stringify(u.slice(-500))); } catch (e) {} }
   function pickWord(st) {
-    let p = pool(st).filter(x => !st.used.includes(x.w));
-    if (!p.length) { st.used = []; p = pool(st); }
+    const all = pool(st);
+    let p = all.filter(x => !st.used.includes(x.w));
+    if (!p.length) {
+      const recent = st.used.slice(-Math.floor(new Set(all.map(x => x.w)).size / 3));
+      st.used = st.used.filter(w => recent.includes(w));
+      p = all.filter(x => !st.used.includes(x.w));
+      if (!p.length) { st.used = []; p = all; }
+    }
     const x = p[Math.floor(Math.random() * p.length)];
-    st.used.push(x.w); return { w: x.w, m: x.m, c: x.c };
+    st.used.push(x.w); saveUsed(st.used); return { w: x.w, m: x.m, c: x.c };
   }
   const others = (st) => U.range(st.n).filter(i => i !== st.judge);
 
@@ -174,7 +185,7 @@
       const st = {
         n, target: +o.target || 5, cat: BANK[o.cat] ? o.cat : 'all', prepT: +o.prepT || 30, speakT: o.speakT == null ? 40 : +o.speakT,
         peek: +o.peek || 0, hint: o.hint == null ? 1 : +o.hint, source: o.source || 'builtin', custom: parseCustom(o.custom),
-        scores: Array(n).fill(0), judge: Math.floor(Math.random() * n), round: 1, used: [], step: 0, log: []
+        scores: Array(n).fill(0), judge: Math.floor(Math.random() * n), round: 1, used: loadUsed(), step: 0, log: []
       };
       newRound(st, now == null ? Date.now() : now); return st;
     },
