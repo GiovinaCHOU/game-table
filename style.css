@@ -914,3 +914,4 @@ body[data-skin="nebula"] .bl-order li { background: var(--glass); }
 .bl-angles small { color: var(--muted); font-size: 12px; }
 .bl-angles div { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; align-items: center; }
 .bl-angles span { background: rgba(180,55,44,.3); border: 1px solid rgba(255,143,128,.5); border-radius: 99px; padding: 4px 12px; font-size: 14px; }
+.gdesc.small.bad { color: #ff9b8f; }
