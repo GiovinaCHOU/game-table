@@ -100,11 +100,11 @@
     document.querySelectorAll('.gfx-ov').forEach(e => e.remove());
     const d = document.createElement('div'); d.className = 'gfx-ov ' + kind;
     d.innerHTML = `<canvas></canvas><div class="gfx-msg"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}<em>點一下關閉</em></div>`;
-    document.body.appendChild(d);
+    document.body.appendChild(d); document.body.classList.add('gfx-busy'); // 動畫播放時先把結算卡藏起來，播完才出現
     const cv = d.querySelector('canvas'), g = cv.getContext('2d'), dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr; g.scale(dpr, dpr);
     const w = innerWidth, h = innerHeight, parts = [], splats = [];
-    let alive = true; const close = () => { if (!alive) return; alive = false; d.classList.add('out'); setTimeout(() => d.remove(), 400); };
+    let alive = true; const close = () => { if (!alive) return; alive = false; d.classList.add('out'); setTimeout(() => { d.remove(); if (!document.querySelector('.gfx-ov')) document.body.classList.remove('gfx-busy'); }, 400); };
     d.onclick = close; setTimeout(close, kind === 'win' ? 4200 : 3800);
     const COLS = ['#ff4fd8', '#3ef0ff', '#ffd36e', '#7cff6b', '#ff6b5b', '#b18cff', '#fff'];
     const burst = (x, y, n) => { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 7; parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 4, r: 3 + Math.random() * 4, c: COLS[i % COLS.length], rot: Math.random() * 6, vr: (Math.random() - .5) * .4, life: 1, shape: i % 3 }); } };

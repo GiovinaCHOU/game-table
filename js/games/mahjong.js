@@ -526,6 +526,7 @@
         </div>` : '<p class="spec-note">' + (v.sitter >= 0 && me == null && v.names[v.sitter] ? '觀戰中（5 人局每局輪一人休息）' : '觀戰中') + '</p>'}`;
       const sb = el.querySelector('[data-sort]'); if (sb) sb.onclick = () => { this._order = null; this.render(el, v, ui); };
       this._bindDrag(el, v, ui, hand, drawnSep);
+      this._fit(el);
       el.querySelectorAll('.mj-hand .mt').forEach(t => t.onclick = () => {
         if (this._justDragged) return;
         if (!myTurn) return; const id = +t.dataset.id;
@@ -539,6 +540,26 @@
         else if (a === 'chi') ui.send({ type: 'chi', i: +b.dataset.i });
         else ui.send({ type: a });
       });
+    },
+    // 版面固定在一個螢幕內：牌河、旁家的牌越來越多時自動縮小牌，不用上下滑
+    _fit(el) {
+      this._fitEl = el;
+      if (!this._onResize) { this._onResize = () => { clearTimeout(this._rz); this._rz = setTimeout(() => { if (this._fitEl && this._fitEl.isConnected && this._fitEl.dataset.g === 'mahjong') this._fit(this._fitEl); }, 120); }; addEventListener('resize', this._onResize); addEventListener('orientationchange', this._onResize); }
+      const st = document.getElementById('stage'); if (st) st.scrollTop = 0;
+      el.classList.add('mj-fit');
+      const vw = innerWidth, vh = (st && st.clientHeight) || innerHeight;
+      const big = Math.max(16, Math.min(30, Math.min(vw / 20, vh / 24)));
+      const boxes = [...el.querySelectorAll('.mjt, .mj-table, .mjr, .mjs, .mj-core')];
+      const set = (s) => {
+        el.style.setProperty('--mj-rv', (big * s).toFixed(1) + 'px');
+        el.style.setProperty('--mj-xs', (big * s * 0.95).toFixed(1) + 'px');
+        el.style.setProperty('--mj-xxs', Math.max(5, big * s * 0.48).toFixed(1) + 'px');
+        el.style.setProperty('--mj-hs', Math.min(1, 0.55 + s * 0.6).toFixed(3)); // 手牌最後才縮，而且縮得少
+      };
+      const over = () => boxes.some(b => b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1) || el.scrollHeight > el.clientHeight + 1;
+      let lo = 0.3, hi = 1; set(hi); if (!over()) return;
+      for (let i = 0; i < 7; i++) { const m = (lo + hi) / 2; set(m); if (over()) hi = m; else lo = m; }
+      set(lo);
     },
     // 拖曳手牌換位置（滑鼠與手指都可以）
     _bindDrag(el, v, ui, hand, drawnSep) {
