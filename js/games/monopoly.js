@@ -118,12 +118,10 @@
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       // 🧪 平衡實驗（test: true → 只有測試房 777777 看得到、改得動；其他房間一律用預設值＝正式規則）
       { key: 'bCardAmt', label: '🧪 卡片金額公式', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
-      { key: 'bCardTier', label: '🧪 卡片分級抽卡', test: true, choices: [[0, '關（正式規則）'], [1, '開（普通70／稀有25／彩蛋5）'], [2, '開＋彩蛋依人數（約每局 1 次）'], [3, '開＋彩蛋依人數＋保底（較平均）']], def: 0 },
+      { key: 'bCardTier', label: '🧪 卡片分級抽卡', test: true, choices: [[0, '關（正式規則）'], [1, '開（彩蛋依人數＋保底，約每局 1 次）']], def: 0 },
       { key: 'bRescue', label: '🧪 高額厄運危機處理', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bDice', label: '🧪 擲骰選 1／2 顆', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bPreview', label: '🧪 前方危險預覽', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
-      { key: 'bSet', label: '🧪 色組加成 Lv1 以上', test: true, choices: [[0, '關（正式規則）'], [2, '×2']], def: 0 },
-      { key: 'bDoom', label: '🧪 末日通膨', test: true, choices: [[0, '正式規則'], [1, '提前 1 回合']], def: 0 },
       { key: 'rounds', label: '遊戲長度', choices: [[0, '任何一人破產就結束（約 35～50 分）'], [12, '12 回合（約 10 分）'], [24, '24 回合（約 20 分）'], [36, '36 回合（約 30 分）'], [999, '打到剩一人']], def: 0 }
     ],
     init(n, o, names, now) { return R().init(n, o, now); },
