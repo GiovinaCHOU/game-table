@@ -50,6 +50,7 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - tools/mono-cards.js：卡片盤點（每張卡的級別、機率、計算方式、模擬實測的金額分位數、致死數）→ `node tools/mono-cards.js 2000 輸出.csv`
 - tools/mono-cardsim.js：卡片平衡 v1 的 A–D 模擬（`node tools/mono-cardsim.js 5000 3,5,6 CA,CB,CC,CD`，一行一個情境的 JSON），含致死率、彩蛋頻率、補救成功率、信賴區間
 - tools/mono-rescue.js：危機補救專項測試（同一局面強制套用 不補救／變賣／防護罩／負債，配對比較存活、名次、勝率、清償回合）→ `node tools/mono-rescue.js 60000 5 0`
+- tools/mono-eggsim.js：彩蛋權重測試（每局次數分布、落在誰身上、拿到彩蛋的勝率、彩蛋改變勝負的比例）→ `node tools/mono-eggsim.js 5000 3,5,6 CA,CC,EN,EP`
 - 平衡提案開關：mono-rules.js 的 BAL，存在每局的 st.bal（開局決定）；正式房間一律關。擲骰選擇、危險預覽、色組 ×2、末日提前、卡片金額公式、分級抽卡、高額厄運危機處理（負債）有畫面與 🧪 選項；落後收購、投資浮動、轟炸停租、補助三選一、彩池、抵押只有規則（模擬器用 o.bal 開），沒有畫面
 
 ## 上線流程

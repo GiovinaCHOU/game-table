@@ -27,7 +27,10 @@ const SCEN = {
   CA: { name: 'A 現行規則', bal: {} },
   CB: { name: 'B 僅金額公式', bal: { cardAmt: true } },
   CC: { name: 'C 金額＋分級權重', bal: { cardAmt: true, cardTier: true } },
-  CD: { name: 'D 完整（含危機補救）', bal: { cardAmt: true, cardTier: true, rescue: true } }
+  CD: { name: 'D 完整（含危機補救）', bal: { cardAmt: true, cardTier: true, rescue: true } },
+  // 彩蛋權重：A 現行／C 固定 5／N 依人數
+  EN: { name: 'N 金額＋分級＋彩蛋依人數', bal: { cardAmt: true, cardTier: true, eggByN: true } },
+  EP: { name: 'P 依人數＋保底（越久沒出越容易出）', bal: { cardAmt: true, cardTier: true, eggByN: true, eggPity: true } }
 };
 
 // ===== 聰明電腦（5 種打法）=====

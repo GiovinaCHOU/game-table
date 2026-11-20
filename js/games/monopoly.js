@@ -118,7 +118,7 @@
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       // 🧪 平衡實驗（test: true → 只有測試房 777777 看得到、改得動；其他房間一律用預設值＝正式規則）
       { key: 'bCardAmt', label: '🧪 卡片金額公式', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
-      { key: 'bCardTier', label: '🧪 卡片分級抽卡', test: true, choices: [[0, '關（正式規則）'], [1, '開（普通70／稀有25／彩蛋5）']], def: 0 },
+      { key: 'bCardTier', label: '🧪 卡片分級抽卡', test: true, choices: [[0, '關（正式規則）'], [1, '開（普通70／稀有25／彩蛋5）'], [2, '開＋彩蛋依人數（約每局 1 次）'], [3, '開＋彩蛋依人數＋保底（較平均）']], def: 0 },
       { key: 'bRescue', label: '🧪 高額厄運危機處理', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bDice', label: '🧪 擲骰選 1／2 顆', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bPreview', label: '🧪 前方危險預覽', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
