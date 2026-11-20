@@ -117,6 +117,9 @@
       { key: 'layout', label: '地圖排列', choices: [['random', '每局隨機（角落不動、同色地相連）'], ['fixed', '固定']], def: 'random' },
       { key: 'cash', label: '起始資金', choices: [[50000, '50,000'], [30000, '30,000'], [80000, '80,000']], def: 50000 },
       // 🧪 平衡實驗（test: true → 只有測試房 777777 看得到、改得動；其他房間一律用預設值＝正式規則）
+      { key: 'bCardAmt', label: '🧪 卡片金額公式', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
+      { key: 'bCardTier', label: '🧪 卡片分級抽卡', test: true, choices: [[0, '關（正式規則）'], [1, '開（普通70／稀有25／彩蛋5）']], def: 0 },
+      { key: 'bRescue', label: '🧪 高額厄運危機處理', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bDice', label: '🧪 擲骰選 1／2 顆', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bPreview', label: '🧪 前方危險預覽', test: true, choices: [[0, '關（正式規則）'], [1, '開']], def: 0 },
       { key: 'bSet', label: '🧪 色組加成 Lv1 以上', test: true, choices: [[0, '關（正式規則）'], [2, '×2']], def: 0 },
@@ -147,7 +150,7 @@
     view(st, seat) {
       return {
         theme: st.theme, layout: st.layout, phase: st.phase, turn: st.turn, round: st.round, maxRounds: st.maxRounds, deadline: st.deadline,
-        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, pill: p.pill || null, stamp: p.stamp == null ? null : p.stamp, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
+        players: st.players.map((p, k) => ({ cash: p.cash, pos: p.pos, alive: p.alive, skip: p.skip, immune: p.immune, jailfree: p.jailfree, jailChoice: p.jailChoice || 0, pill: p.pill || null, stamp: p.stamp == null ? null : p.stamp, char: p.char, evolved: !!p.evolved, trance: !!p.trance, curse: p.curse || 0, freeRent: p.freeRent || 0, frog: !!p.frog, debt: p.debt || 0, debtDue: p.debtDue || 0, items: k === seat ? (p.items || []) : (p.items || []).map(() => '?'), invest: (p.invest || []).slice(), usedItem: !!p.usedItem })),
         assets: st.players.map((p, s) => R().assets(st, s)), infl: R().inflation(st),
         owners: st.owners, levels: st.levels, ev: (st.ev || []).map(e => e.t === 'getitem' && e.seat !== seat ? { t: 'getitem', seat: e.seat, amt: e.amt ? 1 : 0 } : e), evId: st.evId,
         pending: st.phase === 'shop' && st.turn !== seat ? { shop: true } : st.pending, dice: st.dice, winner: st.winner, ranks: st.ranks, endWhy: st.endWhy,
@@ -184,7 +187,7 @@
     },
     render(el, v, ui) {
       R().useLayout(v.layout);
-      if (v.seat >= 0 && v.turn === v.seat && ['buy', 'upgrade', 'buyout', 'shop', 'gate'].includes(v.phase)) { const k = v.evId + ':' + v.phase; if (this._decKey !== k) { this._decKey = k; this._decAt = Date.now(); } }
+      if (v.seat >= 0 && v.turn === v.seat && ['buy', 'upgrade', 'buyout', 'shop', 'gate', 'crisis'].includes(v.phase)) { const k = v.evId + ':' + v.phase; if (this._decKey !== k) { this._decKey = k; this._decAt = Date.now(); } }
       const prev = this.v; this.ui = ui; this.v = v;
       const lk = (v.layout || []).join(','); // 這局的地圖排列（每個玩家畫面都要先切過來）
       if (el.dataset.g !== 'monopoly' || this._theme !== v.theme || this._layoutKey !== lk) { this._layoutKey = lk; this.build(el, v); }
@@ -629,7 +632,7 @@
       { const me0 = v.players[v.seat]; this.riskBar(!!(v.bal && (v.bal.diceChoice || v.bal.preview) && this.canAct('roll') && me0 && !me0.trance)); }
       if (!m.hidden && m.querySelector('.pad')) return;
       // 告訴房主：提示框已經出現在我畫面上（時間從現在開始算）
-      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); if (this._decAt && v.phase !== 'roll') root.Room.diagPd = Date.now() - this._decAt; }
+      if (v.seat >= 0 && v.turn === v.seat && ['roll', 'buy', 'upgrade', 'buyout', 'shop', 'gate', 'dicepick', 'crisis'].includes(v.phase) && this._seenKey !== v.evId + ':' + v.phase) { this._seenKey = v.evId + ':' + v.phase; this.ui.send({ type: 'seen' }); if (this._decAt && v.phase !== 'roll') root.Room.diagPd = Date.now() - this._decAt; }
       const th = TH()[v.theme];
       if (v.phase === 'over') {
         m.hidden = false;
@@ -670,6 +673,23 @@
         m.hidden = true; this.buildBar(true); return;
       } else if (v.phase === 'gate' && v.turn === v.seat) {
         m.hidden = true; this.gateBar(true); return;
+      } else if (v.phase === 'crisis' && v.turn === v.seat && v.pending) { // 🧪 危機處理：三選一
+        const pd = v.pending, me = v.players[v.seat], B = R().BOARD;
+        if (this._crisisKey !== v.evId) { this._crisisKey = v.evId; this._crisisSel = new Set(); }
+        const sel = this._crisisSel, mineT = B.filter(t => t.type === 'prop' && v.owners[t.i] === v.seat);
+        const val = (t) => Math.round(t.price / 2) + v.levels[t.i] * Math.round(t.up / 2);
+        const got = me.cash + [...sel].reduce((a, i) => a + val(B[i]), 0), loan = Math.max(0, pd.cost - pd.cash);
+        m.hidden = false; m.onclick = null;
+        m.innerHTML = `<div class="mm-card crisis-card"><h3>⚠️ 危機處理</h3>
+          <p>這張厄運要付 <b>${fmt(pd.cost)}</b> ${th.unit}，你的現金只有 <b>${fmt(pd.cash)}</b>。</p>
+          <p class="hint">全部半價賣光最多湊到 ${fmt(pd.liq)}。只能選一次，選完重新結算；還是不夠就照原本規則破產。</p>
+          ${pd.opts.includes('sell') ? `<div class="cr-opt"><b>① 自選變賣（半價）</b><div class="cr-tiles">${mineT.map(t => `<label class="cr-tile"><input type="checkbox" data-t="${t.i}" ${sel.has(t.i) ? 'checked' : ''}><span class="tile-dot" style="background:${t.color}"></span><span>${U.esc(R().tileName(v.theme, t.i))} Lv${v.levels[t.i]}</span><small>+${fmt(val(t))}</small></label>`).join('')}</div>
+            <p class="hint">${sel.size ? `賣掉後現金 ${fmt(got)}，${got >= pd.cost ? '✅ 夠付' : '❌ 還不夠，不足的部分會自動變賣'}` : '沒勾的話，會從收租最少的地開始賣'}</p><button class="btn" data-c="sell">變賣${sel.size ? `這 ${sel.size} 塊` : ''}</button></div>` : ''}
+          ${pd.opts.includes('shield') ? `<div class="cr-opt"><b>② 用防護罩擋下</b><p class="hint">消耗 1 個防護罩，這張厄運完全不用付。</p><button class="btn" data-c="shield">用防護罩</button></div>` : ''}
+          ${pd.opts.includes('debt') ? `<div class="cr-opt"><b>③ 負債</b><p class="hint">借 ${fmt(loan)}，之後要還 ${fmt(Math.round(loan * (1 + pd.rate / 100) / 100) * 100)}（利息 ${pd.rate}%）。起點薪水和收到的過路費會先拿去還；還清前不能買地、加蓋、收購；10 回合內沒還完會強制變賣。</p><button class="btn" data-c="debt">借錢付清</button></div>` : ''}
+          <span class="timer" data-deadline="${v.deadline}"></span></div>`;
+        m.querySelectorAll('[data-t]').forEach(c => c.onchange = () => { const i = +c.dataset.t; if (c.checked) sel.add(i); else sel.delete(i); this.showPrompt(); });
+        m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { this.ui.send({ type: 'crisis', c: b.dataset.c, tiles: b.dataset.c === 'sell' ? [...sel] : undefined }); m.hidden = true; });
       } else if (v.phase === 'buyout' && v.turn === v.seat) {
         const pd = v.pending, t = R().BOARD[pd.tile]; const name = R().tileName(v.theme, t.i);
         m.hidden = false; m.onclick = null;

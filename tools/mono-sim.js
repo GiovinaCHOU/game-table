@@ -22,7 +22,12 @@ const SCEN = {
   B: { name: 'B 僅擲骰選擇', bal: { diceChoice: true, preview: true } },
   C: { name: 'C 僅色組×2', bal: { setMul: 2 } },
   D: { name: 'D 擲骰＋色組', bal: { diceChoice: true, preview: true, setMul: 2 } },
-  E: { name: 'E D＋末日提前1', bal: { diceChoice: true, preview: true, setMul: 2, doomShift: -1 } }
+  E: { name: 'E D＋末日提前1', bal: { diceChoice: true, preview: true, setMul: 2, doomShift: -1 } },
+  // 卡片平衡 v1
+  CA: { name: 'A 現行規則', bal: {} },
+  CB: { name: 'B 僅金額公式', bal: { cardAmt: true } },
+  CC: { name: 'C 金額＋分級權重', bal: { cardAmt: true, cardTier: true } },
+  CD: { name: 'D 完整（含危機補救）', bal: { cardAmt: true, cardTier: true, rescue: true } }
 };
 
 // ===== 聰明電腦（5 種打法）=====

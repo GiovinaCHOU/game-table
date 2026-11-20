@@ -48,7 +48,8 @@ GitHub Pages 靜態網站（main 分支根目錄）：https://giovinachou.github
 - tools/bump.py：替 index.html 的 js/css 加版本號（避免手機吃到舊快取）
 - tools/mono-sim.js：大富翁平衡模擬器（`node tools/mono-sim.js main 2000 A E`／`themes`／`players`／`check`），固定亂數種子配對比較，含 5 種打法的聰明電腦
 - tools/mono-cards.js：卡片盤點（每張卡的級別、機率、計算方式、模擬實測的金額分位數、致死數）→ `node tools/mono-cards.js 2000 輸出.csv`
-- 平衡提案開關：mono-rules.js 的 BAL，存在每局的 st.bal（開局決定）；正式房間一律關。擲骰選擇、危險預覽、色組 ×2、末日提前有畫面與 🧪 選項；落後收購、投資浮動、轟炸停租、補助三選一、彩池、抵押只有規則（模擬器用 o.bal 開），沒有畫面
+- tools/mono-cardsim.js：卡片平衡 v1 的 A–D 模擬（`node tools/mono-cardsim.js 5000 3,5,6 CA,CB,CC,CD`，一行一個情境的 JSON），含致死率、彩蛋頻率、補救成功率、信賴區間
+- 平衡提案開關：mono-rules.js 的 BAL，存在每局的 st.bal（開局決定）；正式房間一律關。擲骰選擇、危險預覽、色組 ×2、末日提前、卡片金額公式、分級抽卡、高額厄運危機處理（負債）有畫面與 🧪 選項；落後收購、投資浮動、轟炸停租、補助三選一、彩池、抵押只有規則（模擬器用 o.bal 開），沒有畫面
 
 ## 上線流程
 1. 改完程式後執行 `python3 tools/bump.py`
