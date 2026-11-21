@@ -57,7 +57,7 @@
     nextTurn(st, now);
   }
 
-  // ===== 電腦玩家（簡單）：只用自己的牌組牌組，再把單張接到桌上現成的牌組，不會拆桌上的牌 =====
+  // ===== 舊版簡單電腦（留著做比較測試用）=====
   function findSets(rack) {
     let left = rack.filter(t => !JOKER(t)); let jokers = rack.filter(JOKER); const sets = [];
     const pickRun = () => {
@@ -126,6 +126,143 @@
     return { type: 'commit', table };
   }
 
+
+  // ===== 電腦玩家（會想）：找出能出最多牌的組合、拆桌上的牌重組、把鬼牌換回來再用 =====
+  // 從一堆牌裡列出所有可能的牌組（含用鬼牌補洞）
+  function candidates(tiles) {
+    const real = tiles.filter(t => !JOKER(t)); const jk = tiles.filter(JOKER);
+    const out = []; const seenK = new Set();
+    const push = (set) => { if (!analyze(set)) return; const k = key(set); if (seenK.has(k)) return; seenK.add(k); out.push(set); };
+    const byCN = {}; real.forEach(t => { const k = color(t) * 100 + num(t); (byCN[k] = byCN[k] || []).push(t); });
+    const get = (c, n, used) => (byCN[c * 100 + n] || []).find(t => !used.includes(t));
+    // 同數字不同色
+    for (let n = 1; n <= 13; n++) {
+      const cols = [0, 1, 2, 3].filter(c => byCN[c * 100 + n]);
+      const subsets = (arr, k, st0 = 0, acc = [], res = []) => { if (acc.length === k) { res.push(acc.slice()); return res; } for (let i = st0; i < arr.length; i++) { acc.push(arr[i]); subsets(arr, k, i + 1, acc, res); acc.pop(); } return res; };
+      for (let k = 2; k <= Math.min(4, cols.length); k++) for (const cs of subsets(cols, k)) {
+        const base = cs.map(c => byCN[c * 100 + n][0]);
+        if (k >= 3) push(base);
+        for (let j = 1; j <= jk.length && k + j <= 4; j++) if (k + j >= 3) push(base.concat(jk.slice(0, j)));
+      }
+    }
+    // 同色順子（可用鬼牌補 1～2 個洞或接在兩端）
+    for (let c = 0; c < 4; c++) for (let a = 1; a <= 11; a++) {
+      const used = []; let jUsed = 0; const set = [];
+      for (let n = a; n <= 13; n++) {
+        const t = get(c, n, used);
+        if (t != null) { set.push(t); used.push(t); }
+        else if (jUsed < jk.length && n !== a) { set.push(jk[jUsed++]); }
+        else break;
+        if (set.length >= 3 && !JOKER(set[set.length - 1])) push(set.slice());
+        if (set.length >= 2 && jUsed < jk.length && set.length + 1 >= 3) push(set.concat(jk[jUsed]));
+      }
+    }
+    return out;
+  }
+  // 從手牌選出互不重疊、張數最多（同張數比點數）的牌組
+  function bestSets(tiles, limit) {
+    const cands = candidates(tiles).sort((x, y) => y.length - x.length);
+    let best = { n: 0, v: 0, sets: [] }; let nodes = 0;
+    const rec = (i, used, sets, n, v) => {
+      if (++nodes > (limit || 6000)) return;
+      if (n > best.n || (n === best.n && v > best.v)) best = { n, v, sets: sets.slice() };
+      for (let k = i; k < cands.length; k++) {
+        const s = cands[k]; if (s.some(t => used.has(t))) continue;
+        s.forEach(t => used.add(t)); sets.push(s);
+        rec(k + 1, used, sets, n + s.length, v + analyze(s).value);
+        sets.pop(); s.forEach(t => used.delete(t));
+      }
+    };
+    rec(0, new Set(), [], 0, 0);
+    return best.sets;
+  }
+  function smartMove(st) {
+    const seat = st.turn, rack = st.racks[seat];
+    if (!st.melded[seat]) {
+      // 破冰：找總點數最高的組合，≥30 才出
+      const cands = candidates(rack); let best = { v: 0, sets: [] }; let nodes = 0;
+      const rec = (i, used, sets, v) => {
+        if (++nodes > 8000) return;
+        if (v > best.v) best = { v, sets: sets.slice() };
+        for (let k = i; k < cands.length; k++) { const s = cands[k]; if (s.some(t => used.has(t))) continue; s.forEach(t => used.add(t)); sets.push(s); rec(k + 1, used, sets, v + analyze(s).value); sets.pop(); s.forEach(t => used.delete(t)); }
+      };
+      rec(0, new Set(), [], 0);
+      if (best.v < 30) return { type: 'draw' };
+      return { type: 'commit', table: st.table.map(s => s.slice()).concat(best.sets) };
+    }
+    let table = st.table.map(s => s.slice()); let hand = rack.slice();
+    const val = (t) => tileVal(t);
+    const byVal = () => hand.slice().sort((a, b) => val(b) - val(a));
+    const ok = (s) => !!analyze(s);
+    // 可以從桌上「借」走而不讓原牌組壞掉的牌
+    const freeTiles = () => {
+      const f = [];
+      table.forEach((s, i) => {
+        if (s.length === 4 && analyze(s).kind === 'group') s.forEach(t => f.push({ t, i }));
+        if (s.length >= 4 && analyze(s).kind === 'run') { const o = analyze(s).order; f.push({ t: o[0], i }); f.push({ t: o[o.length - 1], i }); }
+      });
+      return f;
+    };
+    const take = (moves) => { // moves: [{t,i}] 從各自的牌組拿走
+      moves.forEach(m => { table[m.i] = table[m.i].filter(x => x !== m.t); });
+    };
+    const steps = [
+      // 1. 自己的牌直接湊牌組
+      () => { const sets = bestSets(hand); if (!sets.length) return false; sets.forEach(s => { table.push(s); hand = hand.filter(t => !s.includes(t)); }); return true; },
+      // 2. 單張接到桌上的牌組
+      () => { for (const t of byVal()) for (let i = 0; i < table.length; i++) { const r = analyze(table[i].concat(t)); if (r) { table[i] = r.order; hand = hand.filter(x => x !== t); return true; } } return false; },
+      // 3. 順子中間有同一張 → 從那裡拆成兩段
+      () => {
+        for (const t of byVal()) { if (JOKER(t)) continue;
+          for (let i = 0; i < table.length; i++) { const r = analyze(table[i]); if (r.kind !== 'run') continue;
+            const o = r.order; const at = o.findIndex(x => !JOKER(x) && color(x) === color(t) && num(x) === num(t));
+            if (at >= 2 && o.length - at >= 3) { const a = o.slice(0, at).concat(t), b = o.slice(at); if (ok(a) && ok(b)) { table[i] = a; table.push(b); hand = hand.filter(x => x !== t); return true; } }
+          } }
+        return false;
+      },
+      // 4. 把桌上的鬼牌換回來（拿手上的真牌替換），換到的鬼牌要馬上用掉
+      () => {
+        for (let i = 0; i < table.length; i++) { const jkr = table[i].find(JOKER); if (jkr == null) continue;
+          for (const t of hand) { if (JOKER(t)) continue;
+            const ns = table[i].map(x => x === jkr ? t : x); if (!ok(ns)) continue;
+            // 鬼牌要能接到別的牌組，或跟手上兩張湊成新牌組
+            const h2 = hand.filter(x => x !== t);
+            for (let k = 0; k < table.length; k++) { if (k === i) continue; const r = analyze(table[k].concat(jkr)); if (r) { table[i] = ns; table[k] = r.order; hand = h2; return true; } }
+            const sets = bestSets(h2.concat(jkr)).filter(s => s.includes(jkr));
+            if (sets.length) { table[i] = ns; table.push(sets[0]); hand = h2.filter(x => !sets[0].includes(x)); return true; }
+          } }
+        return false;
+      },
+      // 5. 跟桌上借牌：手上兩張＋借一張，或手上一張＋借兩張（從不同牌組）
+      () => {
+        const f = freeTiles(); const hs = byVal();
+        for (let a = 0; a < hs.length; a++) for (let b = a + 1; b < hs.length; b++) for (const x of f) {
+          const s = [hs[a], hs[b], x.t]; if (!ok(s)) continue;
+          take([x]); if (!ok(table[x.i])) { table[x.i].push(x.t); continue; }
+          table.push(s); hand = hand.filter(t => t !== hs[a] && t !== hs[b]); return true;
+        }
+        for (const h of hs) for (let p = 0; p < f.length; p++) for (let q = p + 1; q < f.length; q++) {
+          const x = f[p], y = f[q]; if (x.i === y.i && (table[x.i].length < 5 || analyze(table[x.i]).kind !== 'run')) continue;
+          const s = [h, x.t, y.t]; if (!ok(s)) continue;
+          const snap = table.map(z => z.slice()); take([x, y]);
+          if (!ok(table[x.i]) || !ok(table[y.i])) { table = snap; continue; }
+          table.push(s); hand = hand.filter(t => t !== h); return true;
+        }
+        return false;
+      }
+    ];
+    for (let guard = 0; guard < 60 && hand.length; guard++) {
+      let moved = false;
+      for (const f of steps) { if (f()) { moved = true; break; } }
+      if (!moved) break;
+    }
+    table = table.filter(s => s.length);
+    // 最後檢查一次：全部合法、桌上原本的牌都還在、只用到自己的牌
+    const newT = table.flat(); const oldT = st.table.flat();
+    const valid = table.every(ok) && oldT.every(t => newT.includes(t)) && newT.filter(t => !oldT.includes(t)).every(t => rack.includes(t)) && new Set(newT).size === newT.length;
+    if (!valid || hand.length === rack.length) return { type: 'draw' };
+    return { type: 'commit', table: table.map(s => analyze(s).order) };
+  }
   const M = {
     id: 'rummi', name: '拉密', icon: '🔢', min: 2, max: 4,
     desc: '4 色 × 1–13 各兩張數字牌，加上鬼牌（可以當任何數字和顏色，圖案是家裡的毛孩）。每人 14 張，輪流把牌組成「同數字不同色 3–4 張」或「同色連號 3 張以上」放到桌上，也可以拆改桌上的牌組。第一次下牌需要自己的牌總和 ≥30。不出牌就要抽一張；牌池抽完後不出牌就跳過，所有人連續跳過一輪就結算，手牌點數最少的人贏。先出完的人贏。',
@@ -183,11 +320,11 @@
       return false;
     },
     // 電腦／託管／斷線代打：同一個回合只算一次（房主每個 tick 都會問）
-    _memo: null,
+    _memo: null, _t: { smartMove, botMove, analyze },
     auto(st) {
       if (st.phase !== 'play') return null;
       const k = st.turnId + ':' + st.racks[st.turn].length + ':' + st.table.length;
-      if (!this._memo || this._memo.k !== k) { let a; try { a = botMove(st); } catch (e) { a = { type: 'draw' }; } this._memo = { k, a }; }
+      if (!this._memo || this._memo.k !== k) { let a; try { a = smartMove(st); } catch (e) { a = { type: 'draw' }; } this._memo = { k, a }; }
       return { seat: st.turn, a: this._memo.a };
     },
     view(st, seat) {

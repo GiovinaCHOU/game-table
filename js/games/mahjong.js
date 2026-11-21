@@ -58,7 +58,8 @@
       const add = (name, n) => items.push([name, n]);
       const exposed = o.melds.filter(m => m.k !== 'an');
       const menqing = exposed.length === 0;
-      if (o.zimo && menqing) add('門清自摸（不求人）', 3); else { if (o.zimo) add('自摸', 1); if (menqing) add('門清', 1); }
+      if (o.heaven) add(o.heaven[0], o.heaven[1]); // 天胡／地胡／人胡：取代門清、自摸、獨聽
+      else if (o.zimo && menqing) add('門清自摸（不求人）', 3); else { if (o.zimo) add('自摸', 1); if (menqing) add('門清', 1); }
       // 花
       const fl = o.flowers.map(tt);
       fl.forEach(f => { const idx = (f - 34) % 4; if (idx === o.seatWind) add('正花 ' + FLW[f - 34], 1); });
@@ -69,7 +70,7 @@
       if (o.last) add(o.zimo ? '海底撈月' : '河底撈魚', 1);
       if (o.kongDraw && o.zimo) add('槓上開花', 1);
       if (o.robKong) add('搶槓', 1);
-      if (o.waitsN === 1 && !d.special) add('獨聽', 1);
+      if (o.waitsN === 1 && !d.special && !o.heaven) add('獨聽', 1);
       if (!d.special) {
         // 全部面子
         const all = d.sets.map(s => {
@@ -149,6 +150,13 @@
     st.log = [`第 ${st.handNo + 1} 局開始，莊家 ${st.names[st.act[0]]}${st.lian ? `（連${st.lian}）` : ''}`];
     st.deadline = st.tlimit ? now + st.tlimit * 1000 : 0;
     for (let p = 0; p < k; p++) if (st.flowers[p].length === 8) { win(st, p, null, now, { eight: true }); return; }
+    if (checkSeven(st, now)) return;
+  }
+  // 七搶一：有人湊到 7 張花、第 8 張在別人手上 → 7 張的人直接胡，搶走那張花
+  function checkSeven(st, now) {
+    const x = st.flowers.findIndex(f => f.length === 7); if (x < 0) return false;
+    const y = st.flowers.findIndex((f, i) => i !== x && f.length === 1); if (y < 0) return false;
+    st.flowers[x].push(st.flowers[y].pop()); win(st, x, y, now, { seven: true }); return true;
   }
   const RESERVE = 16;
   function wallLeft(st) { return st.wall.length - RESERVE; }
@@ -159,6 +167,7 @@
     while (isFlower(t)) {
       st.flowers[p].push(t); st.log.push(`${pname(st, p)} 補花 ${tname(tt(t))}`);
       if (st.flowers[p].length === 8) { st.hands[p].push(st.wall.pop()); win(st, p, null, now, { eight: true }); return false; }
+      if (checkSeven(st, now)) return false;
       if (wallLeft(st) <= 0) { drawGame(st, now); return false; }
       t = st.wall.pop();
     }
@@ -182,13 +191,23 @@
   }
   function win(st, p, from, now, flags) {
     flags = flags || {};
-    const types = handTypes(st, p); const winT = flags.eight ? -1 : tt(st.hands[p][st.hands[p].length - 1]);
+    const special = flags.eight || flags.seven;
+    const types = handTypes(st, p); const winT = special ? -1 : tt(st.hands[p][st.hands[p].length - 1]);
     const beforeWin = types.slice(); if (winT >= 0) beforeWin.splice(beforeWin.lastIndexOf(winT), 1);
-    const w = flags.eight ? 0 : waits(beforeWin, meldCount(st, p), inPlayTypes(st)).length;
+    const w = special ? 0 : waits(beforeWin, meldCount(st, p), inPlayTypes(st)).length;
     const zimo = from == null;
     const meldsInfo = st.melds[p].map(m => ({ k: m.k, t: m.t }));
-    let tai = flags.eight ? { items: [], total: 0 } : calcTai({ handTypes: types, melds: meldsInfo, winT, zimo, flowers: st.flowers[p], seatWind: p, roundWind: st.windRound % 4, waitsN: w, last: wallLeft(st) <= 0, kongDraw: st.kongDraw && zimo, robKong: flags.robKong });
-    if (flags.eight) { tai = calcTai({ handTypes: [], melds: [], winT: -1, zimo: true, flowers: st.flowers[p], seatWind: p, roundWind: 0, waitsN: 0, eight: true }); tai.items = tai.items.filter(x => /花|八仙/.test(x[0])); tai.total = tai.items.reduce((a, x) => a + x[1], 0); }
+    // 天胡（莊家第一手自摸）、地胡（閒家第一次摸牌就自摸）、人胡（閒家還沒打過牌就胡別人的牌）；中途有人吃碰槓就不算
+    let heaven = null;
+    if (!special && !flags.robKong && st.melds.every(m => !m.length) && !st.river[p].length) {
+      if (zimo && p === 0 && st.river.every(r => !r.length)) heaven = ['天胡', 24];
+      else if (zimo && p !== 0) heaven = ['地胡', 16];
+      else if (!zimo && p !== 0) heaven = ['人胡', 8];
+    }
+    let tai = special ? { items: [], total: 0 } : calcTai({ heaven, handTypes: types, melds: meldsInfo, winT, zimo, flowers: st.flowers[p], seatWind: p, roundWind: st.windRound % 4, waitsN: w, last: wallLeft(st) <= 0, kongDraw: st.kongDraw && zimo, robKong: flags.robKong });
+    // 八仙過海（三家付）、七搶一（只有被搶的那家付）：都是固定 8 台，不再加正花、花槓
+    if (flags.eight) tai = { items: [['八仙過海', 8]], total: 8 };
+    if (flags.seven) tai = { items: [['七搶一', 8]], total: 8 };
     // 結算
     const payers = zimo ? U.range(st.k).filter(q => q !== p) : [from];
     const pay = Array(st.n).fill(0); const lines = [];
@@ -201,8 +220,8 @@
     });
     pay.forEach((x, i) => st.total[i] += x);
     st.phase = 'over'; st.deadline = 0;
-    st.result = { winner: p, from, zimo, tai, pay, lines, eight: !!flags.eight, winT };
-    st.log.push(`${pname(st, p)} ${zimo ? '自摸' : `胡 ${pname(st, from)} 的 ${tname(winT)}`}！`);
+    st.result = { winner: p, from, zimo, tai, pay, lines, eight: !!special, seven: !!flags.seven, winT };
+    st.log.push(`${pname(st, p)} ${flags.seven ? `七搶一，搶走 ${pname(st, from)} 的花` : zimo ? '自摸' : `胡 ${pname(st, from)} 的 ${tname(winT)}`}！`);
     afterHand(st, p === 0);
   }
 
@@ -272,16 +291,137 @@
     drawFor(st, nx, false, now);
   }
 
+
+  // ===================== 電腦玩家（會算牌） =====================
+  // 向聽數：還差幾步聽牌（0＝聽牌、-1＝胡了）。面子不夠時，搭子（兩張差一張）也算半步
+  // 每個花色分開拆（面子 m、搭子 t、雀頭 p 的所有組合），同樣的花色排列只算一次
+  const SUIT_CACHE = new Map();
+  function suitOpts(c, off, honor) {
+    const a = c.slice(off, off + (honor ? 7 : 9)); const key = (honor ? 'h' : 's') + a.join('');
+    let r = SUIT_CACHE.get(key); if (r) return r;
+    const found = new Map();
+    const rec = (i, m, t, p) => {
+      while (i < a.length && !a[i]) i++;
+      if (i === a.length) { const k = m * 100 + t * 10 + p; found.set(k, [m, t, p]); return; }
+      if (a[i] >= 3) { a[i] -= 3; rec(i, m + 1, t, p); a[i] += 3; }
+      if (!honor && i <= 6 && a[i + 1] && a[i + 2]) { a[i]--; a[i + 1]--; a[i + 2]--; rec(i, m + 1, t, p); a[i]++; a[i + 1]++; a[i + 2]++; }
+      if (a[i] >= 2) { a[i] -= 2; if (!p) rec(i, m, t, 1); rec(i, m, t + 1, p); a[i] += 2; }
+      if (!honor) {
+        if (i <= 7 && a[i + 1]) { a[i]--; a[i + 1]--; rec(i, m, t + 1, p); a[i]++; a[i + 1]++; }
+        if (i <= 6 && a[i + 2]) { a[i]--; a[i + 2]--; rec(i, m, t + 1, p); a[i]++; a[i + 2]++; }
+      }
+      a[i]--; rec(i, m, t, p); a[i]++;
+    };
+    rec(0, 0, 0, 0);
+    // 只留下不會被別的組合完全比下去的
+    const all = [...found.values()];
+    r = all.filter(x => !all.some(y => y !== x && y[0] >= x[0] && y[1] >= x[1] && y[2] >= x[2] && (y[0] > x[0] || y[1] > x[1] || y[2] > x[2])));
+    SUIT_CACHE.set(key, r); return r;
+  }
+  // 向聽數：還差幾步聽牌（0＝聽牌、-1＝胡了）
+  function shanten(c, need) {
+    let combos = [[0, 0, 0]];
+    for (const [off, h] of [[0, 0], [9, 0], [18, 0], [27, 1]]) {
+      const o = suitOpts(c, off, h); const next = new Map();
+      for (const x of combos) for (const y of o) {
+        if (x[2] + y[2] > 1) continue;
+        const m = x[0] + y[0], t = x[1] + y[1], p = x[2] + y[2];
+        next.set(m * 1000 + Math.min(t, 9) * 10 + p, [m, Math.min(t, 9), p]);
+      }
+      combos = [...next.values()];
+    }
+    let best = 2 * need;
+    for (const [m0, t, p] of combos) { const m = Math.min(m0, need); const v = 2 * need - 2 * m - Math.min(t, need - m) - p; if (v < best) best = v; }
+    return best;
+  }
+  function makeAI(st) {
+    const memo = new Map();
+    const sh = (c, need) => { const k = need + ':' + c.join(''); let v = memo.get(k); if (v == null) { v = shanten(c, need); memo.set(k, v); } return v; };
+    const seen = Array(34).fill(0);
+    const lo = st.k === 3 ? 9 : 0;
+    st.river.forEach(r => r.forEach(id => { if (!isFlower(id)) seen[tt(id)]++; }));
+    st.melds.forEach(ms => ms.forEach(m => m.tiles.forEach(id => seen[tt(id)]++)));
+    const unseen = (t, c) => Math.max(0, 4 - seen[t] - c[t]);
+    // 打掉一張後（手上 3n+1 張）的進張數
+    const ukeire = (c, need, base) => { let n = 0; for (let t = lo; t < 34; t++) { if (c[t] >= 4) continue; c[t]++; if (sh(c, need) < base) n += unseen(t, c); c[t]--; } return n; };
+    // 字牌的價值：三元牌、自己的門風、圈風做成刻子有台
+    const valueHonor = (p, t) => t >= 31 || t === 27 + p || t === 27 + (st.windRound % 4);
+    // 危險度：別人打過的同一張比較安全；中張最危險；看得到 3 張的字牌幾乎安全
+    const danger = (p, t) => {
+      let d = 0;
+      for (let q = 0; q < st.k; q++) {
+        if (q === p) continue;
+        const threat = st.melds[q].length >= 3 || (st.melds[q].length >= 2 && wallLeft(st) < 40) || wallLeft(st) < 24;
+        if (!threat) continue;
+        if (st.river[q].some(id => tt(id) === t)) continue;
+        if (isHonor(t)) d += seen[t] >= 2 ? 0.3 : 1.5;
+        else { const r = t % 9; d += (r >= 3 && r <= 5) ? 4 : (r === 0 || r === 8) ? 2 : 3; }
+      }
+      return d;
+    };
+    function bestDiscard(p) {
+      const hand = st.hands[p]; const c = counts(hand.map(tt)); const need = 5 - st.melds[p].length;
+      const nowSh = sh(c, need) ;
+      const late = wallLeft(st) < 24;
+      // 某一門花色特別多（含字牌）→ 往混一色／清一色做，別的花色先丟
+      const sc = [0, 0, 0]; hand.forEach(id => { const t = tt(id); if (!isHonor(t)) sc[suitOf(t)]++; });
+      st.melds[p].forEach(m => { if (!isHonor(m.t)) sc[suitOf(m.t)] += 3; });
+      const dom = sc.indexOf(Math.max(...sc)); const chase = sc[dom] >= 9 && nowSh >= 1;
+      let best = null;
+      for (const t of [...new Set(hand.map(tt))]) {
+        c[t]--; const s2 = sh(c, need); const uk = s2 <= 3 ? ukeire(c, need, s2) : 0; c[t]++;
+        // 分數越低越好：先看向聽、再看進張；孤張字牌優先丟，有台的字牌湊成對就留
+        let score = s2 * 1000 - uk * 10;
+        if (isHonor(t)) score += c[t] >= 2 ? (valueHonor(p, t) ? 40 : 15) : (valueHonor(p, t) ? -5 : -20);
+        else { const r = t % 9; if (r === 0 || r === 8) score -= 6; else if (r === 1 || r === 7) score -= 2; }
+        if (chase) score += (!isHonor(t) && suitOf(t) !== dom) ? -80 : 60;
+        const dg = danger(p, t);
+        // 離聽牌還遠又有人快胡了 → 安全第一
+        if (s2 >= 2 && (late || dg > 0) && nowSh >= 2) score += dg * 400; else score += dg * (s2 === 0 ? 5 : 40);
+        if (!best || score < best.score) best = { t, score, s2 };
+      }
+      const id = (st.drawn != null && hand.includes(st.drawn) && tt(st.drawn) === best.t) ? st.drawn : hand.filter(x => tt(x) === best.t).pop();
+      return id;
+    }
+    // 吃碰之後要打掉一張：回傳打完最好的向聽
+    function afterClaimSh(c, need) { let b = 99; for (let t = 0; t < 34; t++) if (c[t]) { c[t]--; const v = sh(c, need); c[t]++; if (v < b) b = v; } return b; }
+    function claimDecision(q, o, tile) {
+      if (o.hu) return { type: 'hu' };
+      const t = tt(tile); const c = counts(st.hands[q].map(tt)); const need = 5 - st.melds[q].length;
+      const cur = sh(c, need);
+      const open = st.melds[q].some(m => m.k !== 'an');
+      const opts = [];
+      if (o.pong) { c[t] -= 2; opts.push({ a: { type: 'pong' }, s: afterClaimSh(c, need - 1), val: valueHonor(q, t) }); c[t] += 2; }
+      if (o.kong && open) { c[t] -= 3; const v = sh(c, need - 1); c[t] += 3; if (v <= cur) opts.push({ a: { type: 'kong' }, s: v - 0.5 }); }
+      if (o.chi) o.chi.forEach((cb, i) => { c[cb[0]]--; c[cb[1]]--; opts.push({ a: { type: 'chi', i }, s: afterClaimSh(c, need - 1) + 0.1 }); c[cb[0]]++; c[cb[1]]++; });
+      opts.sort((a, b) => a.s - b.s);
+      const b = opts[0];
+      if (!b || b.s >= cur) return { type: 'pass' };
+      // 門清還很遠的時候不要隨便吃碰（門清有台）；有台的字牌、已經開門、快聽了、牌快摸完 → 吃碰
+      if (b.val || open || b.s <= 1 || wallLeft(st) < 36) return b.a;
+      return { type: 'pass' };
+    }
+    function ownKong(p) {
+      if (wallLeft(st) <= 0) return null;
+      const hand = st.hands[p]; const c = counts(hand.map(tt)); const need = 5 - st.melds[p].length; const cur = sh(c, need);
+      for (let t = 0; t < 34; t++) {
+        if (c[t] === 4) { c[t] -= 4; const v = sh(c, need - 1); c[t] += 4; if (v <= cur) return { type: 'kong', t }; }
+        if (c[t] && st.melds[p].some(m => m.k === 'pong' && m.t === t)) { c[t]--; const v = sh(c, need); c[t]++; if (v <= cur) return { type: 'kong', t }; }
+      }
+      return null;
+    }
+    return { bestDiscard, claimDecision, ownKong };
+  }
   const M = {
     id: 'mahjong', name: '台灣麻將', icon: '🀄', min: 3, max: 5,
-    desc: '台灣 16 張麻將。4 人標準；3 人拿掉萬子；5 人每局輪流一人下桌觀戰。可吃（上家）、碰、槓、胡，含花牌與常見台數（自摸、門清、碰碰胡、混一色、清一色、三元、四喜、暗刻、獨聽、海底、槓上開花、搶槓、嚦咕嚦咕…）。台數與付款由系統自動計算。',
+    desc: '台灣 16 張麻將。4 人標準；3 人拿掉萬子；5 人每局輪流一人下桌觀戰。可吃（上家）、碰、槓、胡，含花牌與常見台數（自摸、門清、碰碰胡、混一色、清一色、三元、四喜、暗刻、獨聽、海底、槓上開花、搶槓、嚦咕嚦咕、天胡 24／地胡 16／人胡 8、八仙過海／七搶一 8…）。台數與付款由系統自動計算。',
     options: [
       { key: 'money', label: '底／台', choices: [['100/20', '100 底 20 台'], ['50/20', '50 底 20 台'], ['300/100', '300 底 100 台'], ['30/10', '30 底 10 台']], def: '100/20' },
       { key: 'tlimit', label: '出牌時間', choices: [[20, '20 秒'], [40, '40 秒'], [0, '不限']], def: 20 },
       { key: 'winds', label: '打幾圈', choices: [[1, '1 圈（東風圈）'], [4, '4 圈（一將）'], [99, '不限']], def: 1 }
     ],
     // 測試用
-    _t: { tt, canWin, waits, calcTai, decomps, counts, claimOptions, tname },
+    _t: { tt, canWin, waits, calcTai, decomps, counts, claimOptions, tname, shanten, checkSeven },
     init(n, o, names, now) {
       const [base, per] = String(o.money || '100/20').split('/').map(Number);
       const st = { n, base, per, tlimit: +o.tlimit, winds: +o.winds, names: names || U.range(n).map(i => 'P' + i), dealer: 0, dealerMoves: 0, lian: 0, windRound: 0, handNo: 0, total: Array(n).fill(0) };
@@ -359,9 +499,30 @@
       }
       return false;
     },
+    // 電腦／託管／斷線代打。房主每個 tick 都會問，同一個局面只算一次
+    _memo: null,
     auto(st) {
+      if (st.phase !== 'claim' && st.phase !== 'discard') return null;
+      const key = [st.handNo, st.phase, st.turn, st.wall.length, st.river.map(r => r.length).join('.'), st.melds.map(m => m.length).join('.'), st.claim ? Object.keys(st.claim.resp).join('.') : ''].join('|');
+      if (this._memo && this._memo.key === key) return this._memo.r;
+      let r = null;
+      try { r = this._think(st); } catch (e) { r = null; }
+      if (!r) r = this._dumb(st);
+      this._memo = { key, r }; return r;
+    },
+    _think(st) {
+      const ai = makeAI(st);
+      if (st.phase === 'claim') {
+        const q = Object.keys(st.claim.opts).map(Number).find(q => !st.claim.resp[q]); if (q == null) return null;
+        return { seat: st.act[q], a: ai.claimDecision(q, st.claim.opts[q], st.claim.tile) };
+      }
+      const p = st.turn; const h = st.hands[p];
+      if (st.drawn != null && canWin(h.map(tt), st.melds[p].length)) return { seat: st.act[p], a: { type: 'hu' } };
+      if (st.drawn != null) { const k = ai.ownKong(p); if (k) return { seat: st.act[p], a: k }; }
+      return { seat: st.act[p], a: { type: 'discard', tile: ai.bestDiscard(p) } };
+    },
+    _dumb(st) {
       if (st.phase === 'claim') { const q = Object.keys(st.claim.opts).map(Number).find(q => !st.claim.resp[q]); if (q == null) return null; return { seat: st.act[q], a: { type: st.claim.opts[q].hu ? 'hu' : 'pass' } }; }
-      if (st.phase !== 'discard') return null;
       const p = st.turn; const h = st.hands[p];
       if (st.drawn != null && canWin(h.map(tt), st.melds[p].length)) return { seat: st.act[p], a: { type: 'hu' } };
       const tile = st.drawn != null && h.includes(st.drawn) ? st.drawn : h[h.length - 1];
@@ -613,7 +774,7 @@
       if (res && res.draw) h += '<h3>流局</h3><p>莊家連莊</p>';
       else if (res) {
         const wp = v.players[res.winner];
-        h += `<h3>🎉 ${U.esc(v.names[wp.seat])} ${res.eight ? '八仙過海' : res.zimo ? '自摸' : '胡牌'}！</h3>`;
+        h += `<h3>🎉 ${U.esc(v.names[wp.seat])} ${res.eight ? res.tai.items[0][0] : res.zimo ? '自摸' : '胡牌'}！</h3>`;
         h += `<div class="mj-reveal">${(wp.hand || []).slice().sort((a, b) => tt(a) - tt(b)).map(id => this.tile(id, 'sm')).join('')}</div>`;
         h += `<p class="tai">${res.tai.items.map(x => `${x[0]} ${x[1]}台`).join('、') || '屁胡（0 台）'}<br><b>共 ${res.tai.total} 台</b></p>`;
         h += `<p>${res.lines.map(U.esc).join('<br>')}</p>`;
