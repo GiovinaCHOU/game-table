@@ -120,7 +120,9 @@
       // 不是自己按的託管（離線太久被系統開、或重新連線時還在託管）：提醒一次怎麼取消
       if (seated && on && pilotPrev !== true && !pilotMine) toast('目前是託管模式：電腦在幫你打。要自己打請按左下「託管」取消');
       if (seated) { if (pilotPrev !== on) pilotMine = false; pilotPrev = on; } }
+    document.body.classList.toggle('in-game', !!room.game); if (!room.game) document.body.classList.remove('mem-open');
     renderMembers(room);
+    applyFloor();
     const host = R.isHost;
     $('#endBtn').hidden = !(host && room.game) && !(room.game && lastPhaseOver);
     if (!room.game) lastPhaseOver = false;
@@ -167,7 +169,7 @@
     if (curGame !== room.game.id) { if (curGame && window.GAMES[curGame].destroy) window.GAMES[curGame].destroy(); curGame = room.game.id; el.innerHTML = ''; el.dataset.g = ''; prevView = null; }
     document.body.classList.toggle('in-mono', room.game.id === 'monopoly');
     try { window.GFX && GFX.onView(room.game.id, prevView, v); } catch (e) { console.error(e); }
-    prevView = v; lastPhaseOver = ['over', 'end'].includes(v.phase); if (room.game) $('#endBtn').hidden = !(R.isHost || lastPhaseOver);
+    prevView = v; applyFloor(); lastPhaseOver = ['over', 'end'].includes(v.phase); if (room.game) $('#endBtn').hidden = !(R.isHost || lastPhaseOver);
     try { mod.render(el, v, gameUI(v)); } catch (e) { console.error(e); }
     resultLayer(el);
     yourTurn(room.game.id, v);
@@ -201,28 +203,62 @@
   }
   setInterval(tickTimers, 250);
 
-  // 說話指示：頭像發光＋上方「正在說話」列（人再多也看得到）
+  // 說話指示：成員列頭像發光（不另外浮框擋畫面）；說話的人被擠到成員列外面時，左右邊緣亮綠點
   const talkUntil = {};
+  const edgeL = document.createElement('i'), edgeR = document.createElement('i');
+  edgeL.className = 'edge-dot l'; edgeR.className = 'edge-dot r'; edgeL.hidden = edgeR.hidden = true;
+  $('#room').append(edgeL, edgeR);
   setInterval(() => {
-    const bar = $('#speakers');
-    if (V.mode === 'off' || !R.room) { bar.hidden = true; return; }
+    if (V.mode === 'off' || !R.room) { edgeL.hidden = edgeR.hidden = true; document.querySelectorAll('.mchip.speaking').forEach(ch => ch.classList.remove('speaking')); return; }
     const lv = V.levels(); const myPeer = R.peer && R.peer.id; const now = Date.now();
-    R.room.members.forEach(m => { const l = m.peerId === myPeer ? (V.muted ? 0 : lv.me) : lv[m.peerId]; if ((l || 0) > 18) talkUntil[m.cid] = now + 600; });
-    const talking = R.room.members.filter(m => (talkUntil[m.cid] || 0) > now);
-    document.querySelectorAll('.mchip').forEach(ch => ch.classList.toggle('speaking', (talkUntil[ch.dataset.cid] || 0) > now));
-    if (!talking.length) { bar.hidden = true; return; }
-    bar.hidden = false;
-    bar.innerHTML = talking.map(m => `<span><i class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</i>${U.esc(m.name)}</span>`).join('') + '<b>🎤</b>';
+    R.room.members.forEach(m => {
+      if (V.floorPeers && !V.floorPeers.includes(m.peerId)) return; // 發言權期間：沒輪到的人不亮
+      const l = m.peerId === myPeer ? (V.muted || V.forced ? 0 : lv.me) : lv[m.peerId]; if ((l || 0) > 18) talkUntil[m.cid] = now + 600;
+    });
+    const box = $('#members'), br = box.getBoundingClientRect(); let L = false, Rt = false;
+    document.querySelectorAll('.mchip').forEach(ch => {
+      const on = (talkUntil[ch.dataset.cid] || 0) > now; ch.classList.toggle('speaking', on);
+      if (on && !document.body.classList.contains('mem-open')) { const r = ch.getBoundingClientRect(); if (r.right > br.right + 4) Rt = true; if (r.left < br.left - 4) L = true; }
+    });
+    const top = (br.top - $('#room').getBoundingClientRect().top + br.height / 2 - 6) + 'px';
+    edgeL.style.top = edgeR.style.top = top; edgeL.hidden = !L; edgeR.hidden = !Rt;
   }, 150);
+
+  // ===== 發言權：遊戲畫面帶 floor（可以說話的座位）時，其他人的麥克風強制關閉；floor 消失就恢復 =====
+  let floorWas = false, forcedWas = false;
+  function applyFloor() {
+    const room = R.room, v = room && room.game ? prevView : null;
+    const seats = v && Array.isArray(v.floor) ? v.floor : null;
+    let peers = null, iMay = true;
+    if (seats) {
+      const ms = room.members.filter(m => seats.includes(m.seat));
+      peers = ms.map(m => m.peerId).filter(Boolean); iMay = ms.some(m => m.cid === R.cid);
+    }
+    const changed = V.setFloor(peers, iMay);
+    document.body.classList.toggle('floor-mode', !!seats);
+    document.querySelectorAll('.mchip').forEach(ch => {
+      const m = room && room.members.find(x => x.cid === ch.dataset.cid); const f = ch.querySelector('.fl'); if (!f) return;
+      const spk = !!(seats && m && seats.includes(m.seat));
+      f.innerHTML = !seats ? '' : spk ? '🎤<em>發言中</em>' : '🔒'; ch.classList.toggle('fl-spk', spk);
+    });
+    if (changed) {
+      voiceButtons();
+      if (V.mode === 'talk') {
+        if (seats && (!floorWas || forcedWas !== V.forced)) toast(V.forced ? '輪到別人說話，你的麥克風暫時關閉' : '輪到你說話，其他人的麥克風已暫時關閉', 2500);
+        if (!seats && floorWas) toast(V.muted ? '大家都講完了，已恢復語音（你自己按了靜音，還是靜音中）' : '大家都講完了，已恢復全員語音', 2500);
+      }
+    }
+    floorWas = !!seats; forcedWas = V.forced;
+  }
 
   function avColor(name) { let h = 0; for (const ch of name) h = (h * 31 + ch.codePointAt(0)) % 360; return `hsl(${h},55%,45%)`; }
   function renderMembers(room) {
     const meHost = R.isHost;
     $('#members').innerHTML = room.members.map(m => `
-      <div class="mchip ${m.online ? '' : 'off'} ${m.role === 'spec' ? 'spec' : ''}" data-peer="${U.esc(m.peerId)}" data-cid="${U.esc(m.cid)}">
+      <div class="mchip ${m.online ? '' : 'off'} ${m.role === 'spec' ? 'spec' : ''} ${m.cid === R.cid ? 'me' : ''}" data-peer="${U.esc(m.peerId)}" data-cid="${U.esc(m.cid)}">
         <span class="mav" style="background:${avColor(m.name)}">${m.avatar ? `<img src="${m.avatar}">` : U.esc([...m.name][0] || '?')}</span>
-        ${m.cid === room.hostCid ? '👑' : ''}${U.esc(m.name)}${m.cid === R.cid ? '（你）' : ''}
-        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span>${m.bot ? '<small>🤖電腦</small>' : m.auto ? '<small>🤖託管</small>' : ''}${m.role === 'spec' ? '<small>觀戰</small>' : ''}${!m.online ? '<small>離線</small>' : ''}${m.cid === room.heir ? '<small>候補房主</small>' : ''}
+        ${m.cid === room.hostCid ? '👑' : ''}<span class="mn">${U.esc(m.name)}</span><span class="you">${m.cid === R.cid ? '（你）' : ''}</span>
+        <span class="vi">${m.voice === 'talk' ? '🎤' : m.voice === 'listen' ? '🎧' : ''}</span><span class="fl"></span>${m.bot ? '<small class="tg" data-s="🤖">🤖電腦</small>' : m.auto ? '<small class="tg" data-s="🤖">🤖託管</small>' : ''}${m.role === 'spec' ? '<small class="tg" data-s="👀">觀戰</small>' : ''}${!m.online ? '<small class="tg" data-s="📴">離線</small>' : ''}${m.cid === room.heir ? '<small class="tg" data-s="⤴">候補房主</small>' : ''}
         ${meHost && m.cid !== R.cid && m.online && !m.bot ? `<button class="crown" data-hand="${U.esc(m.cid)}" title="把房主交給他">👑</button>` : ''}
         ${meHost && m.cid !== R.cid ? `<button class="kick" data-kick="${U.esc(m.cid)}" title="請出房間">×</button>` : ''}
       </div>`).join('');
@@ -373,13 +409,21 @@
   $('#chatClose').onclick = () => { chatOpen = false; $('#chat').hidden = true; };
   $('#chatForm').onsubmit = (e) => { e.preventDefault(); const i = $('#chatInput'); if (i.value.trim()) R.send({ t: 'chat', text: i.value.trim() }); i.value = ''; };
 
+  // ---------------- 成員列：遊戲中點一下展開完整名單，再點一次或點別的地方收起 ----------------
+  $('#members').addEventListener('click', (e) => {
+    if (e.target.closest('button') || !document.body.classList.contains('in-game')) return;
+    const box = $('#members'); box.style.setProperty('--memTop', box.offsetTop + 'px');
+    document.body.classList.toggle('mem-open');
+  });
+  document.addEventListener('click', (e) => { if (document.body.classList.contains('mem-open') && !e.target.closest('#members')) document.body.classList.remove('mem-open'); }, true);
+
   // ---------------- 語音 ----------------
   function voiceButtons() {
     const m = V.mode;
     $('#vTalk').hidden = m === 'talk'; $('#vListen').hidden = m !== 'off';
     $('#vMute').hidden = m !== 'talk'; $('#vOff').hidden = m === 'off';
-    $('#vMute').textContent = V.muted ? '🎙️ 開麥' : '🔇 靜音';
-    $('#vMute').classList.toggle('on', V.muted);
+    $('#vMute').textContent = V.forced ? '🔒 輪到別人說' : V.muted ? '🎙️ 開麥' : '🔇 靜音';
+    $('#vMute').classList.toggle('on', V.muted || V.forced); $('#vMute').disabled = V.forced;
     $('#vTalk').textContent = m === 'listen' ? '🎤 開麥說話' : '🎤 語音';
   }
   async function setVoice(mode) {

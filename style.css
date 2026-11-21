@@ -950,3 +950,30 @@ body.gfx-busy .mj-result, body.gfx-busy .b2-over, body.gfx-busy .res-pill { visi
 }
 /* 左右兩家的花牌、碰槓：排成兩欄，不要一路往下疊 */
 #game.mj-fit .mjs-left .mjs-melds, #game.mj-fit .mjs-right .mjs-melds { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 2px; }
+
+/* ================= 成員列：遊戲中精簡顯示、點一下展開 ================= */
+.mchip .mn { display: inline-block; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+body.in-game:not(.mem-open) .mchip .mn { max-width: 3.6em; }
+body.mem-open .mchip .mn { max-width: none; }
+body.in-game:not(.mem-open) .mchip .fl em, body.floor-mode .mchip .vi { display: none; }
+.mchip .fl em { font-style: normal; }
+body.in-game:not(.mem-open) .mchip .you,
+body.in-game:not(.mem-open) .mchip .crown,
+body.in-game:not(.mem-open) .mchip .kick { display: none; }
+body.in-game:not(.mem-open) .mchip .tg { font-size: 0; }
+body.in-game:not(.mem-open) .mchip .tg::before { content: attr(data-s); font-size: 12px; }
+body.in-game:not(.mem-open) .mchip { gap: 2px; padding-right: 7px; font-size: 12px; }
+body.in-game:not(.mem-open) .mchip .mav { width: 22px; height: 22px; }
+body.in-game .mchip.me { border-color: rgba(233,185,73,.8); }
+body.in-game #members { cursor: pointer; }
+body.mem-open #members { position: absolute; left: 0; right: 0; top: var(--memTop, 52px); z-index: 40; height: auto; max-height: 60vh; overflow-y: auto; flex-wrap: wrap; align-content: flex-start; padding: 8px 10px 12px; background: rgba(8,14,24,.96); border-bottom: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+body.mem-open #stage { margin-top: 48px; }
+body.mem-open .mchip { height: auto; min-height: 36px; }
+/* 說話的人在成員列外面：左右邊緣亮綠點 */
+.edge-dot { position: absolute; z-index: 32; width: 12px; height: 12px; border-radius: 50%; background: #5dea8b; box-shadow: 0 0 10px 3px #5dea8b; pointer-events: none; animation: talk .5s infinite alternate; }
+.edge-dot.l { left: 2px; } .edge-dot.r { right: 2px; }
+/* 發言權（輪流說話）：發言者金框、其他人顯示 🔒 */
+.mchip .fl { font-size: 11px; }
+.mchip .fl:empty { display: none; }
+body.floor-mode .mchip.fl-spk { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.vbtn:disabled { opacity: .6; }

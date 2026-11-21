@@ -296,7 +296,7 @@
 
   const M = {
     id: 'bluff', name: '誰是唬爛王', icon: '🤥', min: 3, max: 9, needVoice: true,
-    desc: '每回合一人當裁判，系統出一個冷門詞。其他人裡只有一位「老實人」看得到真正的意思，其餘都是唬爛王，要當場瞎掰一個解釋。準備好後依順序開麥克風說明（每位玩家都要開「🎤 語音」才能開始），最後裁判選出他覺得說真話的人。猜對：裁判和老實人各 +1；猜錯：被選中的唬爛王 +1。裁判每回合輪流，先到目標分數的人獲勝。',
+    desc: '每回合一人當裁判，系統出一個冷門詞。其他人裡只有一位「老實人」看得到真正的意思，其餘都是唬爛王，要當場瞎掰一個解釋。準備好後依順序開麥克風說明（每位玩家都要開「🎤 語音」才能開始），說明時只有輪到的人能講話，其他人麥克風會自動關閉，全部說完才恢復。最後裁判選出他覺得說真話的人。猜對：裁判和老實人各 +1；猜錯：被選中的唬爛王 +1。裁判每回合輪流，先到目標分數的人獲勝。',
     options: [
       { key: 'target', label: '目標分數', choices: [[5, '5 分'], [7, '7 分'], [10, '10 分']], def: 5 },
       { key: 'cat', label: '題目類型', choices: [['all', '全部混合'], ['history', '怪歷史・怪地名'], ['beast', '怪動物'], ['food', '怪食物'], ['job', '怪職業・怪習俗'], ['tw', '台灣在地'], ['myth', '神獸傳說'], ['psy', '怪效應・冷知識']], def: 'all' },
@@ -381,7 +381,8 @@
         role: seat < 0 ? 'spec' : seat === st.judge ? 'judge' : isH ? 'honest' : 'liar',
         hint: st.hint, peek: st.peek, peekUntil: isH && st.phase === 'prep' && st.peek && !st.peekHidden ? st.peekUntil : 0, peekGone: isH && !seeM && !open,
         order: st.order, spk: st.spk, said: st.said, readyN: Object.keys(st.ready).length, needN: st.n - 1, meReady: !!st.ready[seat], swaps: st.swaps,
-        last: open ? st.last : null, log: st.log.slice(-3)
+        last: open ? st.last : null, log: st.log.slice(-3),
+        floor: st.phase === 'talk' ? [st.order[st.spk]] : null // 發言權：說明階段只有正在說明的人能開麥，其他人由 app.js 強制靜音
       };
     },
 
@@ -423,7 +424,7 @@
           body += `<div class="bl-say"><p class="turn-line">👉 輪到你了，開麥克風說明「${U.esc(v.word)}」是什麼</p>
             <button class="btn big" data-a="done">我講完了</button></div>`;
         } else if (v.phase === 'talk') {
-          body += `<p class="hint center">請 ${nm(speaker)} 說明，大家安靜聽</p>`;
+          body += `<p class="hint center">請 ${nm(speaker)} 說明，大家安靜聽（其他人麥克風暫時關閉）</p>`;
         } else if (me === v.judge) {
           body += `<div class="bl-say"><p class="turn-line">👉 誰說的才是真的？點一個人再確定 <span class="timer" data-deadline="${v.deadline || ''}"></span></p>
             <button class="btn big" data-a="pick" ${this._sel == null || !v.order.includes(this._sel) ? 'disabled' : ''}>${this._sel != null && v.order.includes(this._sel) ? `就是 ${nm(this._sel)} 說真話！` : '先點一位玩家'}</button></div>`;

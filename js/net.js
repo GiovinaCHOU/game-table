@@ -84,7 +84,7 @@
   // 語音省流量：Opus 限制在 24kbps、單聲道、沒說話時幾乎不傳（DTX），走中繼伺服器時比較不會把免費額度用完
   const sdpTransform = (sdp) => sdp.replace(/a=fmtp:(\d+) (.*useinbandfec=1.*)/g, (m, pt, rest) => /maxaveragebitrate/.test(rest) ? m : `a=fmtp:${pt} ${rest};maxaveragebitrate=24000;stereo=0;usedtx=1`);
   const Voice = {
-    peer: null, stream: null, mode: 'off', calls: {}, audios: {}, meters: {}, ctx: null, muted: false,
+    peer: null, stream: null, mode: 'off', calls: {}, audios: {}, meters: {}, ctx: null, muted: false, forced: false, floorPeers: null,
     onLevel: null,
     attach(peer) {
       this.peer = peer;
@@ -117,7 +117,19 @@
       if (this.stream) this.stream.getTracks().forEach(t => t.stop());
       this.stream = null; this.mode = 'off'; delete this.meters.me;
     },
-    setMuted(m) { this.muted = m; if (this.stream) this.stream.getAudioTracks().forEach(t => t.enabled = !m); },
+    // muted＝自己按的靜音；forced＝遊戲發言權強制靜音（輪到別人說話）。兩個分開記，發言權結束後回到自己原本的狀態
+    setMuted(m) { this.muted = m; this._apply(); },
+    // 發言權：peers＝可以說話的人（peerId 陣列），null＝全員自由說話；iMay＝自己能不能說
+    setFloor(peers, iMay) {
+      const p = peers ? peers.slice().sort() : null, f = !!p && !iMay;
+      const same = JSON.stringify(p) === JSON.stringify(this.floorPeers) && f === this.forced;
+      this.floorPeers = p; this.forced = f; this._apply(); return !same;
+    },
+    _apply() {
+      if (this.stream) this.stream.getAudioTracks().forEach(t => t.enabled = !(this.muted || this.forced));
+      // 接收端也把非發言者轉靜音：就算對方畫面是舊版沒關麥，也不會漏聲音
+      for (const [pid, a] of Object.entries(this.audios)) a.muted = !!this.floorPeers && !this.floorPeers.includes(pid);
+    },
     callTo(peerId) {
       if (this.mode === 'off' || !this.peer || this.calls[peerId] || peerId === this.peer.id) return;
       const call = this.peer.call(peerId, this.stream, { sdpTransform });
@@ -131,7 +143,7 @@
           a = document.createElement('audio'); a.autoplay = true; a.setAttribute('playsinline', '');
           document.getElementById('audios').appendChild(a); this.audios[call.peer] = a;
         }
-        a.srcObject = rs;
+        a.srcObject = rs; this._apply();
         a.play().catch(() => window.UI && window.UI.needAudioTap());
         this._meter(call.peer, rs);
       });
