@@ -339,6 +339,28 @@
       if (JOKER(t)) return `<span class="rt joker ${cls || ''}" data-t="${t}" title="鬼牌"><img src="img/pet${((this._pets || [3, 0])[t - 104]) ?? 3}.png" alt="鬼牌" draggable="false"></span>`;
       return `<span class="rt c${color(t)} ${cls || ''}" data-t="${t}">${num(t)}</span>`;
     },
+    // 最後 10 秒：大大的倒數、畫面邊框閃紅、每秒滴答；排好的牌如果都合法，最後 1 秒自動幫你按「完成出牌」
+    _startCountdown() {
+      if (this._cdTimer) return;
+      this._cdTimer = setInterval(() => {
+        const c = this._cur; const body = document.body;
+        const off = () => { body.classList.remove('rm-hurry'); const o = c && c.el.querySelector('.rm-cd'); if (o) o.hidden = true; };
+        if (!c || !c.el.isConnected || c.el.dataset.g !== 'rummi' || !c.myTurn) { off(); return; }
+        const tEl = c.el.querySelector('.rm-status .timer'); const m = tEl && /(\d+)/.exec(tEl.textContent || '');
+        const sec = m ? +m[1] : null; const o = c.el.querySelector('.rm-cd');
+        if (sec == null || sec > 10 || sec <= 0 || !o) { off(); return; }
+        const w = c.w; const curChanged = w.rack.length !== (c.v.rack || []).length || JSON.stringify(w.table) !== JSON.stringify(c.v.table);
+        const allOk = w.table.every(x => analyze(x));
+        o.hidden = false; o.querySelector('b').textContent = sec;
+        o.querySelector('span').textContent = !curChanged ? '時間到會自動抽一張' : allOk ? '時間到會自動幫你出牌' : '有紅框的牌組！時間到會自動抽牌';
+        o.classList.toggle('warn', curChanged && !allOk);
+        body.classList.add('rm-hurry');
+        if (sec !== this._cdLast) { this._cdLast = sec; try { root.GFX && root.GFX.S.tick(); } catch (e) {} }
+        if (sec <= 1 && curChanged && allOk && this._autoSent !== w.turnId) {
+          this._autoSent = w.turnId; c.ui.send({ type: 'commit', table: w.table }); c.ui.toast && c.ui.toast('時間快到了，已自動幫你出牌');
+        }
+      }, 200);
+    },
     render(el, v, ui) {
       this._pets = v.pets;
       el.dataset.g = 'rummi'; const me = v.seat; const myTurn = v.phase === 'play' && v.turn === me;
@@ -356,7 +378,11 @@
         return w.table.filter(s => left.includes(key(s))).reduce((a, s) => { const r = analyze(s); return a + (r ? r.value : 0); }, 0);
       };
       const changed = w.rack.length !== (v.rack || []).length || JSON.stringify(w.table) !== JSON.stringify(v.table);
+      // 重畫前記住捲動位置，重畫後放回去（不然點下方的牌組會跳回最上面）
+      const stage = document.getElementById('stage'); const oldTbl = el.querySelector('.rm-table');
+      const keepScroll = { stage: stage ? stage.scrollTop : 0, tbl: oldTbl ? oldTbl.scrollTop : 0 };
       el.innerHTML = `
+        <div class="rm-cd" hidden><b></b><span></span></div>
         <div class="players-row">${v.names.map((n, i) => `<div class="pchip ${i === v.turn && v.phase === 'play' ? 'turn' : ''}">${U.esc(n)}<b>${v.counts[i]} 張</b><small>${v.melded[i] ? '已破冰' : '未破冰'} · ${v.total[i] >= 0 ? '+' : ''}${v.total[i]}</small></div>`).join('')}</div>
         <div class="rm-status">牌池 ${v.pool} 張 · ${v.phase === 'play' ? `輪到 <b>${U.esc(v.names[v.turn])}</b>` : ''} <span class="timer" data-deadline="${v.deadline || ''}"></span> <small>${U.esc(v.log || '')}</small></div>
         ${v.phase === 'over' ? `<div class="b2-over"><h3>🎉 ${v.endReason === 'pool' ? `牌池抽完，${U.esc(v.names[v.winner])} 手牌點數最少！` : `${U.esc(v.names[v.winner])} 出完了！`}</h3>${v.names.map((n, i) => `<p>${U.esc(n)}：${v.lastPts[i] >= 0 ? '+' : ''}${v.lastPts[i]}</p>`).join('')}${me >= 0 ? '<button class="btn" data-a="next">下一局</button>' : ''}</div>` : ''}
@@ -371,6 +397,9 @@
             <button class="btn sm ghost" data-a="reset" ${changed ? '' : 'disabled'}>重來</button></div>
             <div class="act-row"><button class="btn" data-a="commit" ${changed ? '' : 'disabled'}>完成出牌</button><button class="btn ghost" data-a="draw" ${changed ? 'disabled' : ''}>${v.pool ? '抽一張' : '跳過（牌池已空）'}</button></div>
             <p class="hint">點選牌 → 點桌上的牌組加進去，或按「新牌組」。桌上的牌可以拆開重組。</p>` : ''}` : '<p class="spec-note">觀戰中</p>'}`;
+      { const t2 = el.querySelector('.rm-table'); if (t2) t2.scrollTop = keepScroll.tbl; if (stage) stage.scrollTop = keepScroll.stage; }
+      this._cur = { el, v, ui, myTurn, changed, w, me };
+      this._startCountdown();
       const rerender = () => this.render(el, v, ui);
       const removeSel = () => {
         w.table = w.table.map(s => s.filter(t => !w.sel.has(t))).filter(s => s.length);

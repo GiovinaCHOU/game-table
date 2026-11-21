@@ -977,3 +977,17 @@ body.mem-open .mchip { height: auto; min-height: 36px; }
 .mchip .fl:empty { display: none; }
 body.floor-mode .mchip.fl-spk { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
 .vbtn:disabled { opacity: .6; }
+/* 拉密：最後 10 秒倒數（不擋操作） */
+.rm-cd { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 64px); transform: translateX(-50%); z-index: 60; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; padding: 6px 18px 8px; border-radius: 18px; background: rgba(20,8,30,.82); border: 2px solid #ff7b6b; box-shadow: 0 0 24px rgba(255,90,80,.6); }
+.rm-cd[hidden] { display: none; }
+.rm-cd b { font-size: 46px; line-height: 1; color: #ff8a7a; font-variant-numeric: tabular-nums; animation: rmcd 1s infinite; }
+.rm-cd span { font-size: 13px; color: #fff; margin-top: 2px; white-space: nowrap; }
+.rm-cd.warn { border-color: #ffd36e; } .rm-cd.warn span { color: #ffd36e; font-weight: 700; }
+@keyframes rmcd { 0% { transform: scale(1.25); } 40% { transform: scale(1); } 100% { transform: scale(1); } }
+body.rm-hurry #room::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 59; box-shadow: inset 0 0 0 4px #ff5a4f, inset 0 0 40px rgba(255,60,50,.55); animation: rmhurry 1s infinite; }
+@keyframes rmhurry { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+/* 拉密：選牌後牌組上的「＋」浮在角落，不佔位置（不然整個牌桌會變高、下面的牌組被擠走） */
+.rm-set { position: relative; }
+.rm-plus { position: absolute; top: -7px; right: -6px; width: 16px; height: 16px; padding: 0; border-radius: 50%; background: var(--gold); color: #2a1240; font-size: 13px; line-height: 16px; text-align: center; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.rm-table { padding-top: 12px; }
