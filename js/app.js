@@ -3,7 +3,7 @@
   const $ = (s) => document.querySelector(s);
   const U = window.GUTIL, R = window.Room, V = window.Net.Voice;
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw', 'bluff'];
+  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw', 'bluff', 'werewolf', 'onenight'];
 
   let curGame = null, chatOpen = false, unread = 0, wakeLock = null;
 
@@ -150,7 +150,7 @@
   };
   let turnKey = '';
   function yourTurn(id, v) {
-    const f = MYTURN[id]; const txt = f ? f(v) : '';
+    const g = window.GAMES[id]; const f = MYTURN[id] || (g && g.myTurn); const txt = f ? f(v) : '';
     document.body.classList.toggle('my-turn', !!txt);
     if (!txt) { turnKey = ''; if (document.title.startsWith('🔔')) document.title = document.title.replace(/^🔔 [^｜]*｜/, ''); return; }
     const k = id + ':' + txt + ':' + (v.turnId != null ? v.turnId : (v.history ? v.history.length : '')) + ':' + (v.round || '') + ':' + (v.handNo || '');
@@ -303,12 +303,12 @@
     const opts = Object.assign({}, ...(mod.options || []).map(o => ({ [o.key]: o.def })), lobby.opts || {});
     (mod.options || []).forEach(o => { if (o.choices && !o.choices.some(([v]) => String(v) === String(opts[o.key]))) opts[o.key] = o.def; });
     const me = room.members.find(m => m.cid === R.cid);
-    const countOk = players.length >= mod.min && players.length <= mod.max;
+    const countOk = players.length >= mod.min && players.length <= mod.max && (!mod.counts || mod.counts.includes(players.length)); // counts：只支援特定人數（狼人殺 6／9／10／12）
     $('#lobby').innerHTML = `
       <h2 class="lobby-title">${host ? '選一個遊戲' : '等房主選遊戲並開始'}</h2>
       <div class="game-grid">${GAME_ORDER.map(id => { const g = window.GAMES[id]; return `
         <button class="gcard ${id === sel ? 'on' : ''}" data-g="${id}" ${host ? '' : 'disabled'}>
-          <span class="gi">${g.icon}</span><b>${g.name}</b><small>${g.min === g.max ? g.min : g.min + '–' + g.max} 人</small></button>`; }).join('')}</div>
+          <span class="gi">${g.icon}</span><b>${g.name}</b><small>${g.countText || (g.min === g.max ? g.min : g.min + '–' + g.max) + ' 人'}</small></button>`; }).join('')}</div>
       <div class="lobby-detail">
         <p class="gdesc">${U.esc(mod.desc)}</p>
         ${sel === 'monopoly' ? themeGrid(mod, opts, host) : ''}
@@ -316,11 +316,11 @@
           <textarea data-opt="${o.key}" rows="2" maxlength="1500" placeholder="${U.esc(o.placeholder || '')}">${U.esc(opts[o.key] || '')}</textarea><small class="hint">其他人看不到內容，只會看到題目數量</small></label>`
           : `<label class="opt"><span>${o.label}</span><span class="hint">${o.count ? o.count(opts[o.key]) : String(opts[o.key] || '').split(/[,，、\s\n]+/).filter(Boolean).length} 題（房主設定，內容保密）</span></label>`) : `<label class="opt"><span>${o.label}</span>
           <select data-opt="${o.key}" ${host ? '' : 'disabled'}>${o.choices.map(([v, l]) => `<option value="${v}" ${String(opts[o.key]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}
-        ${mod.needVoice ? (() => { const no = players.filter(p => !p.bot && p.voice !== 'talk'); return `<p class="gdesc small ${no.length && !window.Net.LOCAL ? 'bad' : ''}">🎤 這個遊戲要開麥克風玩，${no.length ? `還沒開語音：${no.map(p => U.esc(p.name)).join('、')}` : '大家都開好了！'}${players.length === 3 ? '<br>3 人可以玩，但只有 1 位老實人＋1 位唬爛王，建議 4 人以上更好玩' : ''}</p>`; })() : ''}
+        ${mod.needVoice ? (() => { const no = players.filter(p => !p.bot && p.voice !== 'talk'); return `<p class="gdesc small ${no.length && !window.Net.LOCAL ? 'bad' : ''}">🎤 這個遊戲要開麥克風玩，${no.length ? `還沒開語音：${no.map(p => U.esc(p.name)).join('、')}` : '大家都開好了！'}${sel === 'bluff' && players.length === 3 ? '<br>3 人可以玩，但只有 1 位老實人＋1 位唬爛王，建議 4 人以上更好玩' : ''}</p>`; })() : ''}
         ${sel === 'mahjong' ? `<p class="gdesc small">目前 ${players.length} 位玩家：${players.length === 3 ? '三人麻將（拿掉萬子）' : players.length === 4 ? '標準四人' : players.length === 5 ? '五人，每局輪流一人休息' : '需要 3–5 人'}</p>` : ''}
         ${room.test && host ? `<div class="testbox"><b>🧪 測試房</b><span>電腦玩家會自動出牌，用來測試遊戲流程</span>
           <div class="act-row"><button class="btn sm" id="addBot" ${players.length >= mod.max ? 'disabled' : ''}>＋ 加電腦玩家</button><button class="btn ghost sm" id="fillBot" ${players.length >= mod.max ? 'disabled' : ''}>補滿到 ${mod.max} 人</button><button class="btn ghost sm" id="clearBot" ${room.members.some(m => m.bot) ? '' : 'disabled'}>移除全部電腦</button></div></div>` : ''}
-        <p class="pcount ${countOk ? '' : 'bad'}">玩家 ${players.length} 人（${mod.min}–${mod.max} 人）${countOk ? '' : ' — 人數不符'}</p>
+        <p class="pcount ${countOk ? '' : 'bad'}">玩家 ${players.length} 人（${mod.countText || mod.min + '–' + mod.max + ' 人'}）${countOk ? '' : ' — 人數不符'}</p>
         <div class="act-row">
           <button class="btn ghost" id="myRole">${me && me.role === 'spec' ? '我要當玩家' : '我改成觀戰'}</button>
           ${host ? `<button class="btn big" id="startBtn" ${countOk ? '' : 'disabled'}>開始遊戲</button>` : ''}

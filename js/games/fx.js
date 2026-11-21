@@ -58,6 +58,10 @@
     shake() { if (!ok()) return; const t = ctx.currentTime; for (let i = 0; i < 7; i++) hit(t + i * 0.045, 1500 + Math.random() * 1500, 3, 0.04, 0.35); },
     drum() { if (!ok()) return; const t = ctx.currentTime; for (let i = 0; i < 6; i++) { tone(90, t + i * 0.09, 0.12, 'sine', 0.3 + i * 0.05, null, 55); hit(t + i * 0.09, 400, 1, 0.08, 0.2, 'lowpass'); } },
     cheer() { if (!ok()) return; const t = ctx.currentTime; for (let i = 0; i < 26; i++) hit(t + Math.random() * 0.9, 1200 + Math.random() * 2500, 3, 0.12, 0.12); },
+    // 狼人殺：天黑（低沉長音＋遠處狼嚎）、天亮（上行和弦＋鳥叫）、公布死訊（鐘聲）
+    nightfall() { if (!ok()) return; const t = ctx.currentTime; [110, 82.4, 65.4].forEach((f, i) => tone(f, t + i * 0.25, 1.8, 'triangle', 0.09, null, f * 0.94)); tone(392, t + 0.5, 1.6, 'sine', 0.05, null, 587); tone(587, t + 2.0, 0.9, 'sine', 0.04, null, 349); hit(t, 300, 0.6, 1.4, 0.05, 'lowpass'); },
+    dawn() { if (!ok()) return; const t = ctx.currentTime; [523, 659, 784, 1046].forEach((f, i) => tone(f, t + i * 0.12, 0.9, 'sine', 0.07)); [0.7, 0.85, 1.05].forEach(d => tone(2600 + Math.random() * 600, t + d, 0.07, 'sine', 0.04, null, 3400)); },
+    toll() { if (!ok()) return; const t = ctx.currentTime; [0, 1.1].forEach(d => { tone(196, t + d, 1.6, 'sine', 0.12); tone(392.8, t + d, 1.1, 'sine', 0.05); tone(587, t + d, 0.7, 'triangle', 0.03); }); },
     pop() { if (!ok()) return; const t = ctx.currentTime; hit(t, 1800, 1, 0.08, 0.7); tone(320, t, 0.08, 'sine', 0.2, null, 900); },
     win() { if (!ok()) return; const t = ctx.currentTime; [[523, 0], [659, 0.12], [784, 0.24], [1046, 0.36], [784, 0.52], [1046, 0.62]].forEach(([f, d]) => { tone(f, t + d, d > 0.5 ? 0.7 : 0.18, 'square', 0.07); tone(f / 2, t + d, 0.2, 'triangle', 0.08); }); S.cheer(); },
     lose() { if (!ok()) return; const t = ctx.currentTime; [[392, 0, 0.35], [370, 0.4, 0.35], [349, 0.8, 0.35], [330, 1.2, 1.1]].forEach(([f, d, l]) => { const o = tone(f, t + d, l, 'sawtooth', 0.1, null, d > 1 ? f * 0.85 : null); if (d > 1) { const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 7; lg.gain.value = 9; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t + d); lfo.stop(t + d + l); } }); },
@@ -138,7 +142,7 @@
 
     // 每次收到畫面更新時呼叫：比較前後兩個畫面，自動播對應音效／動畫
     onView(id, p, v) {
-      const H = HOOKS[id]; this._key = this._key || {};
+      const g = root.GAMES && root.GAMES[id]; const H = HOOKS[id] || (g && g.gfxHook ? g.gfxHook.bind(g) : null); this._key = this._key || {};
       if (!H) { this.want('off'); return; }
       try { H(p, v, this); } catch (e) { console.error(e); }
     }

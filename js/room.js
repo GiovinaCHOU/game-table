@@ -557,6 +557,7 @@
       if (players.length < mod.min) { this.to(this.R.cid, { t: 'err', msg: `${mod.name} 至少要 ${mod.min} 位玩家` }); return; }
       // 需要語音的遊戲（誰是唬爛王）：真人玩家都要開「🎤 語音」；電腦玩家與本機測試模式不檢查
       if (mod.needVoice && !window.Net.LOCAL) { const no = players.filter(p => !p.bot && p.voice !== 'talk'); if (no.length) { this.to(this.R.cid, { t: 'err', msg: `${mod.name}要開麥克風才能玩：${no.map(p => p.name).join('、')} 還沒按「🎤 語音」` }); return; } }
+      if (mod.counts && !mod.counts.includes(players.length) && players.length >= mod.min && players.length <= mod.max) { this.to(this.R.cid, { t: 'err', msg: `${mod.name} 只支援 ${mod.counts.join('、')} 人，現在 ${players.length} 人` }); return; }
       if (players.length > mod.max) { this.to(this.R.cid, { t: 'err', msg: `${mod.name} 最多 ${mod.max} 位玩家，請讓其他人切換成觀戰` }); return; }
       // 隨機座位
       const seats = players.map(p => p.cid).sort(() => Math.random() - 0.5);
