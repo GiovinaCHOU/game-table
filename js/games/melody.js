@@ -7,7 +7,7 @@
   const songLabel = (s) => B().label(s);
   const qText = (q) => (q.k === 'song' ? songLabel(q.s) : q.w);
 
-  function songPool(st) { const S = B().SONGS; const p = S.filter(s => st.cat === 'all' || s.c === st.cat); return p.length >= 4 ? p : S; }
+  function songPool(st) { const S = B().SONGS; const p = S.filter(s => (st.cat === 'all' ? B().inAll(s.c) : s.c === st.cat)); return p.length >= 4 ? p : S.filter(s => B().inAll(s.c)); }
   function pickChoices(st) {
     const out = [], usedW = new Set(st.usedQ);
     const kinds = st.qtype === 'scene' ? ['scene', 'scene', 'scene'] : st.qtype === 'song' ? ['song', 'song', 'song'] : U.shuffle(['scene', 'scene', 'song']);
@@ -25,7 +25,7 @@
     }
     const lab = songLabel(q.s);
     let pool = B().SONGS.filter(s => s.c === q.s.c && songLabel(s) !== lab);
-    if (pool.length < 3) pool = pool.concat(B().SONGS.filter(s => s.c !== q.s.c));
+    if (pool.length < 3) pool = pool.concat(B().SONGS.filter(s => s.c !== q.s.c && B().inAll(s.c)));
     return U.shuffle(U.shuffle(pool.slice()).slice(0, 3).map(songLabel).concat([lab]));
   }
 
@@ -41,7 +41,8 @@
   }
   function startGuess(st, now) {
     st.opts = makeOpts(st, st.q); st.ans = st.opts.indexOf(qText(st.q));
-    st.phase = 'guess'; st.turn = null; st.deadline = now + T.guess; st.guessAt = now; st.step++;
+    const len = st.notes.length ? Math.max(...st.notes.map(n => n[0] + (n[1] >= 100 ? 300 : Math.max(80, n[2] || 200)))) + 800 : 0;
+    st.phase = 'guess'; st.turn = null; st.deadline = now + len + T.guess; st.guessAt = now; st.step++;
   }
   const guessers = (st) => U.range(st.n).filter(i => i !== st.composer);
   function reveal(st, now, skipped) {
@@ -74,7 +75,7 @@
     desc: '輪流當出題者，從 3 個題目選 1 個，用畫面上的鍵盤和打擊墊彈出來（最多錄 10 秒，可以重錄）。情境題要用音樂表達一個詞（例如「下雨天」「被老闆罵」），歌曲題要彈出那首歌的旋律。其他人聽完從選項裡猜（情境題 6 選 1、歌曲題 4 選 1），每人只能答一次。答對依先後 +3／+2／+1，出題者每有一人答對 +1。猜題時全員麥克風暫時關閉，避免有人直接喊出答案。不用開麥也能玩。',
     options: [
       { key: 'qtype', label: '題型', choices: [['mix', '混合'], ['scene', '只有情境題'], ['song', '只有歌曲題']], def: 'mix' },
-      { key: 'cat', label: '歌曲分類（歌曲題用）', choices: [['all', '全部混合'], ['zh', '華語經典'], ['zhnew', '華語近年'], ['tw', '台語'], ['jp', '日文'], ['en', '西洋'], ['ost', '動漫・影視']], def: 'all' },
+      { key: 'cat', label: '歌曲分類（歌曲題用）', choices: [['all', '全部混合（不含日文）'], ['zh', '華語經典'], ['zhnew', '華語近年'], ['tw', '台語'], ['jp', '日文（較難）'], ['en', '西洋'], ['ost', '動漫・影視']], def: 'all' },
       { key: 'rounds', label: '每人出題次數', choices: [[1, '1 次'], [2, '2 次']], def: 1 }
     ],
     init(n, o, names, now) {
@@ -162,9 +163,11 @@
       // 編曲中：畫面更新時不重建鍵盤（不然按到一半的音會斷掉）
       const key = [v.phase, v.turnId, v.composer, me].join(':');
       if (v.phase === 'compose' && v.composer === me && this._key === key && el.querySelector('.mk')) return;
-      if (this._key !== key && this._pl) { this._pl.stop(); this._pl = null; }
+      const pkey = [v.phase, v.composer, v.ti].join(':');
+      if (this._pkey !== pkey && this._pl) { this._pl.stop(); this._pl = null; this._first = false; }
+      this._pkey = pkey;
       const sameTurn = this._turnKey === v.composer + ':' + v.ti;
-      if (!sameTurn) { this._turnKey = v.composer + ':' + v.ti; this._plays = 0; this._autoPlayed = false; this._kb = null; this._draft = null; }
+      if (!sameTurn) { this._turnKey = v.composer + ':' + v.ti; this._plays = 0; this._autoPlayed = false; this._first = false; this._kb = null; this._draft = null; }
       this._key = key;
       const chips = N.map((n, i) => `<div class="pchip ${i === v.composer ? 'turn' : ''}">${i === v.composer ? '🎹' : v.phase === 'guess' && v.answered[i] ? '✔' : ''}${U.esc(n)}<b>${v.scores[i]} 分</b></div>`).join('');
       const head = `<div class="bl-head"><span>第 ${Math.min(v.ti + 1, v.total)}／${v.total} 題</span>${v.deadline ? `<span class="timer" data-deadline="${v.deadline}"></span>` : ''}</div>`;
@@ -183,10 +186,10 @@
              <p class="hint center">先按「⏺ 錄音」，按下第一個音才開始計時，最多 10 秒；可以重錄，送出後大家才聽得到</p>`
           : `<p class="hint center">🎹 ${nm(v.composer)} 正在編曲… 先想想看可能是什麼</p><div class="ml-wait">🎶</div>`;
       } else if (v.phase === 'guess') {
-        const isC = v.composer === me, left = 3 - this._plays;
-        body = `<div class="ml-play"><button class="btn big" data-p="play" ${!isC && left <= 0 ? 'disabled' : ''}>▶ 播放${isC ? '' : `（還能重播 ${Math.max(0, left)} 次）`}</button></div>
+        const isC = v.composer === me, left = 3 - this._plays, first = this._first || !this._autoPlayed;
+        body = `<div class="ml-play"><button class="btn big" data-p="play" ${first || (!isC && left <= 0) ? 'disabled' : ''}>${first ? '🎶 播放中，先完整聽一次…' : `▶ 再聽一次${isC ? '' : `（還能重播 ${Math.max(0, left)} 次）`}`}</button></div>
           <p class="turn-line center">${isC ? '大家正在猜你的作品' : v.myAns != null ? '已作答，等其他人' : `${v.qKind === 'song' ? '這是哪一首歌？' : '這段音樂在表達什麼？'}`}</p>
-          <div class="ml-opts ${v.opts.length > 4 ? 'six' : ''}">${v.opts.map((o, i) => `<button class="btn ghost ml-opt ${v.myAns === i ? 'mine' : ''}" data-o="${i}" ${isC || me < 0 || v.myAns != null ? 'disabled' : ''}>${U.esc(o)}</button>`).join('')}</div>
+          <div class="ml-opts ${v.opts.length > 4 ? 'six' : ''}">${v.opts.map((o, i) => `<button class="btn ghost ml-opt ${v.myAns === i ? 'mine' : ''}" data-o="${i}" ${isC || me < 0 || v.myAns != null || first ? 'disabled' : ''}>${U.esc(o)}</button>`).join('')}</div>
           <p class="hint center">已作答 ${v.answered.filter(Boolean).length}／${v.needN} 人・猜題時全員麥克風暫時關閉</p>`;
       } else if (v.phase === 'reveal' && v.last) {
         const L = v.last;
@@ -226,9 +229,17 @@
         el.querySelector('[data-r="send"]').onclick = () => { if (!kb.notes.length) return; kb.stopPlay(); ui.send({ type: 'submit', notes: kb.notes, inst: kb.inst }); };
         el.querySelector('[data-r="skip"]').onclick = () => { if (confirm('確定放棄這題？（這題沒有分數）')) ui.send({ type: 'skip' }); };
       }
-      const playNotes = () => { if (this._pl) this._pl.stop(); this._pl = MU().play(v.notes, v.inst, () => { this._pl = null; }); };
+      const playNotes = (onEnd) => { if (this._pl) this._pl.stop(); this._pl = MU().play(v.notes, v.inst, () => { this._pl = null; onEnd && onEnd(); }); };
+      this._lastArgs = [el, v, ui];
       // 進入猜題時自動播一次（不算在重播次數裡）
-      if (v.phase === 'guess' && v.notes && !this._autoPlayed) { this._autoPlayed = true; setTimeout(playNotes, 300); }
+      // 進入猜題時自動完整播一次（不算在重播次數裡）；播完才能作答，大家都先聽完整段
+      if (v.phase === 'guess' && v.notes && !this._autoPlayed) {
+        this._autoPlayed = true; this._first = true;
+        const tk = this._turnKey;
+        const done = () => { if (this._turnKey !== tk || !this._first) return; this._first = false; const [e2, v2, u2] = this._lastArgs; if (v2.phase === 'guess') this.render(e2, v2, u2); };
+        setTimeout(() => playNotes(done), 300);
+        setTimeout(done, 12500); // 保險：萬一手機沒聲音、播放結束沒通知，最多 12 秒後也會開放作答
+      }
       el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
         if (b.dataset.p === 'play' && v.composer !== me) { if (this._plays >= 3) return; this._plays++; this.render(el, v, ui); }
         playNotes();

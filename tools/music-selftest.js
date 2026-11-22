@@ -24,6 +24,11 @@ ok(new Set(BK.SONGS.map(s => s.t + '|' + s.a)).size === BK.SONGS.length, '歌曲
 ok(new Set(BK.SCENES).size === BK.SCENES.length, '情境題有重複');
 Object.keys(BK.CATS).forEach(c => ok(BK.PAIRS.some(p => p[0] === c && p[1] === 'n') || BK.PAIRS.some(p => p[0] === c), `分類 ${c} 沒有配對`));
 
+{ // 全部混合不含日文
+  let jp = 0; for (let k = 0; k < 400; k++) { const st = H.init(5, { cat: 'all', diff: 'mix' }, names(5), 1e12); if (st.pair.cat === 'jp') jp++; const m = ML.init(3, { qtype: 'song', cat: 'all' }, names(3), 1e12); if (m.choices.some(c => c.s.c === 'jp')) jp++; }
+  ok(jp === 0, '全部混合不應該出現日文歌');
+  const j = H.init(5, { cat: 'jp', diff: 'mix' }, names(5), 1e12); ok(j.pair.cat === 'jp', '單獨選日文要出日文');
+}
 // ---------- ② 誰是走音臥底 ----------
 console.log('② 誰是走音臥底');
 const HA = (st, s, a) => H.action(st, s, a, { now: NOW });

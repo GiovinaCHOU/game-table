@@ -10,9 +10,9 @@
 
   function pickPair(st) {
     const P = B().PAIRS;
-    let ids = U.range(P.length).filter(i => (st.cat === 'all' || P[i][0] === st.cat) && (st.diff === 'mix' || P[i][1] === st.diff));
-    if (!ids.length) ids = U.range(P.length).filter(i => st.cat === 'all' || P[i][0] === st.cat);
-    if (!ids.length) ids = U.range(P.length);
+    let ids = U.range(P.length).filter(i => (st.cat === 'all' ? B().inAll(P[i][0]) : P[i][0] === st.cat) && (st.diff === 'mix' || P[i][1] === st.diff));
+    if (!ids.length) ids = U.range(P.length).filter(i => (st.cat === 'all' ? B().inAll(P[i][0]) : P[i][0] === st.cat));
+    if (!ids.length) ids = U.range(P.length).filter(i => B().inAll(P[i][0]));
     let fresh = ids.filter(i => !st.usedPairs.includes(i));
     if (!fresh.length) { st.usedPairs = st.usedPairs.filter(i => !ids.includes(i)); fresh = ids; }
     const id = fresh[Math.floor(Math.random() * fresh.length)]; st.usedPairs.push(id);
@@ -24,7 +24,7 @@
     const S = B().SONGS, pr = st.pair, key = (s) => s.t + '|' + s.a;
     const civK = pr.civ[0] + '|' + pr.civ[1], spyK = pr.spy[0] + '|' + pr.spy[1];
     let pool = S.filter(s => s.c === pr.cat && key(s) !== civK && key(s) !== spyK);
-    if (pool.length < 3) pool = pool.concat(S.filter(s => s.c !== pr.cat && key(s) !== civK && key(s) !== spyK));
+    if (pool.length < 3) pool = pool.concat(S.filter(s => s.c !== pr.cat && B().inAll(s.c) && key(s) !== civK && key(s) !== spyK));
     pool = U.shuffle(pool.slice()).slice(0, 3).map(s => [s.t, s.a]);
     const opts = U.shuffle(pool.concat([pr.civ.slice()]));
     return { opts, ans: opts.findIndex(o => o[0] === pr.civ[0] && o[1] === pr.civ[1]) };
@@ -120,7 +120,7 @@
     desc: '大家拿到同一首歌，只有臥底拿到另一首相近的歌（白板模式：臥底什麼都沒拿到）。沒人知道自己是不是臥底。輪流只用「哼」的（不能唱歌詞），輪到誰哼，只開他的麥克風，其他人自動靜音。第一輪哼兩圈，之後每輪一圈，接著全員投票抓臥底；平票的人各再哼一次後重投，再平就沒人出局。臥底被抓到時可以從 4 個選項猜平民的歌，猜對就翻盤。抓光臥底：平民每人 +1；臥底撐到只剩 3 人，或撐過 6 輪投票：臥底每人 +3。4～6 人 1 位臥底、7～10 人 2 位。每位玩家都要開「🎤 語音」，建議戴耳機。',
     options: [
       { key: 'target', label: '目標分數', choices: [[5, '5 分'], [7, '7 分'], [10, '10 分']], def: 5 },
-      { key: 'cat', label: '歌曲分類', choices: [['all', '全部混合'], ['zh', '華語經典'], ['zhnew', '華語近年'], ['tw', '台語'], ['jp', '日文'], ['en', '西洋'], ['ost', '動漫・影視']], def: 'all' },
+      { key: 'cat', label: '歌曲分類', choices: [['all', '全部混合（不含日文）'], ['zh', '華語經典'], ['zhnew', '華語近年'], ['tw', '台語'], ['jp', '日文（較難）'], ['en', '西洋'], ['ost', '動漫・影視']], def: 'all' },
       { key: 'diff', label: '難度', choices: [['n', '一般（不同歌手、同曲風）'], ['h', '困難（同歌手、同時期）'], ['mix', '混合']], def: 'n' },
       { key: 'mode', label: '臥底拿到', choices: [['near', '相近的另一首歌'], ['blank', '什麼都沒有（白板）']], def: 'near' },
       { key: 'humT', label: '每人哼幾秒', choices: [[5, '5 秒'], [8, '8 秒'], [10, '10 秒']], def: 5 }
