@@ -365,7 +365,7 @@
       this._pets = v.pets;
       el.dataset.g = 'rummi'; const me = v.seat; const myTurn = v.phase === 'play' && v.turn === me;
       if (!this._w || this._w.turnId !== v.turnId || !myTurn || this._w.phase !== v.phase) {
-        this._w = { turnId: v.turnId, phase: v.phase, table: v.table.map(s => s.slice()), rack: (v.rack || []).slice(), orig: new Set(v.rack || []), sel: new Set() };
+        this._w = { turnId: v.turnId, phase: v.phase, table: v.table.map(s => s.slice()), rack: (v.rack || []).slice(), orig: new Set(v.rack || []), sel: new Set(), hist: [] };
       }
       const w = this._w;
       const sortRack = (r) => r.slice().sort((a, b) => {
@@ -394,13 +394,16 @@
           ${myTurn ? `<div class="act-row">
             <button class="btn sm" data-a="new" ${w.sel.size ? '' : 'disabled'}>選的牌→新牌組</button>
             <button class="btn sm ghost" data-a="back" ${w.sel.size ? '' : 'disabled'}>收回手上</button>
-            <button class="btn sm ghost" data-a="reset" ${changed ? '' : 'disabled'}>重來</button></div>
+            <button class="btn sm ghost" data-a="undo" ${w.hist.length ? '' : 'disabled'}>↶ 上一步</button>
+            <button class="btn sm ghost" data-a="reset" ${changed ? '' : 'disabled'}>全部重來</button></div>
             <div class="act-row"><button class="btn" data-a="commit" ${changed ? '' : 'disabled'}>完成出牌</button><button class="btn ghost" data-a="draw" ${changed ? 'disabled' : ''}>${v.pool ? '抽一張' : '跳過（牌池已空）'}</button></div>
             <p class="hint">點選牌 → 點桌上的牌組加進去，或按「新牌組」。桌上的牌可以拆開重組。</p>` : ''}` : '<p class="spec-note">觀戰中</p>'}`;
       { const t2 = el.querySelector('.rm-table'); if (t2) t2.scrollTop = keepScroll.tbl; if (stage) stage.scrollTop = keepScroll.stage; }
       this._cur = { el, v, ui, myTurn, changed, w, me };
       this._startCountdown();
       const rerender = () => this.render(el, v, ui);
+      // 每次動到桌面或手牌之前先存一份，「上一步」就退回這一份（最多記 50 步）
+      const save = () => { w.hist.push({ table: w.table.map(s => s.slice()), rack: w.rack.slice() }); if (w.hist.length > 50) w.hist.shift(); };
       const removeSel = () => {
         w.table = w.table.map(s => s.filter(t => !w.sel.has(t))).filter(s => s.length);
         w.rack = w.rack.filter(t => !w.sel.has(t));
@@ -413,7 +416,7 @@
         if (!myTurn || !w.sel.size) return;
         const target = w.table[+sEl.dataset.set]; const moving = [...w.sel];
         const keep = target.filter(t => !w.sel.has(t));
-        removeSel(); // 這可能刪掉 target 原本的陣列，用內容重新找
+        save(); removeSel(); // 這可能刪掉 target 原本的陣列，用內容重新找
         const idx = w.table.findIndex(s => s.length === keep.length && s.every((t, i) => t === keep[i]));
         if (idx >= 0) w.table[idx] = keep.concat(moving); else w.table.push(keep.concat(moving));
         w.sel.clear(); rerender();
@@ -421,12 +424,13 @@
       el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
         const a = b.dataset.a;
         if (a === 'sort') { this._sort = this._sort === 'color' ? 'num' : 'color'; rerender(); }
-        else if (a === 'new') { const moving = [...w.sel]; removeSel(); w.table.push(moving); w.sel.clear(); rerender(); }
+        else if (a === 'new') { const moving = [...w.sel]; save(); removeSel(); w.table.push(moving); w.sel.clear(); rerender(); }
         else if (a === 'back') {
           const bad = [...w.sel].filter(t => !w.orig.has(t));
           if (bad.length) { ui.toast('桌上原本的牌不能拿回手上'); return; }
-          const moving = [...w.sel]; removeSel(); w.rack = w.rack.concat(moving); w.sel.clear(); rerender();
+          const moving = [...w.sel]; save(); removeSel(); w.rack = w.rack.concat(moving); w.sel.clear(); rerender();
         }
+        else if (a === 'undo') { const h = w.hist.pop(); if (h) { w.table = h.table; w.rack = h.rack; w.sel.clear(); } rerender(); }
         else if (a === 'reset') { this._w = null; this.render(el, v, ui); }
         else if (a === 'commit') ui.send({ type: 'commit', table: w.table });
         else ui.send({ type: a });
