@@ -3,7 +3,7 @@
   const $ = (s) => document.querySelector(s);
   const U = window.GUTIL, R = window.Room, V = window.Net.Voice;
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw', 'bluff', 'werewolf', 'onenight'];
+  const GAME_ORDER = ['monopoly', 'mahjong', 'bigtwo', 'slap', 'rummi', 'dice', 'draw', 'bluff', 'humspy', 'melody', 'werewolf', 'onenight'];
 
   let curGame = null, chatOpen = false, unread = 0, wakeLock = null;
 
@@ -244,7 +244,7 @@
     if (changed) {
       voiceButtons();
       if (V.mode === 'talk') {
-        if (seats && (!floorWas || forcedWas !== V.forced)) toast(V.forced ? '輪到別人說話，你的麥克風暫時關閉' : '輪到你說話，其他人的麥克風已暫時關閉', 2500);
+        if (seats && (!floorWas || forcedWas !== V.forced)) toast(!seats.length ? '全員麥克風暫時關閉' : V.forced ? '輪到別人說話，你的麥克風暫時關閉' : '輪到你說話，其他人的麥克風已暫時關閉', 2500);
         if (!seats && floorWas) toast(V.muted ? '大家都講完了，已恢復語音（你自己按了靜音，還是靜音中）' : '大家都講完了，已恢復全員語音', 2500);
       }
     }

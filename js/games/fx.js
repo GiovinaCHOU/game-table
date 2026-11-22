@@ -135,6 +135,8 @@
     S, setBgm, get audioState() { return ctx ? ctx.state + '@' + ctx.currentTime.toFixed(2) : 'none'; }, get on() { return st.sfx; }, // audioState：測試用 get music() { return st.bgm; },
     toggleSfx() { st.sfx = !st.sfx; LS.set('gfx-sfx', st.sfx ? '1' : '0'); if (st.sfx) { stuck = true; fixedAt = 0; unlock(); } if (ac()) sfxBus.gain.value = st.sfx ? 0.8 : 0; return st.sfx; }, // 打開時在這次點擊裡重建引擎
     toggleBgm() { st.bgm = !st.bgm; LS.set('gfx-bgm', st.bgm ? '1' : '0'); if (st.bgm) { stuck = true; fixedAt = 0; unlock(); } setBgm(st.bgm ? (BGM.want || 'off') : 'off'); return st.bgm; },
+    // 音樂遊戲的樂器用：直接接主音量（不受「音效」開關影響，因為樂器聲就是遊戲內容）
+    audio() { const c = ac(); return c ? { ctx: c, out: master } : null; },
     win(title, sub) { overlay('win', title || '🎉 你贏了！', sub); },
     lose(title, sub) { overlay('lose', title || MOCK[Math.floor(Math.random() * MOCK.length)], sub); },
     mock() { return MOCK[Math.floor(Math.random() * MOCK.length)]; },
