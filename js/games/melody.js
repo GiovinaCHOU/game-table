@@ -179,11 +179,14 @@
       } else if (v.phase === 'compose') {
         body = v.composer === me
           ? `<div class="ml-q"><small>${v.q.k === 'song' ? '🎵 彈出這首歌的旋律' : '🎬 用音樂表達'}</small><h3>${U.esc(qText(v.q))}</h3></div>
+             <div class="mk-seg ml-mode"><button data-m="kb">🎹 用彈的</button><button data-m="hum">🎤 用哼的</button></div>
              <div class="ml-rec"><span class="ml-status"></span>
-               <div class="ml-btns"><button class="btn sm ghost" data-r="rec">⏺ 錄音</button><button class="btn sm ghost" data-r="stop">⏹ 停止</button><button class="btn sm ghost" data-r="play">▶ 試聽</button><button class="btn sm" data-r="send">📤 送出</button></div></div>
+               <div class="ml-btns"><button class="btn sm ghost" data-r="rec">⏺ 錄音</button><button class="btn sm ghost" data-r="dub">➕ 疊錄</button><button class="btn sm ghost" data-r="stop">⏹ 停止</button><button class="btn sm ghost" data-r="play">▶ 試聽</button><button class="btn sm" data-r="send">📤 送出</button></div></div>
+             <div class="ml-hum"><div class="ml-note">—</div><div class="ml-lv"><i></i></div>
+               <p class="hint">按「🎤 開始哼」後對著麥克風「嗯～」地哼，一個音一個音哼清楚。系統會自動修音、轉成樂器聲，大家聽不到你的原聲（你的語音麥克風這時也會自動關掉）。安靜的地方比較準；哼完可以切回「用彈的」按「➕ 疊錄」加鼓聲。</p></div>
              <div class="ml-kb"></div>
              <div class="act-row"><button class="btn ghost sm" data-r="skip">放棄這題</button></div>
-             <p class="hint center">先按「⏺ 錄音」，按下第一個音才開始計時，最多 10 秒；可以重錄，送出後大家才聽得到</p>`
+             <p class="hint center ml-tip">先按「⏺ 錄音」，按下第一個音才開始計時，最多 10 秒；可以重錄、疊錄，送出後大家才聽得到</p>`
           : `<p class="hint center">🎹 ${nm(v.composer)} 正在編曲… 先想想看可能是什麼</p><div class="ml-wait">🎶</div>`;
       } else if (v.phase === 'guess') {
         const isC = v.composer === me, left = 3 - this._plays, first = this._first || !this._autoPlayed;
@@ -208,25 +211,45 @@
       }
       el.innerHTML = `<div class="ml"><div class="players-row">${chips}</div>${head}<details class="m-rules"><summary>？ 規則</summary><p>${U.esc(this.desc)}</p></details>${body}</div>`;
 
-      // 編曲：鍵盤＋錄音
+      // 編曲：鍵盤／哼歌＋錄音
       const kbEl = el.querySelector('.ml-kb');
+      if (!kbEl && this._hum) { this._hum.stop(true); this._hum = null; } // 離開編曲：一定要關麥克風、恢復語音
       if (kbEl) {
-        const status = el.querySelector('.ml-status');
-        const upd = (kb) => {
-          const n = kb.notes.length;
-          status.textContent = kb.rec ? (n ? `● 錄音中 ${(kb.elapsed() / 1000).toFixed(1)}／10 秒` : '● 準備好了，按下第一個音開始錄') : kb.player ? '▶ 播放中…' : n ? `✔ 已錄 ${n} 個音` : '還沒錄音（可以先自由彈彈看）';
-          status.classList.toggle('rec', kb.rec);
-          el.querySelector('[data-r="send"]').disabled = !n || kb.rec;
-          el.querySelector('[data-r="play"]').disabled = !n || kb.rec;
-          el.querySelector('[data-r="stop"]').disabled = !kb.rec && !kb.player;
+        const status = el.querySelector('.ml-status'), root2 = el.querySelector('.ml');
+        this._mode = this._mode || 'kb';
+        let kb = null;
+        const hopt = this._humOpt || (this._humOpt = {});
+        const hum = this._hum || (this._hum = MU().humRecorder(hopt));
+        let prevHum = hum.rec;
+        hopt.onChange = (h) => { if (prevHum && !h.rec && kb) kb.setNotes(h.notes); prevHum = h.rec; upd(); }; // 哼完（按停止或滿 10 秒）就把轉好的音交給鍵盤，之後試聽／疊錄／送出都一樣
+        const upd = () => {
+          if (!kb) return;
+          const n = kb.notes.length, hr = hum.rec, hm = this._mode === 'hum';
+          root2.classList.toggle('hum-mode', hm);
+          el.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === this._mode));
+          status.textContent = hum.err ? '⚠️ ' + hum.err
+            : hr ? (hum.elapsed() ? `● 哼歌中 ${(hum.elapsed() / 1000).toFixed(1)}／10 秒` : '● 開始哼吧（哼出第一個音才開始計時）')
+            : kb.rec ? (kb.player ? '● 疊錄中：跟著播放加音' : n ? `● 錄音中 ${(kb.elapsed() / 1000).toFixed(1)}／10 秒` : '● 準備好了，按下第一個音開始錄')
+            : kb.player ? '▶ 播放中…' : n ? `✔ 已錄 ${n} 個音` : hm ? '還沒錄音' : '還沒錄音（可以先自由彈彈看）';
+          status.classList.toggle('rec', hr || kb.rec);
+          const R = (k) => el.querySelector(`[data-r="${k}"]`);
+          R('rec').textContent = hm ? '🎤 開始哼' : '⏺ 錄音'; R('rec').disabled = hr || kb.rec;
+          R('dub').hidden = hm; R('dub').disabled = !n || hr || kb.rec;
+          R('send').disabled = !n || kb.rec || hr;
+          R('play').disabled = !n || kb.rec || hr;
+          R('stop').disabled = !kb.rec && !kb.player && !hr;
+          el.querySelector('.ml-note').textContent = hr ? (MU().NOTE_NAME(hum.live) || '—') : n ? '✔' : '—';
+          el.querySelector('.ml-lv i').style.width = Math.round((hr ? hum.level : 0) * 100) + '%';
         };
-        const kb = MU().mountKeyboard(kbEl, { inst: this._draft ? this._draft.inst : 'p', notes: this._draft ? this._draft.notes : null, onChange: (k) => { this._draft = { notes: k.notes, inst: k.inst }; upd(k); } });
-        this._kb = kb; upd(kb);
-        clearInterval(this._iv); this._iv = setInterval(() => { if (!kbEl.isConnected) { clearInterval(this._iv); return; } if (kb.rec && kb.notes.length && kb.elapsed() >= MU().MAX_MS) kb.stopRec(); upd(kb); }, 200);
-        el.querySelector('[data-r="rec"]').onclick = () => kb.start();
-        el.querySelector('[data-r="stop"]').onclick = () => { if (kb.rec) kb.stopRec(); kb.stopPlay(); upd(kb); };
+        kb = MU().mountKeyboard(kbEl, { inst: this._draft ? this._draft.inst : 'p', notes: this._draft ? this._draft.notes : null, onChange: (k) => { this._draft = { notes: k.notes, inst: k.inst }; upd(); } });
+        this._kb = kb; upd();
+        clearInterval(this._iv); this._iv = setInterval(() => { if (!kbEl.isConnected) { clearInterval(this._iv); return; } if (kb.rec && kb.notes.length && kb.elapsed() >= MU().MAX_MS) kb.stopRec(); upd(); }, 200);
+        el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { if (hum.rec) hum.stop(); kb.stopRec(); this._mode = b.dataset.m; upd(); });
+        el.querySelector('[data-r="rec"]').onclick = () => { if (this._mode === 'hum') { kb.stopPlay(); kb.setNotes([]); hum.start().then(() => upd()); } else kb.start(); };
+        el.querySelector('[data-r="dub"]').onclick = () => kb.overdub();
+        el.querySelector('[data-r="stop"]').onclick = () => { if (hum.rec) hum.stop(); if (kb.rec) kb.stopRec(); kb.stopPlay(); upd(); };
         el.querySelector('[data-r="play"]').onclick = () => kb.preview();
-        el.querySelector('[data-r="send"]').onclick = () => { if (!kb.notes.length) return; kb.stopPlay(); ui.send({ type: 'submit', notes: kb.notes, inst: kb.inst }); };
+        el.querySelector('[data-r="send"]').onclick = () => { if (hum.rec) hum.stop(); if (!kb.notes.length) return; kb.stopPlay(); ui.send({ type: 'submit', notes: kb.notes, inst: kb.inst }); };
         el.querySelector('[data-r="skip"]').onclick = () => { if (confirm('確定放棄這題？（這題沒有分數）')) ui.send({ type: 'skip' }); };
       }
       const playNotes = (onEnd) => { if (this._pl) this._pl.stop(); this._pl = MU().play(v.notes, v.inst, () => { this._pl = null; onEnd && onEnd(); }); };
@@ -248,7 +271,7 @@
       el.querySelectorAll('[data-o]').forEach(b => b.onclick = () => ui.send({ type: 'answer', i: +b.dataset.o }));
       el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => ui.send({ type: b.dataset.a }));
     },
-    destroy() { clearInterval(this._iv); if (this._pl) this._pl.stop(); this._pl = null; this._key = null; this._turnKey = null; }
+    destroy() { if (this._hum) { this._hum.stop(true); this._hum = null; } clearInterval(this._iv); if (this._pl) this._pl.stop(); this._pl = null; this._key = null; this._turnKey = null; }
   };
   M.T = T;
   root.GAMES.melody = M;

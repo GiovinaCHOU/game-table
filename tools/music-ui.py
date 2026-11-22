@@ -89,13 +89,28 @@ async def step(pg, gid, who, rnd, seen, dev, label):
   if gid == 'humspy':
     if ph == 'look':
       if s['hold'] and ('hold', who) not in seen:
-        seen.add(('hold', who)); el = await pg.query_selector('[data-hold]'); bb = await el.bounding_box()
-        await pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); await pg.mouse.down(); await pg.wait_for_timeout(250)
-        on = await pg.evaluate("!!document.querySelector('[data-hold].show')")
+        seen.add(('hold', who)); bb = None
+        for _ in range(8):  # 別人按「看好了」會重畫畫面，卡片元素會換掉：重試到抓穩為止
+          try:
+            await pg.evaluate("document.querySelector('[data-hold]').scrollIntoView({block:'center'})"); await pg.wait_for_timeout(120)
+            bb = await pg.locator('[data-hold]').bounding_box(timeout=1500)
+            if bb: break
+          except Exception: await pg.wait_for_timeout(200)
+        if not bb: fail(f'{dev}／{label}／{who}：找不到歌曲卡片'); return s
+        on = False
+        for _ in range(4):  # 按下前再量一次位置（畫面可能剛重畫、位置變了）；沒按在卡片上就放開重按
+          bb = await pg.locator('[data-hold]').bounding_box(timeout=1500)
+          x, y = bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2
+          await pg.mouse.move(x, y); await pg.mouse.down(); await pg.wait_for_timeout(250)
+          on = await pg.evaluate("!!document.querySelector('[data-hold].show')")
+          if on or not await pg.evaluate("(([x,y])=>!document.elementFromPoint(x,y)?.closest('[data-hold]'))", [x, y]): break
+          await pg.mouse.up(); await pg.wait_for_timeout(150)
         if on: await pg.screenshot(path=f'{SHOTS}/{dev}/{label}-{who}-按住看歌.png')
         await pg.mouse.up(); await pg.wait_for_timeout(150)
         off = await pg.evaluate("!document.querySelector('[data-hold].show')")
-        if not on: fail(f'{dev}／{label}／{who}：按住卡片沒有顯示歌名')
+        if not on:
+          hit = await pg.evaluate("(([x,y])=>{const e=document.elementFromPoint(x,y);return e?(e.id||e.className||e.tagName)+' | '+(e.closest('[data-hold]')?'在卡片上':'不在卡片上'):'無'})", [bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2])
+          fail(f'{dev}／{label}／{who}：按住卡片沒有顯示歌名（按到：{hit}）')
         if not off: fail(f'{dev}／{label}／{who}：放開後歌名沒有蓋回去')
       if 'seen' in s['a']: await click(pg, '#game [data-a="seen"]')
     elif ph == 'hum':

@@ -126,9 +126,111 @@
     kb.stopRec = () => { kb.rec = false; opt.onChange && opt.onChange(kb); };
     kb.preview = () => { kb.stopPlay(); kb.player = play(kb.notes, kb.inst, () => { kb.player = null; opt.onChange && opt.onChange(kb); }); opt.onChange && opt.onChange(kb); };
     kb.stopPlay = () => { if (kb.player) { kb.player.stop(); kb.player = null; } };
+    // 疊錄：保留原本的音，一邊播一邊再用鍵盤／鼓加音（時間從播放開始算）
+    kb.overdub = () => { if (!kb.notes.length) return; kb.stopPlay(); kb.t0 = now(); kb.rec = true; kb.player = play(kb.notes, kb.inst, () => { kb.player = null; opt.onChange && opt.onChange(kb); }); opt.onChange && opt.onChange(kb); };
+    kb.setNotes = (n) => { kb.stopPlay(); kb.rec = false; kb.notes = (n || []).slice(); opt.onChange && opt.onChange(kb); };
     kb.elapsed = () => kb.rec && kb.notes.length ? Math.min(MAX_MS, now() - kb.t0) : 0;
     return kb;
   }
 
-  root.MUSIC = { INSTS, DRUMS, MAX_MS, MAX_NOTES, voice, play, clean, mountKeyboard, freq };
+
+  // ===== 哼歌轉樂器：對麥克風哼，即時抓音高、對到最近的半音，轉成音符資料（別人聽到的是樂器聲，不是本人的聲音）=====
+  // 音高偵測：自相關法（ACF2+），只收 70～1000 Hz；同一個半音連續 2 格（約 60 毫秒）才算開始一個音，避免抖動
+  function detectPitch(buf, sr) {
+    let n = buf.length, rms = 0;
+    for (let i = 0; i < n; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / n);
+    if (rms < 0.012) return { f: -1, rms };
+    let r1 = 0, r2 = n - 1; const th = 0.2;
+    for (let i = 0; i < n / 2; i++) if (Math.abs(buf[i]) < th) { r1 = i; break; }
+    for (let i = 1; i < n / 2; i++) if (Math.abs(buf[n - i]) < th) { r2 = n - i; break; }
+    const b = buf.slice(r1, r2); n = b.length;
+    const maxLag = Math.min(n - 1, Math.floor(sr / 70)), minLag = Math.floor(sr / 1000);
+    const c = new Float32Array(maxLag + 1);
+    for (let i = 0; i <= maxLag; i++) { let sum = 0; for (let j = 0; j < n - i; j++) sum += b[j] * b[j + i]; c[i] = sum; }
+    let d = 0; while (d < maxLag && c[d] > c[d + 1]) d++;
+    let mx = -1, T = -1;
+    for (let i = Math.max(d, minLag); i <= maxLag; i++) if (c[i] > mx) { mx = c[i]; T = i; }
+    if (T <= 0 || mx < c[0] * 0.3) return { f: -1, rms };
+    const x1 = c[T - 1] || 0, x2 = c[T], x3 = c[T + 1] || 0, aa = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
+    const t0 = aa ? T - bb / (2 * aa) : T;
+    return { f: sr / t0, rms };
+  }
+  // 整理哼出來的音：同一個音中間只斷一下（<150 毫秒）就接起來；換音時滑過去產生的短音（<120 毫秒）拿掉
+  function tidy(notes) {
+    const out = [];
+    for (const n of notes) {
+      const p = out[out.length - 1];
+      if (p && p[1] === n[1] && n[0] - (p[0] + p[2]) < 150) { p[2] = n[0] + n[2] - p[0]; continue; }
+      out.push(n.slice());
+    }
+    return out.filter(n => n[2] >= 120);
+  }
+  // 把哼出來的音整體移到樂器好聽的音域（中位數落在中間那個八度），超出範圍的音折回來
+  function fitRange(notes) {
+    if (!notes.length) return notes;
+    const ms = notes.map(n => n[1]).sort((a, b) => a - b), med = ms[Math.floor(ms.length / 2)];
+    const shift = 12 * Math.round((66 - med) / 12) - 48; // 整個八度移動，讓中位數落在 C4～B4 附近，再換成 k（C3＝0）
+    return notes.map(([t, m, d]) => { let k = m + shift; while (k < 0) k += 12; while (k > 35) k -= 12; return [t, k, d]; });
+  }
+  async function getMic() {
+    const V = root.Net && root.Net.Voice;
+    const tr = V && V.stream && V.stream.getAudioTracks().find(t => t.readyState === 'live');
+    if (tr) { const c = tr.clone(); c.enabled = true; return { stream: new MediaStream([c]), own: true }; } // 借語音的麥克風（複製一份，原本那條另外關掉）
+    const st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    return { stream: st, own: true };
+  }
+  function humRecorder(opt) {
+    const H = { notes: [], rec: false, live: null, level: 0, err: '' };
+    let mic = null, src = null, an = null, sink = null, iv = null, t0 = 0, first = 0, cur = null, cand = null;
+    const now = () => performance.now();
+    const close = (t) => { if (cur) { const d = Math.round(t - cur.t); if (d >= 80 && H.notes.length < MAX_NOTES) H.notes.push([Math.round(cur.t), cur.m, Math.min(3000, d)]); cur = null; } };
+    H.start = async () => {
+      H.stop(true); H.err = ''; H.notes = []; cur = null; cand = null; first = 0;
+      const a = A(); if (!a) { H.err = '這台裝置不支援音效'; return false; }
+      if (a.ctx.state !== 'running') { try { await a.ctx.resume(); } catch (e) {} }
+      try { mic = await getMic(); } catch (e) { H.err = '沒有拿到麥克風權限（請在瀏覽器允許使用麥克風）'; return false; }
+      try { root.Net && root.Net.Voice && root.Net.Voice.setHold(true); } catch (e) {}
+      const c = a.ctx; src = c.createMediaStreamSource(mic.stream); an = c.createAnalyser(); an.fftSize = 2048;
+      sink = c.createGain(); sink.gain.value = 0; src.connect(an); an.connect(sink); sink.connect(c.destination); // 接到靜音輸出，Safari 才會持續分析
+      const buf = new Float32Array(an.fftSize); t0 = now(); H.rec = true;
+      iv = setInterval(() => {
+        an.getFloatTimeDomainData(buf);
+        const r = detectPitch(buf, c.sampleRate), tn = now();
+        H.level = Math.min(1, r.rms * 8);
+        if (first && tn - first > MAX_MS) { H.stop(); opt.onChange && opt.onChange(H); return; }
+        const t = first ? tn - first : 0;
+        if (r.f < 70 || r.f > 1000) { if (first) close(t); cand = null; H.live = null; opt.onChange && opt.onChange(H); return; }
+        const midi = 69 + 12 * Math.log2(r.f / 440), m = Math.round(midi);
+        H.live = m;
+        if (cur && Math.abs(midi - cur.m) < 0.7) { opt.onChange && opt.onChange(H); return; }
+        if (cand && cand.m === m) cand.n++; else cand = { m, n: 1, at: tn };
+        if (cand.n >= 2) {
+          if (!first) first = cand.at;
+          const ts = cand.at - first; close(ts); cur = { m, t: ts }; cand = null;
+        }
+        opt.onChange && opt.onChange(H);
+      }, 30);
+      opt.onChange && opt.onChange(H);
+      return true;
+    };
+    // 停止：收尾、關麥克風、恢復語音；回傳轉好的音符（已移到好聽的音域）
+    H.stop = (silent) => {
+      const was = H.rec;
+      clearInterval(iv); iv = null;
+      if (was && first) close(now() - first);
+      try { src && src.disconnect(); an && an.disconnect(); sink && sink.disconnect(); } catch (e) {}
+      if (mic) { mic.stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); mic = null; }
+      try { root.Net && root.Net.Voice && root.Net.Voice.setHold(false); } catch (e) {}
+      H.rec = false; H.live = null; H.level = 0;
+      if (was) H.notes = fitRange(tidy(H.notes));
+      if (!silent) opt.onChange && opt.onChange(H);
+      return H.notes;
+    };
+    H.elapsed = () => (H.rec && first ? Math.min(MAX_MS, now() - first) : 0);
+    return H;
+  }
+  const NOTE_NAME = (m) => (m == null ? '' : NAMES[((m % 12) + 12) % 12]);
+
+  root.MUSIC = { INSTS, DRUMS, MAX_MS, MAX_NOTES, voice, play, clean, mountKeyboard, freq, humRecorder, detectPitch, fitRange, tidy, NOTE_NAME };
 })(typeof window !== 'undefined' ? window : globalThis);

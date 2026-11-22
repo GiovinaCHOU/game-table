@@ -1168,3 +1168,11 @@ body[data-skin="nebula"] .hs-card, body[data-skin="nebula"] .hs-end, body[data-s
 .hs-card.mini { padding: 4px 10px 6px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .hs-card.mini h3 { font-size: 17px; margin: 0; } .hs-card.mini small { font-size: 11px; }
 .ml-btns { flex-wrap: wrap; } .ml-rec { flex-direction: column; align-items: stretch; } .ml-btns .btn { flex: 1; padding-left: 6px; padding-right: 6px; }
+.ml-mode { margin: 8px 0 0; } .ml-mode button { flex: 1; min-height: 40px; font-size: 14px; }
+.ml-hum { display: none; text-align: center; background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 6px; }
+.ml.hum-mode .ml-hum { display: block; }
+.ml.hum-mode .mk-keys, .ml.hum-mode .mk-drums, .ml.hum-mode .mk-seg[data-r="oct"] { display: none; }
+.ml-note { font-size: 40px; font-weight: 800; color: var(--gold); line-height: 1.1; }
+.ml-lv { height: 8px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; margin: 6px 20px; } .ml-lv i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5dea8b, var(--gold)); transition: width .08s; }
+.ml-hum .hint { font-size: 12px; margin: 6px 0 0; line-height: 1.5; }
+.ml.hum-mode .ml-tip { display: none; }
